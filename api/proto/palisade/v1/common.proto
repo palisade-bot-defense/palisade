@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package palisade.v1;
+
+option go_package = "github.com/palisade-bot-defense/palisade/gen/palisade/v1;palisadev1";
+
+enum Action {
+  ACTION_UNSPECIFIED = 0;
+  ACTION_ALLOW = 1;
+  ACTION_OBSERVE = 2;
+  ACTION_THROTTLE = 3;
+  ACTION_CHALLENGE = 4;
+  ACTION_BLOCK = 5;
+}
+
+message Scores {
+  double automation_risk = 1;
+  double abuse_intent_risk = 2;
+  double account_continuity = 3;
+}

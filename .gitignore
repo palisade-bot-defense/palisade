@@ -1,0 +1,23 @@
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Build and dependency caches
+node_modules/
+sensor/dist/
+coverage/
+*.test
+*.out
+*.tsbuildinfo
+bin/
+
+# Local runtime data
+data/
+tmp/

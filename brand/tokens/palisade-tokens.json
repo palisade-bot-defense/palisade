@@ -1,0 +1,31 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "color": {
+    "brand": {
+      "cobalt": { "$value": "#4F46E5", "$type": "color" },
+      "mint": { "$value": "#20DFA3", "$type": "color" },
+      "coral": { "$value": "#FF6B6B", "$type": "color" },
+      "amber": { "$value": "#FFC857", "$type": "color" },
+      "sky": { "$value": "#46C7FF", "$type": "color" }
+    },
+    "surface": {
+      "paper": { "$value": "#FFFFFF", "$type": "color" },
+      "soft": { "$value": "#F8F7FF", "$type": "color" },
+      "line": { "$value": "#DEDBF5", "$type": "color" }
+    },
+    "text": {
+      "primary": { "$value": "#30305F", "$type": "color" },
+      "secondary": { "$value": "#5F5F93", "$type": "color" }
+    }
+  },
+  "radius": {
+    "small": { "$value": "10px", "$type": "dimension" },
+    "medium": { "$value": "18px", "$type": "dimension" },
+    "large": { "$value": "28px", "$type": "dimension" },
+    "pill": { "$value": "999px", "$type": "dimension" }
+  },
+  "font": {
+    "sans": { "$value": "Inter, Segoe UI, Arial, sans-serif", "$type": "fontFamily" },
+    "mono": { "$value": "JetBrains Mono, SFMono-Regular, Consolas, monospace", "$type": "fontFamily" }
+  }
+}

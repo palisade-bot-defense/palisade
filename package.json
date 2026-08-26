@@ -1,0 +1,15 @@
+{
+  "name": "palisade-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=11.24.0"
+  },
+  "scripts": {
+    "build": "pnpm --filter @palisade-bot-defense/sensor build && pnpm --filter @palisade-bot-defense/dashboard build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

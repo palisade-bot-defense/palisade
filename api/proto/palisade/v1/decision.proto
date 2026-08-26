@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package palisade.v1;
+
+import "google/protobuf/timestamp.proto";
+import "palisade/v1/common.proto";
+
+option go_package = "github.com/palisade-bot-defense/palisade/gen/palisade/v1;palisadev1";
+
+service DecisionService {
+  rpc Decide(DecideRequest) returns (DecideResponse);
+}
+
+message Observations {
+  bool user_agent_present = 1;
+  uint32 browser_event_count = 2;
+  uint32 honeypot_hits = 3;
+  string anubis_verdict = 4;
+  double cannai_score = 5;
+  bool crowdsec_alert = 6;
+  bool verified_bot = 7;
+}
+
+message DecideRequest {
+  string session_id = 1;
+  string action = 2;
+  string endpoint_class = 3;
+  uint64 sequence = 4;
+  string proof_token = 5;
+  Observations observations = 6;
+}
+
+message DecideResponse {
+  string decision_id = 1;
+  Action action = 2;
+  Scores scores = 3;
+  repeated string reason_codes = 4;
+  string policy_version = 5;
+  string model_version = 6;
+  google.protobuf.Timestamp expires_at = 7;
+}

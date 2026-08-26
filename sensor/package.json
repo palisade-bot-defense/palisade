@@ -1,0 +1,29 @@
+{
+  "name": "@palisade-bot-defense/sensor",
+  "version": "0.1.0",
+  "description": "Privacy-limited browser behavior sensor for PALISADE",
+  "type": "module",
+  "license": "UNLICENSED",
+  "files": ["dist"],
+  "main": "./dist/palisade-sensor.umd.cjs",
+  "module": "./dist/palisade-sensor.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/palisade-sensor.js",
+      "require": "./dist/palisade-sensor.umd.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "jsdom": "30.0.1",
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "4.1.11"
+  }
+}

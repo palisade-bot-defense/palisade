@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="PALISADE social preview">
+  <defs>
+    <pattern id="dots" width="34" height="34" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="3" r="2" fill="#4F46E5" fill-opacity=".12"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="#F8F7FF"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+  <circle cx="1110" cy="60" r="210" fill="#EEECFF"/>
+  <circle cx="78" cy="600" r="160" fill="#DFFFF4"/>
+  <g transform="translate(84 110) scale(1.45)">
+    <path fill="#4F46E5" d="M24 59c0-8 6-15 14-17L174 10c10-2 18 5 18 15v42L72 95v133c0 7-5 13-12 15l-18 4c-9 2-18-5-18-15V59Z"/>
+    <path fill="#20DFA3" d="M80 97c0-8 6-15 14-17l96-23c10-2 18 5 18 15v42l-80 19v87c0 7-5 13-12 15l-18 4c-9 2-18-5-18-15V97Z"/>
+    <path fill="#4F46E5" d="m136 125 55-13c23-5 41 10 41 34v27c0 24-16 45-39 50l-57 14v-42l49-12c5-1 9-6 9-12v-16c0-6-4-9-10-8l-48 12v-34Z"/>
+  </g>
+  <text x="500" y="238" fill="#4F46E5" font-family="Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="9">PALISADE</text>
+  <text x="505" y="310" fill="#5F5F93" font-family="Arial, sans-serif" font-size="30" font-weight="600">Adaptive bot defense, built together.</text>
+  <g transform="translate(505 370)">
+    <rect width="220" height="58" rx="29" fill="#E6E2FF"/>
+    <circle cx="31" cy="29" r="8" fill="#4F46E5"/>
+    <text x="54" y="38" fill="#4F46E5" font-family="Arial, sans-serif" font-size="22" font-weight="700">SELF-HOSTED</text>
+    <rect x="238" width="225" height="58" rx="29" fill="#D9FFF1"/>
+    <circle cx="269" cy="29" r="8" fill="#20DFA3"/>
+    <text x="292" y="38" fill="#178A68" font-family="Arial, sans-serif" font-size="22" font-weight="700">COMMUNITY</text>
+  </g>
+  <text x="505" y="496" fill="#6A6AA3" font-family="Consolas, monospace" font-size="22">automation · intent · continuity</text>
+</svg>

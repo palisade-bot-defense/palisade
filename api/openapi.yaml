@@ -1,0 +1,173 @@
+openapi: 3.1.0
+info:
+  title: PALISADE HTTP API
+  version: 0.1.0
+  description: Early behavior-first decision API. Production decision and event calls use short-lived, session/action-bound proofs.
+  license:
+    name: License pending — all rights reserved
+    url: https://github.com/palisade-bot-defense/palisade/blob/main/LICENSE-PENDING.md
+servers:
+  - url: /
+paths:
+  /health/live:
+    get:
+      summary: Check process liveness
+      operationId: live
+      security: []
+      responses:
+        "200":
+          description: Process is live.
+  /health/ready:
+    get:
+      summary: Check service readiness
+      operationId: ready
+      security: []
+      responses:
+        "200":
+          description: Process is ready.
+  /v1/token:
+    post:
+      summary: Issue a short-lived one-time proof
+      operationId: issueProof
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [session_id, action]
+              properties:
+                session_id: { type: string, minLength: 8, maxLength: 128 }
+                action: { type: string, minLength: 1, maxLength: 80 }
+                ttl_seconds: { type: integer, minimum: 1, maximum: 300, default: 60 }
+      responses:
+        "201":
+          description: One-time proof issued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [proof_token, expires_in]
+                properties:
+                  proof_token: { type: string }
+                  expires_in: { type: integer }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/events:
+    post:
+      summary: Ingest privacy-limited browser events
+      operationId: ingestEvents
+      security:
+        - eventProof: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventBatch" }
+      responses:
+        "202": { description: Accepted. }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/decision:
+    post:
+      summary: Produce an explainable action decision
+      operationId: decide
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DecisionRequest" }
+      responses:
+        "200":
+          description: Decision with scores and evidence.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Decision" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    eventProof:
+      type: apiKey
+      in: header
+      name: X-Palisade-Proof
+  responses:
+    Error:
+      description: Stable machine-readable error.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error: { type: string }
+  schemas:
+    BrowserEvent:
+      type: object
+      additionalProperties: false
+      required: [sequence, elapsedBucketMs, kind, valueBucket]
+      properties:
+        sequence: { type: integer, minimum: 1 }
+        elapsedBucketMs: { type: integer, minimum: 0, maximum: 86400000 }
+        kind:
+          type: string
+          enum: [pointer, scroll, visibility, navigation, performance]
+        valueBucket: { type: integer, minimum: 0, maximum: 65536 }
+    EventBatch:
+      type: object
+      additionalProperties: false
+      required: [sessionId, sensorVersion, events]
+      properties:
+        sessionId: { type: string, minLength: 8, maxLength: 128 }
+        sensorVersion: { type: string, maxLength: 32 }
+        events:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items: { $ref: "#/components/schemas/BrowserEvent" }
+    Observations:
+      type: object
+      additionalProperties: false
+      properties:
+        user_agent_present: { type: boolean }
+        browser_event_count: { type: integer, minimum: 0, maximum: 10000 }
+        honeypot_hits: { type: integer, minimum: 0, maximum: 100 }
+        anubis_verdict: { type: string }
+        cannai_score: { type: number, minimum: 0, maximum: 1 }
+        crowdsec_alert: { type: boolean }
+        verified_bot: { type: boolean }
+    DecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [session_id, action, endpoint_class, sequence, observations]
+      properties:
+        session_id: { type: string, minLength: 8, maxLength: 128 }
+        action: { type: string, minLength: 1, maxLength: 80 }
+        endpoint_class: { type: string, minLength: 1, maxLength: 64 }
+        sequence: { type: integer, minimum: 1 }
+        proof_token: { type: string }
+        observations: { $ref: "#/components/schemas/Observations" }
+    Decision:
+      type: object
+      required: [decision_id, action, scores, reason_codes, evidence, policy_version, model_version, expires_at]
+      properties:
+        decision_id: { type: string }
+        action: { type: string, enum: [allow, observe, throttle, challenge, block] }
+        scores:
+          type: object
+          required: [automation_risk, abuse_intent_risk, account_continuity]
+          properties:
+            automation_risk: { type: number, minimum: 0, maximum: 1 }
+            abuse_intent_risk: { type: number, minimum: 0, maximum: 1 }
+            account_continuity: { type: number, minimum: 0, maximum: 1 }
+        reason_codes: { type: array, items: { type: string } }
+        evidence: { type: array, items: { type: object } }
+        policy_version: { type: string }
+        model_version: { type: string }
+        expires_at: { type: string, format: date-time }

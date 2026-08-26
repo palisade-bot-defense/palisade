@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+.vscode
+node_modules
+sensor/dist
+coverage
+data
+tmp
+*.md
+!README.md

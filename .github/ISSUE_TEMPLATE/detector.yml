@@ -1,0 +1,33 @@
+name: Detector proposal
+description: Propose a behavior signal or defensive integration.
+title: "detector: "
+labels: [detector, research]
+body:
+  - type: textarea
+    id: signal
+    attributes:
+      label: Signal and threat model
+      description: Explain what is measured, the attacker model and why the signal is costly to imitate.
+    validations:
+      required: true
+  - type: dropdown
+    id: dimension
+    attributes:
+      label: Primary dimension
+      options: [Automation risk, Abuse intent, Account continuity]
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy and accessibility impact
+      description: State collection, retention, false-positive and fallback implications.
+    validations:
+      required: true
+  - type: textarea
+    id: evaluation
+    attributes:
+      label: Evaluation plan
+      description: Describe labeled data, baselines, metrics and replay coverage without sharing live attack data.
+    validations:
+      required: true

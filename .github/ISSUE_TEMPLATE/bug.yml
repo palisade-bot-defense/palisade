@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a reproducible non-sensitive defect.
+title: "bug: "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include vulnerabilities, real attack traffic, secrets or personal data. Use private security reporting for those.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal sanitized reproduction
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Data safety
+      options:
+        - label: This report contains no secrets, personal data, production traffic or exploitable bypass details.
+          required: true

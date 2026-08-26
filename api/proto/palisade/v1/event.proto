@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package palisade.v1;
+
+option go_package = "github.com/palisade-bot-defense/palisade/gen/palisade/v1;palisadev1";
+
+// BrowserEvent intentionally excludes DOM text, form values and precise pointers.
+message BrowserEvent {
+  string session_id = 1;
+  uint64 sequence = 2;
+  uint64 elapsed_bucket_ms = 3;
+  EventKind kind = 4;
+  int32 value_bucket = 5;
+}
+
+enum EventKind {
+  EVENT_KIND_UNSPECIFIED = 0;
+  EVENT_KIND_POINTER = 1;
+  EVENT_KIND_SCROLL = 2;
+  EVENT_KIND_VISIBILITY = 3;
+  EVENT_KIND_NAVIGATION = 4;
+  EVENT_KIND_PERFORMANCE = 5;
+}
+
+message EventBatch {
+  string session_id = 1;
+  repeated BrowserEvent events = 2;
+  string sensor_version = 3;
+}

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PALISADE Brand Preview</title>
+  <link rel="stylesheet" href="tokens/palisade-tokens.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ps-ink); background: var(--ps-surface); font-family: var(--ps-font-sans); }
+    main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 52px 0 80px; }
+    header, section { background: var(--ps-paper); border: 1px solid var(--ps-line); border-radius: var(--ps-radius-lg); box-shadow: var(--ps-shadow-card); }
+    header { min-height: 460px; padding: 56px; display: grid; grid-template-columns: .8fr 1.2fr; align-items: center; background: url("backgrounds/signal-grid.svg") center/cover; }
+    header img { width: 300px; justify-self: center; }
+    h1 { margin: 0 0 18px; color: var(--ps-cobalt-500); font-size: clamp(52px, 8vw, 96px); line-height: .95; letter-spacing: .08em; }
+    .lead { max-width: 620px; color: var(--ps-copy); font-size: 25px; line-height: 1.45; }
+    .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+    .chip { padding: 10px 16px; border-radius: var(--ps-radius-pill); font-weight: 700; background: var(--ps-cobalt-100); color: var(--ps-cobalt-500); }
+    .chip:nth-child(2) { color: var(--ps-mint-700); background: var(--ps-mint-100); }
+    section { margin-top: 28px; padding: 34px; }
+    h2 { margin: 0 0 24px; color: var(--ps-cobalt-500); font-size: 30px; }
+    .swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+    .swatch { min-height: 150px; border-radius: var(--ps-radius-md); padding: 18px; display: flex; align-items: end; color: white; font-weight: 750; }
+    .swatch:nth-child(1) { background: var(--ps-cobalt-500); }
+    .swatch:nth-child(2) { background: var(--ps-mint-500); color: var(--ps-mint-700); }
+    .swatch:nth-child(3) { background: var(--ps-coral-500); }
+    .swatch:nth-child(4) { background: var(--ps-amber-400); color: var(--ps-ink); }
+    .swatch:nth-child(5) { background: var(--ps-sky-400); color: var(--ps-ink); }
+    .icons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+    .icon-card { border: 1px solid var(--ps-line); border-radius: var(--ps-radius-md); padding: 24px; text-align: center; }
+    .icon-card img { width: 64px; height: 64px; }
+    .icon-card strong { display: block; margin-top: 10px; color: var(--ps-cobalt-500); }
+    @media (max-width: 760px) { header { grid-template-columns: 1fr; text-align: center; padding: 34px 22px; } header img { width: 210px; } .swatches, .icons { grid-template-columns: 1fr 1fr; } .lead { font-size: 19px; } .chips { justify-content: center; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <img src="logo/palisade-mark.svg" alt="PALISADE logo">
+      <div>
+        <h1>PALISADE</h1>
+        <p class="lead">Adaptive bot defense, built together. Layered signals protect the application while a living path keeps the web open to people.</p>
+        <div class="chips"><span class="chip">SELF-HOSTED</span><span class="chip">COMMUNITY</span><span class="chip">BEHAVIOR-FIRST</span></div>
+      </div>
+    </header>
+    <section>
+      <h2>Signal palette</h2>
+      <div class="swatches">
+        <div class="swatch">Cobalt<br>#4F46E5</div><div class="swatch">Mint<br>#20DFA3</div><div class="swatch">Coral<br>#FF6B6B</div><div class="swatch">Amber<br>#FFC857</div><div class="swatch">Sky<br>#46C7FF</div>
+      </div>
+    </section>
+    <section>
+      <h2>Detection language</h2>
+      <div class="icons">
+        <div class="icon-card"><img src="icons/human-path.svg" alt=""><strong>Human path</strong></div>
+        <div class="icon-card"><img src="icons/automation.svg" alt=""><strong>Automation</strong></div>
+        <div class="icon-card"><img src="icons/intent.svg" alt=""><strong>Intent</strong></div>
+        <div class="icon-card"><img src="icons/account-continuity.svg" alt=""><strong>Continuity</strong></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

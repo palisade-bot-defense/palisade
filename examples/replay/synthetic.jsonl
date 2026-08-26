@@ -1,0 +1,2 @@
+{"request":{"session_id":"human-session-0001","action":"read","endpoint_class":"public_content","sequence":1,"observations":{"user_agent_present":true,"browser_event_count":4}},"expected_action":"allow"}
+{"request":{"session_id":"scraper-session-01","action":"read","endpoint_class":"public_content","sequence":1,"observations":{"user_agent_present":false,"browser_event_count":2,"honeypot_hits":2,"anubis_verdict":"bot","crowdsec_alert":true}},"expected_action":"block"}

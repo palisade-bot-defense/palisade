@@ -1,0 +1,18 @@
+services:
+  palisade:
+    build:
+      context: ../..
+    image: ghcr.io/palisade-bot-defense/palisade:dev
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      PALISADE_HMAC_KEY: ${PALISADE_HMAC_KEY:?set PALISADE_HMAC_KEY}
+      PALISADE_API_KEY: ${PALISADE_API_KEY:?set PALISADE_API_KEY}

@@ -1,0 +1,46 @@
+:root {
+  /* Brand */
+  --ps-cobalt-50: #f4f2ff;
+  --ps-cobalt-100: #e6e2ff;
+  --ps-cobalt-500: #4f46e5;
+  --ps-cobalt-600: #4338ca;
+  --ps-mint-100: #d9fff1;
+  --ps-mint-500: #20dfa3;
+  --ps-mint-700: #178a68;
+  --ps-coral-500: #ff6b6b;
+  --ps-amber-400: #ffc857;
+  --ps-sky-400: #46c7ff;
+
+  /* Surfaces and copy */
+  --ps-paper: #ffffff;
+  --ps-surface: #f8f7ff;
+  --ps-ink: #30305f;
+  --ps-copy: #5f5f93;
+  --ps-line: #dedbf5;
+
+  /* Semantic */
+  --ps-safe: var(--ps-mint-500);
+  --ps-review: var(--ps-amber-400);
+  --ps-block: var(--ps-coral-500);
+  --ps-info: var(--ps-cobalt-500);
+
+  /* Type */
+  --ps-font-sans: Inter, "Segoe UI", Arial, sans-serif;
+  --ps-font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --ps-weight-body: 450;
+  --ps-weight-label: 650;
+  --ps-weight-display: 780;
+
+  /* Shape */
+  --ps-radius-sm: 10px;
+  --ps-radius-md: 18px;
+  --ps-radius-lg: 28px;
+  --ps-radius-pill: 999px;
+  --ps-shadow-card: 0 18px 55px rgb(79 70 229 / 12%);
+  --ps-focus-ring: 0 0 0 4px rgb(79 70 229 / 24%);
+
+  /* Motion */
+  --ps-ease: cubic-bezier(.2, .8, .2, 1);
+  --ps-fast: 120ms;
+  --ps-normal: 220ms;
+}

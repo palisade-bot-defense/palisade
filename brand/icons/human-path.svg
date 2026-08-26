@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Human interaction path">
+  <circle cx="11" cy="36" r="5" fill="#20DFA3"/>
+  <circle cx="37" cy="12" r="5" fill="#4F46E5"/>
+  <path d="M15 33c5-5 5-12 10-16 3-3 6-3 9-3" fill="none" stroke="#4F46E5" stroke-width="5" stroke-linecap="round"/>
+</svg>

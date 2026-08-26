@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="PALISADE favicon">
+  <rect width="64" height="64" rx="16" fill="#F4F2FF"/>
+  <path fill="#4F46E5" d="M8 16c0-2 2-4 4-5l31-7c3-1 5 1 5 4v10l-28 7v30l-12 3V16Z"/>
+  <path fill="#20DFA3" d="M24 27c0-2 2-4 4-5l22-5c3-1 5 1 5 4v10l-18 4v18l-13 3V27Z"/>
+  <path fill="#4F46E5" d="m39 34 12-3c6-1 10 2 10 8v6c0 6-4 11-10 12l-12 3V50l10-2c2 0 3-2 3-3v-3c0-2-1-3-3-2l-10 2v-8Z"/>
+</svg>

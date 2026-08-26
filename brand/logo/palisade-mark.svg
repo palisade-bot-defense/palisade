@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">PALISADE symbol</title>
+  <desc id="desc">Three bright layered gates form an adaptive path and a subtle letter P.</desc>
+  <path fill="#4F46E5" d="M24 59c0-8 6-15 14-17L174 10c10-2 18 5 18 15v42L72 95v133c0 7-5 13-12 15l-18 4c-9 2-18-5-18-15V59Z"/>
+  <path fill="#20DFA3" d="M80 97c0-8 6-15 14-17l96-23c10-2 18 5 18 15v42l-80 19v87c0 7-5 13-12 15l-18 4c-9 2-18-5-18-15V97Z"/>
+  <path fill="#4F46E5" fill-rule="evenodd" d="M136 125l55-13c23-5 41 10 41 34v27c0 24-16 45-39 50l-57 14v-42l49-12c5-1 9-6 9-12v-16c0-6-4-9-10-8l-48 12v-34Z"/>
+</svg>
