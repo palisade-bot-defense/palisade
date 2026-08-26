@@ -7,7 +7,7 @@ PALISADE advances through measured gates, not a promise of a universally unsolva
 - Go decision hot path, bounded sessions and replay-safe proofs.
 - Typed detectors, three-score fusion, CEL policy and stable reasons.
 - Privacy-limited TypeScript sensor and embedded light dashboard.
-- Deterministic replay, container build, CI and security scans.
+- Deterministic replay, container build and local security scans.
 
 ## 1. Strain DB shadow pilot
 
