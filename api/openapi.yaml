@@ -334,7 +334,7 @@ components:
       additionalProperties: false
       required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, analysis_status, analysis]
       properties:
-        schema_version: { type: string, const: palisade.admin-summary.v2 }
+        schema_version: { type: string, const: palisade.admin-summary.v3 }
         generated_at: { type: string, format: date-time }
         uptime_seconds: { type: integer, minimum: 0 }
         runtime:
@@ -383,11 +383,11 @@ components:
             loaded_at: { type: [string, "null"], format: date-time }
             last_attempt_at: { type: [string, "null"], format: date-time }
         analysis:
-          description: Validated palisade.shadow-analysis.v1 aggregate report, or null when no report was loaded. The report contains no row-level records.
+          description: Validated palisade.shadow-analysis.v2 aggregate report, or null when no report was loaded. It contains endpoint Wilson intervals and aggregate canary comparisons, but no row-level records.
           oneOf:
             - type: "null"
             - type: object
-              required: [schema_version, source, readiness, decisions, outcomes, scores, endpoints, top_reason_codes, policy_versions, model_versions, canary_rollouts, recommendations]
+              required: [schema_version, source, readiness, decisions, outcomes, scores, endpoints, top_reason_codes, policy_versions, model_versions, canary_rollouts, canary_comparisons, recommendations]
     Error:
       type: object
       additionalProperties: false

@@ -3,6 +3,8 @@ package shadowanalysis
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/palisade-bot-defense/palisade/internal/core"
@@ -101,6 +103,104 @@ func TestCanaryDecisionsAreAttributedToExactRollout(t *testing.T) {
 	report := analysis.finish(shadowlog.Verification{Records: 3, Decisions: 3})
 	if report.Decisions.Modes.Canary != 3 || len(report.CanaryRollouts) != 1 || report.CanaryRollouts[0].Value != "canary-20260827" || report.CanaryRollouts[0].Count != 3 {
 		t.Fatalf("canary attribution=%+v modes=%+v", report.CanaryRollouts, report.Decisions.Modes)
+	}
+}
+
+func TestEndpointIntervalsAndCanaryComparisonRemainAggregate(t *testing.T) {
+	analysis := newAnalyzer(normalizedTestConfig(t, Config{}))
+	for index := 0; index < 100; index++ {
+		record := decisionRecord(fmt.Sprintf("shadow-%d", index), core.ActionObserve, core.ActionAllow, "BASELINE")
+		if index < 10 {
+			record.Decision.ComputedAction = core.ActionThrottle
+		}
+		if err := analysis.observe(record); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for index := 0; index < 50; index++ {
+		record := decisionRecord(fmt.Sprintf("canary-%d", index), core.ActionAllow, core.ActionAllow, "BASELINE")
+		record.Decision.Mode = core.RuntimeModeCanary
+		record.Decision.RolloutID = "canary-evidence"
+		if index < 10 {
+			record.Decision.Action = core.ActionThrottle
+			record.Decision.ComputedAction = core.ActionThrottle
+		}
+		if err := analysis.observe(record); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, outcome := range []string{"challenge_passed", "challenge_failed", "challenge_abandoned", "fallback_used", "appeal_requested", "unknown", "human_confirmed", "operator_confirmed_abuse"} {
+		if err := analysis.observe(outcomeRecord(outcome)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	report := analysis.finish(shadowlog.Verification{Files: 1, Records: 158, Decisions: 150, Outcomes: 8, FirstAt: "2026-08-27T00:00:00Z", LastAt: "2026-08-27T01:00:00Z"})
+	endpoint := report.Endpoints[0]
+	if endpoint.Evaluation.ComputedRiskyRate.Count != 20 || endpoint.Evaluation.ComputedRiskyRate.Total != 150 || endpoint.Evaluation.ConfirmedLabels != 2 ||
+		endpoint.Evaluation.ChallengeFailureRate.Count != 2 || endpoint.Evaluation.ChallengeFailureRate.Total != 3 || endpoint.Evaluation.ChallengeAbandonmentRate.Count != 1 {
+		t.Fatalf("endpoint evaluation = %+v", endpoint.Evaluation)
+	}
+	if len(report.CanaryComparisons) != 1 {
+		t.Fatalf("canary comparisons = %+v", report.CanaryComparisons)
+	}
+	comparison := report.CanaryComparisons[0]
+	if comparison.RolloutID != "canary-evidence" || comparison.EndpointClass != "account" || !comparison.Comparable || comparison.ShadowDecisions != 100 || comparison.CanaryDecisions != 50 ||
+		comparison.ShadowComputedRisky.Count != 10 || comparison.CanaryComputedRisky.Count != 10 || comparison.CanaryEnforcedRisky.Count != 10 {
+		t.Fatalf("canary comparison = %+v", comparison)
+	}
+	if !validEndpoints(report) {
+		t.Fatalf("endpoint validation failed: %+v", endpoint)
+	}
+	if !validCanaryComparisons(report) {
+		t.Fatalf("canary comparison validation failed: %+v", comparison)
+	}
+	if !validScore(report.Scores.AutomationRisk, report.Decisions.Total) || !validScore(report.Scores.AbuseIntentRisk, report.Decisions.Total) || !validScore(report.Scores.AccountContinuity, report.Decisions.Total) {
+		t.Fatalf("score validation failed: %+v", report.Scores)
+	}
+	expectedRecommendations, expectedReadiness := recommend(report, normalizedTestConfig(t, Config{}))
+	if !slices.Equal(report.Recommendations, expectedRecommendations) || !reflect.DeepEqual(report.Readiness, expectedReadiness) {
+		t.Fatalf("recommendation validation failed:\nreport=%+v %+v\nexpected=%+v %+v", report.Readiness, report.Recommendations, expectedReadiness, expectedRecommendations)
+	}
+	if err := ValidateReport(report); err != nil {
+		t.Fatalf("aggregate endpoint evaluation was rejected: %v", err)
+	}
+	report.TopReasonCodes[0].Value = "raw value with spaces"
+	if !errors.Is(ValidateReport(report), ErrInvalidReport) {
+		t.Fatal("non-closed aggregate metadata was accepted")
+	}
+	report.TopReasonCodes[0].Value = "BASELINE"
+	report.CanaryComparisons[0].CanaryComputedRisky.Count++
+	if !errors.Is(ValidateReport(report), ErrInvalidReport) {
+		t.Fatal("tampered canary interval was accepted")
+	}
+}
+
+func TestReportWithRecordsRequiresCanonicalSourceTimes(t *testing.T) {
+	analysis := newAnalyzer(normalizedTestConfig(t, Config{}))
+	if err := analysis.observe(decisionRecord("decision-time", core.ActionAllow, core.ActionAllow, "BASELINE")); err != nil {
+		t.Fatal(err)
+	}
+	report := analysis.finish(shadowlog.Verification{Files: 1, Records: 1, Decisions: 1})
+	if !errors.Is(ValidateReport(report), ErrInvalidReport) {
+		t.Fatal("report with records but no authenticated source times was accepted")
+	}
+}
+
+func TestCanaryComparisonWithoutShadowBaselineIsMarkedUnavailable(t *testing.T) {
+	analysis := newAnalyzer(normalizedTestConfig(t, Config{}))
+	record := decisionRecord("canary-only", core.ActionThrottle, core.ActionThrottle, "VELOCITY_HIGH")
+	record.Decision.Mode = core.RuntimeModeCanary
+	record.Decision.RolloutID = "canary-only"
+	if err := analysis.observe(record); err != nil {
+		t.Fatal(err)
+	}
+	report := analysis.finish(shadowlog.Verification{Files: 1, Records: 1, Decisions: 1, FirstAt: "2026-08-27T00:00:00Z", LastAt: "2026-08-27T00:00:00Z"})
+	comparison := report.CanaryComparisons[0]
+	if comparison.Comparable || comparison.ComputedRiskDifference != (DifferenceEstimate{}) || comparison.ShadowDecisions != 0 {
+		t.Fatalf("missing shadow baseline was presented as comparable: %+v", comparison)
+	}
+	if err := ValidateReport(report); err != nil {
+		t.Fatalf("honest unavailable comparison was rejected: %v", err)
 	}
 }
 

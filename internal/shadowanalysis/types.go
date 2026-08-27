@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	SchemaVersion              = "palisade.shadow-analysis.v1"
+	SchemaVersion              = "palisade.shadow-analysis.v2"
 	DefaultMinDecisions        = uint64(1000)
 	DefaultMinOutcomeCoverage  = 0.10
 	DefaultMinConfirmedHumans  = uint64(100)
@@ -37,18 +37,19 @@ type Config struct {
 }
 
 type Report struct {
-	SchemaVersion   string                 `json:"schema_version"`
-	Source          shadowlog.Verification `json:"source"`
-	Readiness       Readiness              `json:"readiness"`
-	Decisions       DecisionSummary        `json:"decisions"`
-	Outcomes        OutcomeSummary         `json:"outcomes"`
-	Scores          ScoreSummaries         `json:"scores"`
-	Endpoints       []EndpointSummary      `json:"endpoints"`
-	TopReasonCodes  []CountedValue         `json:"top_reason_codes"`
-	PolicyVersions  []CountedValue         `json:"policy_versions"`
-	ModelVersions   []CountedValue         `json:"model_versions"`
-	CanaryRollouts  []CountedValue         `json:"canary_rollouts"`
-	Recommendations []Recommendation       `json:"recommendations"`
+	SchemaVersion     string                 `json:"schema_version"`
+	Source            shadowlog.Verification `json:"source"`
+	Readiness         Readiness              `json:"readiness"`
+	Decisions         DecisionSummary        `json:"decisions"`
+	Outcomes          OutcomeSummary         `json:"outcomes"`
+	Scores            ScoreSummaries         `json:"scores"`
+	Endpoints         []EndpointSummary      `json:"endpoints"`
+	TopReasonCodes    []CountedValue         `json:"top_reason_codes"`
+	PolicyVersions    []CountedValue         `json:"policy_versions"`
+	ModelVersions     []CountedValue         `json:"model_versions"`
+	CanaryRollouts    []CountedValue         `json:"canary_rollouts"`
+	CanaryComparisons []CanaryComparison     `json:"canary_comparisons"`
+	Recommendations   []Recommendation       `json:"recommendations"`
 }
 
 type Readiness struct {
@@ -110,12 +111,63 @@ type ScoreSummary struct {
 }
 
 type EndpointSummary struct {
-	EndpointClass          string `json:"endpoint_class"`
-	Decisions              uint64 `json:"decisions"`
-	Outcomes               uint64 `json:"outcomes"`
-	ComputedRiskyActions   uint64 `json:"computed_risky_actions"`
+	EndpointClass          string             `json:"endpoint_class"`
+	Decisions              uint64             `json:"decisions"`
+	Outcomes               uint64             `json:"outcomes"`
+	ComputedRiskyActions   uint64             `json:"computed_risky_actions"`
+	HumanConfirmed         uint64             `json:"human_confirmed"`
+	OperatorConfirmedAbuse uint64             `json:"operator_confirmed_abuse"`
+	OutcomeKinds           OutcomeKindCounts  `json:"outcome_kinds"`
+	Evaluation             EndpointEvaluation `json:"evaluation"`
+}
+
+type OutcomeKindCounts struct {
+	SuccessfulAction       uint64 `json:"successful_action"`
+	ChallengePassed        uint64 `json:"challenge_passed"`
+	ChallengeFailed        uint64 `json:"challenge_failed"`
+	ChallengeAbandoned     uint64 `json:"challenge_abandoned"`
 	HumanConfirmed         uint64 `json:"human_confirmed"`
 	OperatorConfirmedAbuse uint64 `json:"operator_confirmed_abuse"`
+	AppealRequested        uint64 `json:"appeal_requested"`
+	FallbackUsed           uint64 `json:"fallback_used"`
+	Unknown                uint64 `json:"unknown"`
+}
+
+type EndpointEvaluation struct {
+	ComputedRiskyRate        ProportionEstimate `json:"computed_risky_rate"`
+	ChallengeFailureRate     ProportionEstimate `json:"challenge_failure_rate"`
+	ChallengeAbandonmentRate ProportionEstimate `json:"challenge_abandonment_rate"`
+	FallbackOutcomeShare     ProportionEstimate `json:"fallback_outcome_share"`
+	AppealOutcomeShare       ProportionEstimate `json:"appeal_outcome_share"`
+	UnknownOutcomeShare      ProportionEstimate `json:"unknown_outcome_share"`
+	ConfirmedLabels          uint64             `json:"confirmed_labels"`
+	AbuseLabelShare          ProportionEstimate `json:"abuse_label_share"`
+}
+
+type ProportionEstimate struct {
+	Count   uint64  `json:"count"`
+	Total   uint64  `json:"total"`
+	Rate    float64 `json:"rate"`
+	Lower95 float64 `json:"lower_95"`
+	Upper95 float64 `json:"upper_95"`
+}
+
+type DifferenceEstimate struct {
+	Estimate float64 `json:"estimate"`
+	Lower95  float64 `json:"lower_95"`
+	Upper95  float64 `json:"upper_95"`
+}
+
+type CanaryComparison struct {
+	RolloutID              string             `json:"rollout_id"`
+	EndpointClass          string             `json:"endpoint_class"`
+	Comparable             bool               `json:"comparable"`
+	ShadowDecisions        uint64             `json:"shadow_decisions"`
+	CanaryDecisions        uint64             `json:"canary_decisions"`
+	ShadowComputedRisky    ProportionEstimate `json:"shadow_computed_risky"`
+	CanaryComputedRisky    ProportionEstimate `json:"canary_computed_risky"`
+	CanaryEnforcedRisky    ProportionEstimate `json:"canary_enforced_risky"`
+	ComputedRiskDifference DifferenceEstimate `json:"computed_risk_difference"`
 }
 
 type CountedValue struct {

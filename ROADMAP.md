@@ -20,7 +20,7 @@ PALISADE advances through measured gates, not a promise of a universally unsolva
 - Sign expiring endpoint-scoped canary plans and return bounded origin enforcement results.
 - Publish an internal baseline report by endpoint and attacker cohort.
 
-Exit gate: no raw personal data in training/replay artifacts; p95 added decision latency below 10 ms in-process; false-positive estimates and unknown-label rate reported with confidence intervals.
+Exit gate: no raw personal data in training/replay artifacts; p95 added decision latency below 10 ms in-process; unknown-label and endpoint outcome shares reported with confidence intervals. A false-positive rate is reported only after outcomes are uniquely linked to decisions and the confirmed-human cohort is representative.
 
 ## 2. Detector and calibration layer
 

@@ -4,11 +4,18 @@ type Health = "checking" | "ready" | "offline";
 type LoadState = "locked" | "loading" | "ready" | "unauthorized" | "error";
 type ActionCounts = { allow: number; observe: number; throttle: number; challenge: number; block: number };
 type Recommendation = { code: string; priority: string; message: string };
+type Proportion = { count: number; total: number; rate: number; lower_95: number; upper_95: number };
+type EndpointEvidence = {
+  endpoint_class: string; decisions: number; outcomes: number; human_confirmed: number; operator_confirmed_abuse: number;
+  evaluation: { computed_risky_rate: Proportion; challenge_failure_rate: Proportion; challenge_abandonment_rate: Proportion; fallback_outcome_share: Proportion; unknown_outcome_share: Proportion; confirmed_labels: number; abuse_label_share: Proportion };
+};
 type Analysis = {
   source: { first_at: string; last_at: string; decisions: number; outcomes: number };
   readiness: { state: string; operator_action: string; automatic_enforcement: boolean; reason_codes: string[] };
   decisions: { total: number; computed_challenge_rate: number };
   outcomes: { total: number; coverage: number; human_confirmed: number; operator_confirmed_abuse: number; challenge_failure_rate: number };
+  endpoints: EndpointEvidence[];
+  canary_comparisons: { rollout_id: string; endpoint_class: string; comparable: boolean; canary_decisions: number; computed_risk_difference: { estimate: number; lower_95: number; upper_95: number } }[];
   recommendations: Recommendation[];
 };
 type Summary = {
@@ -26,6 +33,8 @@ type Summary = {
 const actionNames: (keyof ActionCounts)[] = ["allow", "observe", "throttle", "challenge", "block"];
 const formatNumber = (value: number) => new Intl.NumberFormat().format(value);
 const formatPercent = (value: number) => new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 1 }).format(value);
+export const formatInterval = (value: Proportion) => value.total === 0 ? "no sample" : `${formatPercent(value.rate)} · 95% ${formatPercent(value.lower_95)}–${formatPercent(value.upper_95)}`;
+export const countComparableCanaries = (values: { comparable: boolean }[]) => values.filter((value) => value.comparable).length;
 const formatDuration = (seconds: number) => seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m` : `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 
 function StatusPill({ enabled, children }: { enabled: boolean; children: ReactNode }) {
@@ -37,6 +46,8 @@ export function App() {
   const [loadState, setLoadState] = useState<LoadState>("locked");
   const [adminKey, setAdminKey] = useState("");
   const [summary, setSummary] = useState<Summary | null>(null);
+
+  const comparableCanaries = countComparableCanaries(summary?.analysis?.canary_comparisons ?? []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -148,6 +159,18 @@ export function App() {
                     <div><strong>{formatNumber(summary.analysis.decisions.total)}</strong><span>analyzed decisions</span></div>
                     <div><strong>{formatPercent(summary.analysis.outcomes.coverage)}</strong><span>outcome coverage</span></div>
                     <div><strong>{formatPercent(summary.analysis.decisions.computed_challenge_rate)}</strong><span>challenge candidate rate</span></div>
+                  </div>
+                  <div className="endpoint-evidence">
+                    <h3>Endpoint evidence <span>Wilson 95% intervals</span></h3>
+                    {summary.analysis.endpoints.filter((endpoint) => endpoint.decisions > 0).slice(0, 4).map((endpoint) => (
+                      <div className="endpoint-row" key={endpoint.endpoint_class}>
+                        <div><code>{endpoint.endpoint_class}</code><small>{formatNumber(endpoint.decisions)} decisions · {formatNumber(endpoint.outcomes)} outcome events</small></div>
+                        <div><span>computed risky</span><b>{formatInterval(endpoint.evaluation.computed_risky_rate)}</b></div>
+                        <div><span>challenge failure</span><b>{formatInterval(endpoint.evaluation.challenge_failure_rate)}</b></div>
+                        <div><span>confirmed labels</span><b>{formatNumber(endpoint.evaluation.confirmed_labels)}</b></div>
+                      </div>
+                    ))}
+                    {summary.analysis.canary_comparisons.length > 0 && <p className="comparison-note">{formatNumber(summary.analysis.canary_comparisons.length)} canary endpoint group{summary.analysis.canary_comparisons.length === 1 ? "" : "s"} recorded; {formatNumber(comparableCanaries)} have a same-window shadow baseline. Intervals describe aggregate uncertainty, not causality.</p>}
                   </div>
                   <div className="recommendations"><h3>Next recommended work</h3>{summary.analysis.recommendations.slice(0, 4).map((item) => <div className="recommendation" key={item.code}><span className={item.priority}>{item.priority}</span><div><code>{item.code}</code><p>{item.message}</p></div></div>)}</div>
                   <p className="safety-note">Source through: <b>{summary.analysis.source.last_at || "no records yet"}</b><br />Automatic enforcement: <b>{summary.analysis.readiness.automatic_enforcement ? "enabled" : "disabled"}</b> · Operator action: <code>{summary.analysis.readiness.operator_action}</code></p>

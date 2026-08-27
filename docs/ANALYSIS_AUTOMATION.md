@@ -14,7 +14,7 @@ encrypted *.plog + key
 analyze-shadow-log --watch-interval
           │ validate + fsync + atomic same-directory rename
           v
-owner-only analysis.json
+owner-only palisade.shadow-analysis.v2 report
           │ bounded read + closed JSON decode + aggregate validation
           v
 serve --admin-analysis-report
@@ -62,6 +62,12 @@ palisade serve \
   --admin-analysis-refresh 30s
 ```
 
+The v2 report contains only aggregate endpoint totals, Wilson 95% intervals and
+rollout/endpoint canary comparisons. Challenge, fallback, appeal and unknown
+shares are event-level measurements, not per-person rates. Confirmed label mix
+is not a false-positive rate, and the shadow/canary difference is not a causal
+A/B estimate.
+
 The report directory must be canonical, owner-only and outside every Git
 worktree. Each publication validates the closed aggregate schema, writes a new
 0600 temporary file, syncs it, confirms that the target did not change, renames
@@ -75,6 +81,10 @@ the prior report and exposes `analysis_status.state = invalid_update`.
   frame, that run fails safely and the next interval retries; the previous
   report remains available.
 - A report update never changes runtime policy, rollout stage or enforcement.
+- A review candidate needs risky shadow actions plus at least 100 confirmed
+  human and 100 confirmed-abuse outcomes on the exact proposed public endpoint.
+- Enforcement review additionally needs at least 1,000 decisions from the exact
+  predecessor canary on that same endpoint.
 - A review proposal is generated only on explicit operator invocation and
   cannot be loaded by the serving process.
 - Process counters continue independently when analysis is unavailable.
