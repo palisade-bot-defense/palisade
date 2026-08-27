@@ -27,4 +27,10 @@ Retention deletes whole PALISADE-managed files after their age threshold. Operat
 
 The `__Host-palisade_session` cookie contains only a random identifier plus issue/expiry times and an authenticated signature. It is Secure, HttpOnly, SameSite=Lax, has no Domain attribute and expires after 24 hours. The signing key is domain-separated from proof-token signatures. Cookie validity may increase only the continuity dimension; it must never be interpreted as human, account or device verification.
 
+Native challenge state is memory-only and contains a random challenge ID, the
+closed session/decision/action/endpoint/rollout bindings, attempt/state fields,
+expiries and only a hash of the one-time redemption capability. It never stores
+the original URL, query, request body, IP address, user agent, cookie or sensor
+events. Only closed challenge outcomes may enter the encrypted shadow sink.
+
 Scores are decision support, not identity claims. Operators need an appeal/fallback path for challenged people and must measure false positives by endpoint and client cohort.

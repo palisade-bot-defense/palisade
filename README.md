@@ -11,7 +11,7 @@
 
 ## What exists today
 
-The first vertical slice is runnable: a Go decision service, short-lived replay-protected proof tokens, an optional server-issued signed continuity cookie, bounded in-memory sessions, detector evidence, three-dimensional score fusion, CEL policy evaluation, deterministic JSONL replay, a privacy-limited browser sensor, an embedded control-room dashboard, encrypted local analysis and signed reversible rollout plans.
+The first vertical slice is runnable: a Go decision service, short-lived replay-protected proof tokens, an optional server-issued signed continuity cookie, bounded in-memory sessions, detector evidence, three-dimensional score fusion, CEL policy evaluation, deterministic JSONL replay, a privacy-limited browser sensor, an embedded control-room dashboard, encrypted local analysis, signed reversible rollout plans and a session/action/endpoint-bound native challenge lifecycle.
 
 PALISADE keeps three questions separate:
 
@@ -51,10 +51,14 @@ The server always starts from `--mode shadow`. In shadow mode, risky computed ac
 | `POST /v1/token` | Authenticated, short-lived action proof issuance |
 | `POST /v1/decision` | Explainable risk decision |
 | `POST /v1/origin-check` | Score once and return the bounded HTTP enforcement result for origin middleware |
+| `GET /v1/challenge/{id}` | Retrieve the signed-session-bound accessible step-up metadata |
+| `POST /v1/challenge/verify` | Exchange a ready challenge for a short-lived redemption capability |
+| `POST /v1/challenge/redeem` | Consume that capability exactly once for its bound action and endpoint class |
+| `POST /v1/challenge/fallback` | Close the challenge and record use of the deployment fallback |
 | `POST /v1/outcome` | Backend-authenticated, normalized delayed outcome for the encrypted local shadow sink |
 
 The signed cookie prevents clients from inventing a trusted session identifier, but does not prove that a person, account or unique device is present; starting fresh sessions remains possible. A valid cookie contributes only continuity evidence. The browser sensor never sends keystrokes, form values, DOM text or exact pointer coordinates. See [privacy boundaries](docs/privacy/DATA_BOUNDARIES.md).
-The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contracts live under [`api/proto`](api/proto). The [signal-source guide](docs/SIGNAL_SOURCES.md) contains trust boundaries, request examples and the checked detector extension procedure.
+The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contracts live under [`api/proto`](api/proto). The [signal-source guide](docs/SIGNAL_SOURCES.md) contains trust boundaries, request examples and the checked detector extension procedure. The [native challenge guide](docs/CHALLENGE.md) documents the origin handshake, accessibility contract, exact one-time binding and single-instance limit.
 
 ## Local encrypted shadow logging
 
@@ -94,7 +98,7 @@ The first deployment should ingest normalized challenge, external-risk and polic
 
 Authorized historical exports can be normalized with the local-only `palisade import-offline` command. Raw inputs and normalized outputs must stay outside every Git worktree. The importer accepts only `offline_export`, never emits raw rows, and treats upstream policy outcomes as weak labels rather than ground truth. Deployment-local and opt-in community ingestion are future, separate trust boundaries and are not accepted by this command.
 
-See the [architecture and stack](docs/ARCHITECTURE.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
+See the [architecture and stack](docs/ARCHITECTURE.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
 
 ## Project status and license
 

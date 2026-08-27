@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/adminui"
+	"github.com/palisade-bot-defense/palisade/internal/challenge"
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	decisionengine "github.com/palisade-bot-defense/palisade/internal/engine"
 	"github.com/palisade-bot-defense/palisade/internal/events"
@@ -43,6 +44,7 @@ type Server struct {
 	sessionCookies    *sessioncookie.Service
 	requireSession    bool
 	shadowRecorder    ShadowRecorder
+	challenges        *challenge.Service
 	shadowDrops       atomic.Uint64
 }
 
@@ -71,6 +73,14 @@ func (s *Server) WithShadowRecorder(recorder ShadowRecorder) *Server {
 	return s
 }
 
+func (s *Server) WithChallenges(service *challenge.Service) *Server {
+	s.challenges = service
+	if service != nil {
+		service.SetOutcomeHandler(s.recordChallengeOutcome)
+	}
+	return s
+}
+
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) {
@@ -85,6 +95,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/decision", s.handleDecision)
 	mux.HandleFunc("POST /v1/origin-check", s.handleOriginCheck)
 	mux.HandleFunc("POST /v1/outcome", s.handleOutcome)
+	mux.HandleFunc("GET /v1/challenge/{challenge_id}", s.handleChallengeView)
+	mux.HandleFunc("POST /v1/challenge/verify", s.handleChallengeVerify)
+	mux.HandleFunc("POST /v1/challenge/redeem", s.handleChallengeRedeem)
+	mux.HandleFunc("POST /v1/challenge/fallback", s.handleChallengeFallback)
 	mux.Handle("GET /", adminui.Handler())
 	return s.recover(s.securityHeaders(mux))
 }
@@ -190,10 +204,11 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
-	decision, ok := s.evaluateDecision(w, r)
+	request, decision, ok := s.evaluateDecision(w, r)
 	if !ok {
 		return
 	}
+	s.recordDecision(request, decision)
 	writeJSON(w, http.StatusOK, decision)
 }
 
@@ -202,7 +217,7 @@ func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
 // status and headers, so detailed scores and evidence are not reflected to the
 // requesting client. Without an applicable signed rollout, the result is 204.
 func (s *Server) handleOriginCheck(w http.ResponseWriter, r *http.Request) {
-	decision, ok := s.evaluateDecision(w, r)
+	request, decision, ok := s.evaluateDecision(w, r)
 	if !ok {
 		return
 	}
@@ -212,6 +227,21 @@ func (s *Server) handleOriginCheck(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "invalid_enforcement_directive")
 		return
 	}
+	challengeID := ""
+	if decision.Directive.Handling == "challenge" {
+		if s.challenges == nil {
+			writeError(w, http.StatusServiceUnavailable, "challenge_service_unavailable")
+			return
+		}
+		metadata, err := s.challenges.Issue(request, decision, time.Now().UTC())
+		if err != nil {
+			s.logger.Error("challenge issuance failed", "decision_id", decision.DecisionID, "error", err)
+			writeError(w, http.StatusServiceUnavailable, "challenge_issue_failed")
+			return
+		}
+		challengeID = metadata.ChallengeID
+	}
+	s.recordDecision(request, decision)
 	w.Header().Set("X-Palisade-Decision-ID", decision.DecisionID)
 	w.Header().Set("X-Palisade-Action", string(decision.Action))
 	w.Header().Set("X-Palisade-Handling", decision.Directive.Handling)
@@ -222,20 +252,161 @@ func (s *Server) handleOriginCheck(w http.ResponseWriter, r *http.Request) {
 	if decision.Directive.RetryAfterSeconds > 0 {
 		w.Header().Set("Retry-After", fmt.Sprintf("%d", decision.Directive.RetryAfterSeconds))
 	}
+	if challengeID != "" {
+		w.Header().Set("X-Palisade-Challenge-ID", challengeID)
+		w.Header().Set("Location", "/v1/challenge/"+challengeID)
+	}
 	w.WriteHeader(status)
 }
 
-func (s *Server) evaluateDecision(w http.ResponseWriter, r *http.Request) (core.Decision, bool) {
+func (s *Server) handleChallengeView(w http.ResponseWriter, r *http.Request) {
+	sessionID, ok := s.challengeSession(w, r)
+	if !ok {
+		return
+	}
+	metadata, err := s.challenges.View(r.PathValue("challenge_id"), sessionID, time.Now().UTC())
+	if err != nil {
+		s.writeChallengeError(w, err, "", sessionID)
+		return
+	}
+	writeJSON(w, http.StatusOK, metadata)
+}
+
+func (s *Server) handleChallengeVerify(w http.ResponseWriter, r *http.Request) {
+	sessionID, ok := s.challengeSession(w, r)
+	if !ok {
+		return
+	}
+	var request struct {
+		ChallengeID       string `json:"challenge_id"`
+		VerificationToken string `json:"verification_token"`
+	}
+	if err := decodeJSON(w, r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	result, err := s.challenges.Verify(request.ChallengeID, sessionID, request.VerificationToken, time.Now().UTC())
+	if err != nil {
+		s.writeChallengeError(w, err, request.ChallengeID, sessionID)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleChallengeRedeem(w http.ResponseWriter, r *http.Request) {
+	sessionID, ok := s.challengeSession(w, r)
+	if !ok {
+		return
+	}
+	var request struct {
+		ChallengeID     string `json:"challenge_id"`
+		RedemptionToken string `json:"redemption_token"`
+		Action          string `json:"action"`
+		EndpointClass   string `json:"endpoint_class"`
+	}
+	if err := decodeJSON(w, r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if err := s.challenges.Redeem(request.ChallengeID, sessionID, request.RedemptionToken, request.Action, request.EndpointClass, time.Now().UTC()); err != nil {
+		s.writeChallengeError(w, err, request.ChallengeID, sessionID)
+		return
+	}
+	w.Header().Set("X-Palisade-Challenge", "redeemed")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleChallengeFallback(w http.ResponseWriter, r *http.Request) {
+	sessionID, ok := s.challengeSession(w, r)
+	if !ok {
+		return
+	}
+	var request struct {
+		ChallengeID string `json:"challenge_id"`
+	}
+	if err := decodeJSON(w, r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if err := s.challenges.Fallback(request.ChallengeID, sessionID, time.Now().UTC()); err != nil {
+		s.writeChallengeError(w, err, request.ChallengeID, sessionID)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) challengeSession(w http.ResponseWriter, r *http.Request) (string, bool) {
+	if s.challenges == nil || s.sessionCookies == nil {
+		writeError(w, http.StatusServiceUnavailable, "challenge_service_unavailable")
+		return "", false
+	}
+	cookie, err := r.Cookie(sessioncookie.CookieName)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid_session")
+		return "", false
+	}
+	claims, err := s.sessionCookies.Verify(cookie.Value, time.Now().UTC())
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid_session")
+		return "", false
+	}
+	return claims.SessionID, true
+}
+
+func (s *Server) writeChallengeError(w http.ResponseWriter, err error, challengeID, sessionID string) {
+	switch {
+	case errors.Is(err, challenge.ErrNotFound), errors.Is(err, challenge.ErrSessionMismatch):
+		writeError(w, http.StatusNotFound, "challenge_not_found")
+	case errors.Is(err, challenge.ErrExpired):
+		writeError(w, http.StatusGone, "challenge_expired")
+	case errors.Is(err, challenge.ErrNotReady):
+		if retry := s.challenges.RetryAfter(challengeID, sessionID, time.Now().UTC()); retry > 0 {
+			w.Header().Set("Retry-After", fmt.Sprintf("%d", int((retry+time.Second-1)/time.Second)))
+		}
+		writeError(w, http.StatusTooEarly, "challenge_not_ready")
+	case errors.Is(err, challenge.ErrAttemptsExceeded):
+		writeError(w, http.StatusTooManyRequests, "challenge_attempts_exceeded")
+	case errors.Is(err, challenge.ErrInvalidState):
+		writeError(w, http.StatusConflict, "challenge_invalid_state")
+	case errors.Is(err, challenge.ErrInvalidVerification), errors.Is(err, challenge.ErrInvalidRedemption), errors.Is(err, challenge.ErrInvalidChallenge):
+		writeError(w, http.StatusBadRequest, "challenge_invalid")
+	default:
+		writeError(w, http.StatusServiceUnavailable, "challenge_unavailable")
+	}
+}
+
+func (s *Server) recordChallengeOutcome(outcome challenge.Outcome) {
+	if s.shadowRecorder == nil {
+		s.recordShadowDrop()
+		return
+	}
+	request := shadowlog.OutcomeRequest{
+		SessionID: outcome.SessionID, DecisionID: outcome.DecisionID, EndpointClass: outcome.EndpointClass,
+		Outcome: outcome.Kind, Provenance: "server_observed", Confidence: "confirmed",
+	}
+	if err := s.shadowRecorder.RecordOutcome(request, time.Now().UTC()); err != nil {
+		s.recordShadowDrop()
+	}
+}
+
+func (s *Server) recordShadowDrop() {
+	dropped := s.shadowDrops.Add(1)
+	if dropped == 1 || dropped%1024 == 0 {
+		s.logger.Warn("shadow record dropped", "dropped_total", dropped)
+	}
+}
+
+func (s *Server) evaluateDecision(w http.ResponseWriter, r *http.Request) (core.DecisionRequest, core.Decision, bool) {
 	now := time.Now().UTC()
 	var request core.DecisionRequest
 	if err := decodeJSON(w, r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
-		return core.Decision{}, false
+		return core.DecisionRequest{}, core.Decision{}, false
 	}
 	verifiedSession, err := s.verifySession(r, request.SessionID, now)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid_session")
-		return core.Decision{}, false
+		return core.DecisionRequest{}, core.Decision{}, false
 	}
 	request.Observations.ServerSessionVerified = verifiedSession
 	if s.events != nil {
@@ -256,17 +427,17 @@ func (s *Server) evaluateDecision(w http.ResponseWriter, r *http.Request) (core.
 			s.logger.Error("decision failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "decision_failed")
 		}
-		return core.Decision{}, false
+		return core.DecisionRequest{}, core.Decision{}, false
 	}
+	return request, decision, true
+}
+
+func (s *Server) recordDecision(request core.DecisionRequest, decision core.Decision) {
 	if s.shadowRecorder != nil {
-		if err := s.shadowRecorder.RecordDecision(request, decision, now); err != nil {
-			dropped := s.shadowDrops.Add(1)
-			if dropped == 1 || dropped%1024 == 0 {
-				s.logger.Warn("shadow record dropped", "dropped_total", dropped)
-			}
+		if err := s.shadowRecorder.RecordDecision(request, decision, time.Now().UTC()); err != nil {
+			s.recordShadowDrop()
 		}
 	}
-	return decision, true
 }
 
 func originStatus(decision core.Decision, now time.Time) (int, bool) {

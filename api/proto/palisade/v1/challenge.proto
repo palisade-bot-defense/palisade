@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package palisade.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/palisade-bot-defense/palisade/gen/palisade/v1;palisadev1";
+
+// ChallengeService models the native single-use challenge capability. HTTP
+// binds session_id through the signed __Host-palisade_session cookie.
+service ChallengeService {
+  rpc GetChallenge(GetChallengeRequest) returns (GetChallengeResponse);
+  rpc VerifyChallenge(VerifyChallengeRequest) returns (VerifyChallengeResponse);
+  rpc RedeemChallenge(RedeemChallengeRequest) returns (RedeemChallengeResponse);
+  rpc UseChallengeFallback(UseChallengeFallbackRequest) returns (UseChallengeFallbackResponse);
+}
+
+message GetChallengeRequest {
+  string challenge_id = 1;
+  string session_id = 2;
+}
+
+message ChallengeAccessibility {
+  bool non_visual = 1;
+  bool keyboard_only = 2;
+  bool fallback_offered = 3;
+}
+
+message GetChallengeResponse {
+  string challenge_id = 1;
+  string family = 2;
+  google.protobuf.Timestamp ready_at = 3;
+  google.protobuf.Timestamp expires_at = 4;
+  uint32 attempts_remaining = 5;
+  string verification_token = 6;
+  ChallengeAccessibility accessibility = 7;
+}
+
+message VerifyChallengeRequest {
+  string challenge_id = 1;
+  string session_id = 2;
+  string verification_token = 3;
+}
+
+message VerifyChallengeResponse {
+  string challenge_id = 1;
+  string redemption_token = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message RedeemChallengeRequest {
+  string challenge_id = 1;
+  string session_id = 2;
+  string redemption_token = 3;
+  string action = 4;
+  string endpoint_class = 5;
+}
+
+message RedeemChallengeResponse {}
+
+message UseChallengeFallbackRequest {
+  string challenge_id = 1;
+  string session_id = 2;
+}
+
+message UseChallengeFallbackResponse {}

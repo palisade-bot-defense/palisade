@@ -108,7 +108,7 @@ one request because the production proof is one-time.
 |---|---|---|
 | `204` | `X-Palisade-Handling: pass` | Continue the original request |
 | `429` | `throttle` plus `Retry-After` | Return/rate-limit for that bounded duration |
-| `403` | `challenge` | Route to the deployment's accessible challenge handler |
+| `403` | `challenge` plus challenge ID and `Location` | Run the native bound lifecycle described in `CHALLENGE.md` |
 | `403` | `block` plus `Retry-After` | Apply the temporary block |
 | `503` | stable JSON error | Treat as an adapter failure under the site's documented availability policy |
 
@@ -152,7 +152,9 @@ known-good command/config ready before starting a canary.
 
 The signature is the operator's attestation over the report hash and rollout
 scope. It does not make a report trustworthy if the host or approval process is
-already compromised. PALISADE currently returns a challenge directive but does
-not render a vendor-specific challenge page; that remains the responsibility
-of an authenticated deployment adapter. A native accessible challenge
-lifecycle is tracked separately from the safe throttle/block controller.
+already compromised. PALISADE now issues a native in-memory, signed-session-
+bound challenge capability for applied challenge directives. The deployment
+adapter still owns accessible rendering and the mapping to one pending origin
+request; follow [the challenge protocol](CHALLENGE.md). Process restart
+invalidates outstanding challenges, and this baseline is not a multi-replica
+shared-state implementation.

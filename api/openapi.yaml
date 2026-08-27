@@ -109,9 +109,10 @@ paths:
   /v1/origin-check:
     post:
       summary: Evaluate and return the bounded origin enforcement result
-      description: Alternative to /v1/decision for an origin or reverse-proxy subrequest. A valid signed rollout may return 429 for throttle or 403 for challenge/block. Shadow and excluded canary requests return 204. Scores and evidence are not reflected in this response.
+      description: Alternative to /v1/decision for an origin or reverse-proxy subrequest. Production requires the one-time proof_token in the request body; signed rollouts additionally require the session cookie. A valid signed rollout may return 429 for throttle or 403 for challenge/block. Shadow and excluded canary requests return 204. Scores and evidence are not reflected in this response.
       operationId: checkOrigin
-      security: []
+      security:
+        - sessionCookie: []
       requestBody:
         required: true
         content:
@@ -134,6 +135,12 @@ paths:
             X-Palisade-Handling: { schema: { type: string, enum: [challenge, block] } }
             X-Palisade-Mode: { schema: { type: string, enum: [canary, enforce] } }
             X-Palisade-Rollout-ID: { schema: { type: string } }
+            X-Palisade-Challenge-ID:
+              description: Present only for challenge handling. Retrieve the bound challenge at the Location route.
+              schema: { type: string, minLength: 32, maxLength: 32 }
+            Location:
+              description: Present only for challenge handling.
+              schema: { type: string, pattern: "^/v1/challenge/[A-Za-z0-9_-]{32}$" }
             Retry-After: { schema: { type: integer, minimum: 1, maximum: 3600 } }
         "429":
           description: Temporarily throttle the request as selected by a valid signed rollout.
@@ -146,6 +153,103 @@ paths:
             Retry-After: { schema: { type: integer, minimum: 1, maximum: 60 } }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /v1/challenge/{challenge_id}:
+    get:
+      summary: Retrieve a session-bound accessible challenge
+      description: Returns a nonvisual timed-confirmation contract. It is an anti-replay step-up and does not establish that the client is human.
+      operationId: getChallenge
+      security:
+        - sessionCookie: []
+      parameters:
+        - in: path
+          name: challenge_id
+          required: true
+          schema: { type: string, minLength: 32, maxLength: 32, pattern: "^[A-Za-z0-9_-]+$" }
+      responses:
+        "200":
+          description: Challenge metadata bound to the signed session.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChallengeMetadata" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /v1/challenge/verify:
+    post:
+      summary: Verify the active challenge and issue a short-lived redemption capability
+      operationId: verifyChallenge
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChallengeVerifyRequest" }
+      responses:
+        "200":
+          description: One-time redemption capability issued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChallengeVerification" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+        "425":
+          description: Challenge delay has not elapsed.
+          headers:
+            Retry-After: { schema: { type: integer, minimum: 1, maximum: 30 } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /v1/challenge/redeem:
+    post:
+      summary: Consume a challenge capability for its exact action and endpoint class
+      description: Successful redemption is exactly once and authorizes only the integrating origin's bound request flow; it is recorded as challenge_passed, never human_confirmed.
+      operationId: redeemChallenge
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChallengeRedeemRequest" }
+      responses:
+        "204":
+          description: Capability consumed.
+          headers:
+            X-Palisade-Challenge: { schema: { type: string, enum: [redeemed] } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /v1/challenge/fallback:
+    post:
+      summary: Close a challenge and request the deployment's accessible fallback
+      description: PALISADE records only fallback_used; the integrating origin owns the support, reauthentication or WebAuthn route and must not include a raw return URL here.
+      operationId: useChallengeFallback
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChallengeFallbackRequest" }
+      responses:
+        "204": { description: Fallback choice recorded and challenge closed. }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
   /v1/outcome:
     post:
@@ -188,6 +292,63 @@ components:
             properties:
               error: { type: string }
   schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error: { type: string }
+    ChallengeMetadata:
+      type: object
+      additionalProperties: false
+      required: [challenge_id, family, ready_at, expires_at, attempts_remaining, verification_token, accessibility]
+      properties:
+        challenge_id: { type: string, minLength: 32, maxLength: 32, pattern: "^[A-Za-z0-9_-]+$" }
+        family: { type: string, enum: [timed_confirmation_v1] }
+        ready_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        attempts_remaining: { type: integer, minimum: 0, maximum: 20 }
+        verification_token: { type: string, minLength: 43, maxLength: 43, pattern: "^[A-Za-z0-9_-]+$" }
+        accessibility:
+          type: object
+          additionalProperties: false
+          required: [non_visual, keyboard_only, fallback_offered]
+          properties:
+            non_visual: { type: boolean, const: true }
+            keyboard_only: { type: boolean, const: true }
+            fallback_offered: { type: boolean, const: true }
+    ChallengeVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [challenge_id, verification_token]
+      properties:
+        challenge_id: { type: string, minLength: 32, maxLength: 32, pattern: "^[A-Za-z0-9_-]+$" }
+        verification_token: { type: string, minLength: 43, maxLength: 43, pattern: "^[A-Za-z0-9_-]+$" }
+    ChallengeVerification:
+      type: object
+      additionalProperties: false
+      required: [challenge_id, redemption_token, expires_at]
+      properties:
+        challenge_id: { type: string, minLength: 32, maxLength: 32, pattern: "^[A-Za-z0-9_-]+$" }
+        redemption_token: { type: string, minLength: 43, maxLength: 43, pattern: "^[A-Za-z0-9_-]+$" }
+        expires_at: { type: string, format: date-time }
+    ChallengeRedeemRequest:
+      type: object
+      additionalProperties: false
+      required: [challenge_id, redemption_token, action, endpoint_class]
+      properties:
+        challenge_id: { type: string, minLength: 32, maxLength: 32, pattern: "^[A-Za-z0-9_-]+$" }
+        redemption_token: { type: string, minLength: 43, maxLength: 43, pattern: "^[A-Za-z0-9_-]+$" }
+        action: { type: string, minLength: 1, maxLength: 80 }
+        endpoint_class:
+          type: string
+          enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]
+    ChallengeFallbackRequest:
+      type: object
+      additionalProperties: false
+      required: [challenge_id]
+      properties:
+        challenge_id: { type: string, minLength: 32, maxLength: 32, pattern: "^[A-Za-z0-9_-]+$" }
     SessionResponse:
       type: object
       additionalProperties: false
