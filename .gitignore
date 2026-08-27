@@ -16,8 +16,19 @@ coverage/
 *.test
 *.out
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
 bin/
 
 # Local runtime data
 data/
 tmp/
+*.plog
+shadow-analysis*.json
+
+# Authorized offline exports must never enter a worktree
+access.log.gz
+anubis-strain.jsonl.gz
+crowdsec-alerts.json
+crowdsec-decisions.json
+error.log.gz

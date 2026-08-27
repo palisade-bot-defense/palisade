@@ -1,15 +1,9 @@
-// Documentation form of the compiled default-v1 policy.
-// Deploy this in shadow mode until replay evaluation is approved.
-verified_bot
-  ? "allow"
-  : crowdsec_alert && honeypot_hits > 0
-    ? "block"
-    : endpoint_class == "public_content" && (automation_risk >= 0.88 || intent_risk >= 0.90)
-      ? "throttle"
-      : automation_risk >= 0.88 || intent_risk >= 0.90
-        ? "block"
-        : automation_risk >= 0.68 || intent_risk >= 0.68 || account_continuity < 0.20
-          ? "challenge"
-          : automation_risk >= 0.52 || intent_risk >= 0.52
-            ? "observe"
-            : "allow"
+// Generated documentation form of the computed default-v3 policy.
+// internal/policy/engine_test.go rejects drift from the runtime rules.
+policy_alert && honeypot_hits >= 1 ? "block" :
+endpoint_class == 'public_content' && (intent_risk >= 0.90 || (!verified_bot && automation_risk >= 0.88)) ? "throttle" :
+intent_risk >= 0.90 || (!verified_bot && automation_risk >= 0.88) ? "block" :
+policy_alert || honeypot_hits >= 1 || intent_risk >= 0.68 || account_continuity < 0.20 || (!verified_bot && automation_risk >= 0.68) ? "challenge" :
+intent_risk >= 0.52 || (!verified_bot && automation_risk >= 0.52) ? "observe" :
+verified_bot && !policy_alert && honeypot_hits == 0 ? "allow" :
+"allow"

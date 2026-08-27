@@ -4,17 +4,19 @@ PALISADE advances through measured gates, not a promise of a universally unsolva
 
 ## 0. Runnable foundation — complete
 
-- Go decision hot path, bounded sessions and replay-safe proofs.
+- Go decision hot path, explicit fail-safe shadow boundary and replay-safe proofs.
 - Typed detectors, three-score fusion, CEL policy and stable reasons.
 - Privacy-limited TypeScript sensor and embedded light dashboard.
-- Deterministic replay, container build, CI and security scans.
+- Deterministic replay, container build and local security scans.
 
-## 1. Strain DB shadow pilot
+## 1. Deployment shadow pilot
 
-- Define sanitized adapters for Anubis, Cannai Shield and CrowdSec.
+- Define sanitized adapters for challenge systems, external risk providers and policy-alert sources.
 - Import historical samples into a versioned, access-controlled replay dataset.
 - Establish endpoint classes, outcome labels and verified-bot allowlists.
 - Run parallel shadow decisions without changing live responses.
+- Retain only encrypted, bounded local shadow records with explicit rotation, deletion and outcome provenance.
+- Run bounded local aggregate analysis and produce operator-facing, non-enforcing recommendations.
 - Publish an internal baseline report by endpoint and attacker cohort.
 
 Exit gate: no raw personal data in training/replay artifacts; p95 added decision latency below 10 ms in-process; false-positive estimates and unknown-label rate reported with confidence intervals.
@@ -41,7 +43,7 @@ Exit gate: documented rollback, support path and canary results; automatic block
 
 ## 4. Community hardening
 
-- Finalize PolyForm Shield core license, Apache integration SDK license and CLA.
+- Maintain the AGPL-3.0-only core and Apache-2.0 sensor/SDK boundary; finalize the separate contributor agreement.
 - Publish scrubbed replay fixtures and detector evaluation templates.
 - Add reverse-proxy adapters and production shared state where measurements justify it.
 - Commission independent privacy, accessibility and adversarial reviews.

@@ -18,28 +18,77 @@ import (
 )
 
 var (
-	ErrProofRequired  = errors.New("proof token is required")
-	ErrInvalidRequest = errors.New("invalid decision request")
+	ErrProofRequired         = errors.New("proof token is required")
+	ErrInvalidRequest        = errors.New("invalid decision request")
+	ErrExplicitTimeWithProof = errors.New("explicit decision time is unavailable with proof enforcement")
 )
 
 type Engine struct {
-	sessions     *session.MemoryStore
-	detectors    *detector.Registry
-	policy       *policy.Engine
-	tokens       *token.Service
-	requireProof bool
-	now          func() time.Time
+	sessions      *session.MemoryStore
+	detectors     *detector.Registry
+	policy        *policy.Engine
+	tokens        *token.Service
+	requireProof  bool
+	mode          core.RuntimeMode
+	now           func() time.Time
+	newDecisionID func() string
 }
 
-func New(sessions *session.MemoryStore, detectors *detector.Registry, policyEngine *policy.Engine, tokens *token.Service, requireProof bool) *Engine {
-	return &Engine{sessions: sessions, detectors: detectors, policy: policyEngine, tokens: tokens, requireProof: requireProof, now: time.Now}
+type Option func(*Engine)
+
+func WithClock(now func() time.Time) Option {
+	return func(engine *Engine) {
+		if now != nil {
+			engine.now = now
+		}
+	}
+}
+
+func WithDecisionIDGenerator(generator func() string) Option {
+	return func(engine *Engine) {
+		if generator != nil {
+			engine.newDecisionID = generator
+		}
+	}
+}
+
+func New(sessions *session.MemoryStore, detectors *detector.Registry, policyEngine *policy.Engine, tokens *token.Service, requireProof bool, mode core.RuntimeMode, options ...Option) *Engine {
+	if mode != core.RuntimeModeEnforce {
+		mode = core.RuntimeModeShadow
+	}
+	engine := &Engine{
+		sessions:      sessions,
+		detectors:     detectors,
+		policy:        policyEngine,
+		tokens:        tokens,
+		requireProof:  requireProof,
+		mode:          mode,
+		now:           time.Now,
+		newDecisionID: newID,
+	}
+	for _, option := range options {
+		option(engine)
+	}
+	return engine
 }
 
 func (e *Engine) Decide(ctx context.Context, request core.DecisionRequest) (core.Decision, error) {
+	return e.decideAt(ctx, request, e.now().UTC())
+}
+
+// DecideAt evaluates a request using an explicit observation time. It is used
+// by offline replay so session TTLs and expiries follow captured event time.
+func (e *Engine) DecideAt(ctx context.Context, request core.DecisionRequest, observedAt time.Time) (core.Decision, error) {
+	if e.requireProof {
+		return core.Decision{}, ErrExplicitTimeWithProof
+	}
+	return e.decideAt(ctx, request, observedAt.UTC())
+}
+
+func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now time.Time) (core.Decision, error) {
 	if err := validateRequest(request); err != nil {
 		return core.Decision{}, err
 	}
-	now := e.now().UTC()
 	if e.requireProof {
 		if request.ProofToken == "" {
 			return core.Decision{}, ErrProofRequired
@@ -56,22 +105,34 @@ func (e *Engine) Decide(ctx context.Context, request core.DecisionRequest) (core
 	scores := fusion.Calculate(evidence)
 	result, err := e.policy.Evaluate(policy.Input{
 		Scores: scores, EndpointClass: request.EndpointClass,
-		HoneypotHits:  request.Observations.HoneypotHits,
-		CrowdSecAlert: request.Observations.CrowdSecAlert,
-		VerifiedBot:   request.Observations.VerifiedBot,
+		HoneypotHits: request.Observations.HoneypotHits,
+		PolicyAlert:  request.Observations.PolicyAlert,
+		VerifiedBot:  request.Observations.VerifiedBot,
 	})
 	if err != nil {
 		return core.Decision{}, err
 	}
+	computedAction := result.Action
+	action := computedAction
 	reasons := []string{result.Reason}
+	if e.mode == core.RuntimeModeShadow && computedAction != core.ActionAllow && computedAction != core.ActionObserve {
+		action = core.ActionObserve
+		reasons = append(reasons, core.ReasonShadowActionOverridden)
+	}
 	for _, item := range evidence {
 		reasons = append(reasons, item.Code)
 	}
 	return core.Decision{
-		DecisionID: newID(), Action: result.Action, Scores: scores,
-		ReasonCodes: reasons, Evidence: evidence,
-		PolicyVersion: e.policy.Version(), ModelVersion: "transparent-baseline-v1",
-		ExpiresAt: now.Add(30 * time.Second),
+		DecisionID:     e.newDecisionID(),
+		Action:         action,
+		ComputedAction: computedAction,
+		Mode:           e.mode,
+		Scores:         scores,
+		ReasonCodes:    reasons,
+		Evidence:       evidence,
+		PolicyVersion:  e.policy.Version(),
+		ModelVersion:   "transparent-baseline-v6",
+		ExpiresAt:      now.Add(30 * time.Second),
 	}, nil
 }
 
@@ -88,7 +149,12 @@ func validateRequest(request core.DecisionRequest) error {
 	if request.Observations.BrowserEventCount < 0 || request.Observations.BrowserEventCount > 10_000 || request.Observations.HoneypotHits < 0 || request.Observations.HoneypotHits > 100 {
 		return ErrInvalidRequest
 	}
-	if request.Observations.CannaiScore < 0 || request.Observations.CannaiScore > 1 {
+	if request.Observations.ExternalRiskScore < 0 || request.Observations.ExternalRiskScore > 1 {
+		return ErrInvalidRequest
+	}
+	switch request.Observations.ChallengeVerdict {
+	case "", "suspicious", "failed", "blocked", "allowed", "passed", "unknown":
+	default:
 		return ErrInvalidRequest
 	}
 	return nil
