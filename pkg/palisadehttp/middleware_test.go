@@ -160,6 +160,11 @@ func TestMiddlewarePassesClosedSignalsWithoutRawRequestData(t *testing.T) {
 	middleware.classifier = func(*http.Request) (Classification, error) {
 		return Classification{Action: "read", EndpointClass: "public_content", EvaluationCohort: "reduced_motion"}, nil
 	}
+	middleware.signals = func(*http.Request) (Signals, error) {
+		return Signals{
+			UserAgentPresent: true, TransportProtocol: "provider-spoof", TransportSecurity: "provider-spoof", ClientAddressSource: "provider-spoof",
+		}, nil
+	}
 	var nextCalls atomic.Int32
 	handler := middleware.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		nextCalls.Add(1)
@@ -168,6 +173,8 @@ func TestMiddlewarePassesClosedSignalsWithoutRawRequestData(t *testing.T) {
 
 	first := httptest.NewRequest(http.MethodGet, "https://origin.example/private?secret=must-not-leave", nil)
 	first.Header.Set("User-Agent", "test-browser")
+	first.Header.Set("CF-Connecting-IP", "198.51.100.77")
+	first.Header.Set("X-Forwarded-Proto", "https")
 	firstResponse := httptest.NewRecorder()
 	handler.ServeHTTP(firstResponse, first)
 	if firstResponse.Code != http.StatusOK || nextCalls.Load() != 1 || firstResponse.Header().Get("X-Palisade-Adapter") != "pass" {
@@ -189,11 +196,17 @@ func TestMiddlewarePassesClosedSignalsWithoutRawRequestData(t *testing.T) {
 		t.Fatalf("sequences = %v", fake.sequences)
 	}
 	for _, body := range fake.originBodies {
-		if bytes.Contains(body, []byte("must-not-leave")) || bytes.Contains(body, []byte("private")) || bytes.Contains(body, []byte("test-browser")) {
+		if bytes.Contains(body, []byte("must-not-leave")) || bytes.Contains(body, []byte("private")) || bytes.Contains(body, []byte("test-browser")) ||
+			bytes.Contains(body, []byte("192.0.2.1")) || bytes.Contains(body, []byte("198.51.100.77")) || bytes.Contains(body, []byte("provider-spoof")) {
 			t.Fatalf("raw request data left adapter: %s", body)
 		}
 		if !bytes.Contains(body, []byte(`"evaluation_cohort":"reduced_motion"`)) {
 			t.Fatalf("closed evaluation cohort missing: %s", body)
+		}
+		for _, expected := range [][]byte{[]byte(`"transport_protocol":"http1"`), []byte(`"transport_security":"direct_tls"`), []byte(`"client_address_source":"direct"`)} {
+			if !bytes.Contains(body, expected) {
+				t.Fatalf("normalized transport field %s missing: %s", expected, body)
+			}
 		}
 	}
 }

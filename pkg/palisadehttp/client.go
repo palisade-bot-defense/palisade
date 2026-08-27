@@ -31,6 +31,7 @@ type Middleware struct {
 	logger       *slog.Logger
 	now          func() time.Time
 	state        *boundedState
+	transport    transportNormalizer
 }
 
 type apiStatusError struct {
@@ -89,6 +90,10 @@ func New(config Config) (*Middleware, error) {
 	if config.Logger == nil {
 		config.Logger = slog.Default()
 	}
+	transport, err := newTransportNormalizer(config)
+	if err != nil {
+		return nil, err
+	}
 	client := http.DefaultClient
 	if config.HTTPClient != nil {
 		clone := *config.HTTPClient
@@ -114,7 +119,7 @@ func New(config Config) (*Middleware, error) {
 		baseURL: baseURL, apiKey: config.APIKey, client: client, classifier: config.Classifier, signals: config.Signals,
 		failureMode: config.FailureMode, prefix: config.Prefix, fallbackPath: config.FallbackPath,
 		logger: config.Logger, now: time.Now,
-		state: state,
+		state: state, transport: transport,
 	}, nil
 }
 

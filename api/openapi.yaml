@@ -519,6 +519,18 @@ components:
           type: boolean
           description: Trusted deployment policy alert normalized to a boolean; clients must not set this directly.
         verified_bot: { type: boolean }
+        transport_protocol:
+          type: string
+          enum: [http1, http2, http3, unknown]
+          description: Closed protocol family normalized by the trusted origin adapter; never a raw protocol string.
+        transport_security:
+          type: string
+          enum: [direct_tls, trusted_proxy_tls, plaintext, unknown]
+          description: Closed transport-security class. Forwarded TLS metadata is accepted only from a configured trusted TCP peer.
+        client_address_source:
+          type: string
+          enum: [direct, trusted_proxy, invalid_trusted_proxy, unknown]
+          description: Provenance class only. PALISADE does not receive the client or proxy address.
     DecisionRequest:
       type: object
       additionalProperties: false

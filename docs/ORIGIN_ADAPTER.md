@@ -60,6 +60,34 @@ hits, closed challenge verdict, 0..1 external risk score, policy alert and
 verified beneficial-bot status. Values outside their documented bounds are
 rejected locally.
 
+The adapter itself owns three additional closed transport fields. Configure a
+trusted proxy only with explicit CIDRs and one supported single-address header:
+
+```go
+guard, err := palisadehttp.New(palisadehttp.Config{
+    // ...normal required settings...
+    TrustedProxyCIDRs: []string{"203.0.113.0/24"}, // replace with the proxy's published ranges
+    TrustedClientIPHeader: "CF-Connecting-IP",    // or X-Real-IP
+    TrustedProtoHeader: "X-Forwarded-Proto",
+})
+```
+
+`CF-Connecting-IP`, `X-Real-IP` and `X-Forwarded-Proto` are used only when the
+actual TCP peer in `RemoteAddr` belongs to `TrustedProxyCIDRs`. On a direct
+connection they are ignored, so a client cannot promote its own forwarding
+headers. Lists such as `X-Forwarded-For`, catch-all CIDRs and arbitrary header
+names are rejected. A malformed single-address header becomes only the closed
+`invalid_trusted_proxy` provenance class. PALISADE receives `http1|http2|http3`,
+`direct_tls|trusted_proxy_tls|plaintext|unknown` and
+`direct|trusted_proxy|invalid_trusted_proxy|unknown`; it never receives the
+parsed client or peer address. Keep proxy ranges current in deployment
+configuration and restart the adapter after an audited range update.
+Place the adapter before any application middleware that rewrites `RemoteAddr`;
+the trust check is valid only while `RemoteAddr` still represents the socket
+peer supplied by Go's HTTP server. For a trusted proxy,
+`X-Forwarded-Proto` describes the browser-to-proxy edge even when the
+proxy-to-origin hop also uses TLS.
+
 ## Challenge behavior
 
 Applied challenges on `GET` requests render an accessible same-origin page

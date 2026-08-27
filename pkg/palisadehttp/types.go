@@ -45,13 +45,16 @@ type Classification struct {
 }
 
 type Signals struct {
-	UserAgentPresent  bool    `json:"user_agent_present"`
-	BrowserEventCount int     `json:"browser_event_count"`
-	HoneypotHits      int     `json:"honeypot_hits"`
-	ChallengeVerdict  string  `json:"challenge_verdict,omitempty"`
-	ExternalRiskScore float64 `json:"external_risk_score,omitempty"`
-	PolicyAlert       bool    `json:"policy_alert"`
-	VerifiedBot       bool    `json:"verified_bot"`
+	UserAgentPresent    bool    `json:"user_agent_present"`
+	BrowserEventCount   int     `json:"browser_event_count"`
+	HoneypotHits        int     `json:"honeypot_hits"`
+	ChallengeVerdict    string  `json:"challenge_verdict,omitempty"`
+	ExternalRiskScore   float64 `json:"external_risk_score,omitempty"`
+	PolicyAlert         bool    `json:"policy_alert"`
+	VerifiedBot         bool    `json:"verified_bot"`
+	TransportProtocol   string  `json:"transport_protocol"`
+	TransportSecurity   string  `json:"transport_security"`
+	ClientAddressSource string  `json:"client_address_source"`
 }
 
 type Classifier func(*http.Request) (Classification, error)
@@ -72,6 +75,11 @@ type Config struct {
 	GrantTTL     time.Duration
 	PendingTTL   time.Duration
 	Logger       *slog.Logger
+	// TrustedProxyCIDRs authorizes only the direct TCP peers that may supply the
+	// two configured normalization headers. Raw addresses never leave the adapter.
+	TrustedProxyCIDRs     []string
+	TrustedClientIPHeader string
+	TrustedProtoHeader    string
 }
 
 func StaticClassification(action, endpointClass string) Classifier {

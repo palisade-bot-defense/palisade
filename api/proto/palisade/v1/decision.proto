@@ -21,6 +21,10 @@ message Observations {
   double external_risk_score = 5;
   bool policy_alert = 6;
   bool verified_bot = 7;
+  // Closed normalized classes only; no raw peer or client address is sent.
+  string transport_protocol = 8;
+  string transport_security = 9;
+  string client_address_source = 10;
 }
 
 message DecideRequest {
