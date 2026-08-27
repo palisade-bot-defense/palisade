@@ -32,11 +32,17 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		signals := Signals{UserAgentPresent: strings.TrimSpace(r.UserAgent()) != ""}
 		if m.signals != nil {
 			signals, err = m.signals(r)
-			if err != nil || !validSignals(signals) {
+			if err != nil {
 				m.logger.Error("PALISADE normalized signal provider failed")
 				writeAdapterError(w, http.StatusInternalServerError, "palisade_signals_failed")
 				return
 			}
+		}
+		signals.TransportProtocol, signals.TransportSecurity, signals.ClientAddressSource = m.transport.normalize(r)
+		if !validSignals(signals) {
+			m.logger.Error("PALISADE normalized signal provider failed")
+			writeAdapterError(w, http.StatusInternalServerError, "palisade_signals_failed")
+			return
 		}
 
 		cookie, incoming, err := m.sessionCookie(r)
@@ -145,6 +151,21 @@ func validClassification(classification Classification) bool {
 func validSignals(signals Signals) bool {
 	if signals.BrowserEventCount < 0 || signals.BrowserEventCount > 10_000 || signals.HoneypotHits < 0 || signals.HoneypotHits > 100 ||
 		math.IsNaN(signals.ExternalRiskScore) || math.IsInf(signals.ExternalRiskScore, 0) || signals.ExternalRiskScore < 0 || signals.ExternalRiskScore > 1 {
+		return false
+	}
+	switch signals.TransportProtocol {
+	case TransportProtocolHTTP1, TransportProtocolHTTP2, TransportProtocolHTTP3, TransportProtocolUnknown:
+	default:
+		return false
+	}
+	switch signals.TransportSecurity {
+	case TransportSecurityDirectTLS, TransportSecurityTrustedProxyTLS, TransportSecurityPlaintext, TransportSecurityUnknown:
+	default:
+		return false
+	}
+	switch signals.ClientAddressSource {
+	case ClientAddressSourceDirect, ClientAddressSourceTrustedProxy, ClientAddressSourceInvalidTrustedProxy, ClientAddressSourceUnknown:
+	default:
 		return false
 	}
 	switch signals.ChallengeVerdict {

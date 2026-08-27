@@ -35,6 +35,9 @@ type Observations struct {
 	ExternalRiskScore     float64 `json:"external_risk_score,omitempty"`
 	PolicyAlert           bool    `json:"policy_alert"`
 	VerifiedBot           bool    `json:"verified_bot"`
+	TransportProtocol     string  `json:"transport_protocol,omitempty"`
+	TransportSecurity     string  `json:"transport_security,omitempty"`
+	ClientAddressSource   string  `json:"client_address_source,omitempty"`
 	ServerSessionVerified bool    `json:"-"`
 	// BrowserEventsVerified is set only by a trusted in-process boundary after
 	// reading the server-side event store. A caller-supplied count must never

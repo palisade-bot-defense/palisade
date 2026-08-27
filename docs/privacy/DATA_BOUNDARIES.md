@@ -9,6 +9,8 @@ PALISADE should decide from behavior without reconstructing a person's content.
 - Visibility and navigation lifecycle transitions.
 - Sequence gaps and bounded session aggregates.
 - Server-side protocol consistency signals.
+- Closed transport protocol/security and client-address provenance classes;
+  never the peer, proxy or client address itself.
 - Random, server-issued session identifiers authenticated by an HttpOnly cookie; they are continuity handles, not identity claims.
 - Reason codes and normalized verdicts from challenge systems, external risk providers and policy-alert sources.
 - One closed, deployment-supplied evaluation cohort (`standard`, `reduced_motion`, `keyboard_only`, `fallback_path`, `sensor_missing`, `unknown`) used only for aggregate safety measurement.
@@ -19,6 +21,8 @@ PALISADE should decide from behavior without reconstructing a person's content.
 - DOM text, screenshots or canvas captures.
 - Exact pointer coordinates or full pointer trails.
 - Full URLs containing queries, fragments or embedded identifiers.
+- Raw client, proxy or peer IP addresses in decision observations or shadow
+  records.
 - Secret tokens in logs or replay fixtures.
 - Raw customer traffic in public issues, CI artifacts or the repository.
 

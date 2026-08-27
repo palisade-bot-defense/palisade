@@ -112,6 +112,27 @@ func TestDecisionRejectsFreeFormEvaluationCohort(t *testing.T) {
 	}
 }
 
+func TestDecisionRejectsFreeFormTransportClasses(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*core.Observations)
+	}{
+		{name: "protocol", mutate: func(observations *core.Observations) { observations.TransportProtocol = "raw-http-value" }},
+		{name: "security", mutate: func(observations *core.Observations) { observations.TransportSecurity = "forwarded-user-value" }},
+		{name: "address source", mutate: func(observations *core.Observations) { observations.ClientAddressSource = "198.51.100.7" }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			current := newTestEngine(t, core.RuntimeModeShadow)
+			request := highRiskRequest()
+			test.mutate(&request.Observations)
+			if _, err := current.Decide(context.Background(), request); !errors.Is(err, ErrInvalidRequest) {
+				t.Fatalf("free-form transport class error = %v", err)
+			}
+		})
+	}
+}
+
 func TestDecideAtRejectsProofEnforcement(t *testing.T) {
 	engine := newTestEngineWithProof(t, core.RuntimeModeShadow, true)
 	_, err := engine.DecideAt(context.Background(), highRiskRequest(), time.Unix(1_800_000_000, 0))

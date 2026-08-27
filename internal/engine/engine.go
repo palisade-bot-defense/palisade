@@ -178,12 +178,43 @@ func validateRequest(request core.DecisionRequest) error {
 	if _, valid := core.NormalizeEvaluationCohort(request.EvaluationCohort); !valid {
 		return ErrInvalidRequest
 	}
+	if !validTransportProtocol(request.Observations.TransportProtocol) || !validTransportSecurity(request.Observations.TransportSecurity) ||
+		!validClientAddressSource(request.Observations.ClientAddressSource) {
+		return ErrInvalidRequest
+	}
 	switch request.Observations.ChallengeVerdict {
 	case "", "suspicious", "failed", "blocked", "allowed", "passed", "unknown":
 	default:
 		return ErrInvalidRequest
 	}
 	return nil
+}
+
+func validTransportProtocol(value string) bool {
+	switch value {
+	case "", "http1", "http2", "http3", "unknown":
+		return true
+	default:
+		return false
+	}
+}
+
+func validTransportSecurity(value string) bool {
+	switch value {
+	case "", "direct_tls", "trusted_proxy_tls", "plaintext", "unknown":
+		return true
+	default:
+		return false
+	}
+}
+
+func validClientAddressSource(value string) bool {
+	switch value {
+	case "", "direct", "trusted_proxy", "invalid_trusted_proxy", "unknown":
+		return true
+	default:
+		return false
+	}
 }
 
 func newID() string {

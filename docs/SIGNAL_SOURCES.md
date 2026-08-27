@@ -12,6 +12,7 @@ vendor payloads, headers and free text from silently becoming trusted features.
 | Bucketed browser behavior | `POST /v1/events` | Untrusted same-origin client plus one-time proof; server-side bounded event store is authoritative | Verified browser-event count and sequence consistency |
 | Server-issued session | `__Host-palisade_session` | PALISADE-signed HttpOnly cookie | Continuity only; never human identity |
 | Protocol presence | `user_agent_present` | Trusted origin observation | Automation consistency |
+| Transport normalization | `transport_protocol`, `transport_security`, `client_address_source` | Reference origin adapter plus explicit trusted-proxy CIDRs | Closed data-quality context; not scored until calibrated |
 | Honeypot interaction | `honeypot_hits` | Trusted origin adapter | Abuse intent |
 | Challenge result | `challenge_verdict` | Trusted challenge adapter | Suspicious automation only; pass is not human proof |
 | External score | `external_risk_score` | Trusted server-side adapter | Abuse intent, bounded to 0..1 |
