@@ -56,9 +56,13 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [session_id, action]
+              required: [action]
               properties:
-                session_id: { type: string, minLength: 8, maxLength: 128 }
+                session_id:
+                  type: string
+                  minLength: 8
+                  maxLength: 128
+                  description: Optional when a valid PALISADE session cookie is supplied; if both are present they must match.
                 action: { type: string, minLength: 1, maxLength: 80 }
                 ttl_seconds: { type: integer, minimum: 1, maximum: 300, default: 60 }
       responses:
@@ -418,9 +422,13 @@ components:
     DecisionRequest:
       type: object
       additionalProperties: false
-      required: [session_id, action, endpoint_class, sequence, observations]
+      required: [action, endpoint_class, sequence, observations]
       properties:
-        session_id: { type: string, minLength: 8, maxLength: 128 }
+        session_id:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Optional when a valid PALISADE session cookie is supplied; if both are present they must match.
         action: { type: string, minLength: 1, maxLength: 80 }
         endpoint_class: { type: string, minLength: 1, maxLength: 64 }
         sequence: { type: integer, minimum: 1 }

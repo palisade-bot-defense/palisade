@@ -141,6 +141,52 @@ func TestServerIssuedSessionCookieBindsDecisionContinuity(t *testing.T) {
 	}
 }
 
+func TestSignedCookieCanResolveSessionForTokenAndDecision(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+	cookies, err := sessioncookie.New(secret, sessioncookie.DefaultTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuedCookie, claims, err := cookies.Issue(time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := &recordingEngine{}
+	server := New(engine, tokens, "key", slog.Default()).WithSessionCookies(cookies, true)
+
+	issueProof := httptest.NewRequest(http.MethodPost, "/v1/token", bytes.NewBufferString(`{"action":"read","ttl_seconds":60}`))
+	issueProof.Header.Set("Authorization", "Bearer key")
+	issueProof.AddCookie(&issuedCookie)
+	proofResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(proofResponse, issueProof)
+	var proof struct {
+		Token string `json:"proof_token"`
+	}
+	if proofResponse.Code != http.StatusCreated || json.Unmarshal(proofResponse.Body.Bytes(), &proof) != nil || proof.Token == "" {
+		t.Fatalf("cookie-derived proof = %d %s", proofResponse.Code, proofResponse.Body.String())
+	}
+	if _, err := tokens.VerifyAndConsume(proof.Token, claims.SessionID, "read", time.Now().UTC()); err != nil {
+		t.Fatalf("proof was not bound to cookie session: %v", err)
+	}
+
+	decision := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+	decision.AddCookie(&issuedCookie)
+	decisionResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(decisionResponse, decision)
+	if decisionResponse.Code != http.StatusOK || engine.request.SessionID != claims.SessionID || !engine.request.Observations.ServerSessionVerified {
+		t.Fatalf("cookie-derived decision = %d request=%+v", decisionResponse.Code, engine.request)
+	}
+
+	missing := New(engine, tokens, "key", slog.Default()).WithSessionCookies(cookies, false)
+	missingRequest := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+	missingResponse := httptest.NewRecorder()
+	missing.Handler().ServeHTTP(missingResponse, missingRequest)
+	if missingResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("empty session without cookie = %d", missingResponse.Code)
+	}
+}
+
 func TestClientCannotClaimServerSessionVerification(t *testing.T) {
 	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
 	server := New(fakeEngine{}, tokens, "key", slog.Default())

@@ -191,11 +191,13 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_token_request")
 		return
 	}
-	if _, err := s.verifySession(r, request.SessionID, time.Now().UTC()); err != nil {
+	now := time.Now().UTC()
+	sessionID, _, err := s.resolveSession(r, request.SessionID, now)
+	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid_session")
 		return
 	}
-	raw, err := s.tokens.Issue(request.SessionID, request.Action, time.Duration(request.TTLSeconds)*time.Second, time.Now().UTC())
+	raw, err := s.tokens.Issue(sessionID, request.Action, time.Duration(request.TTLSeconds)*time.Second, now)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_token_request")
 		return
@@ -403,11 +405,12 @@ func (s *Server) evaluateDecision(w http.ResponseWriter, r *http.Request) (core.
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return core.DecisionRequest{}, core.Decision{}, false
 	}
-	verifiedSession, err := s.verifySession(r, request.SessionID, now)
+	sessionID, verifiedSession, err := s.resolveSession(r, request.SessionID, now)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid_session")
 		return core.DecisionRequest{}, core.Decision{}, false
 	}
+	request.SessionID = sessionID
 	request.Observations.ServerSessionVerified = verifiedSession
 	if s.events != nil {
 		if observed := s.events.Count(request.SessionID, now); observed > request.Observations.BrowserEventCount {
@@ -503,21 +506,26 @@ func (s *Server) handleOutcome(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) verifySession(r *http.Request, expectedSessionID string, now time.Time) (bool, error) {
+	_, verified, err := s.resolveSession(r, expectedSessionID, now)
+	return verified, err
+}
+
+func (s *Server) resolveSession(r *http.Request, expectedSessionID string, now time.Time) (string, bool, error) {
 	cookie, err := r.Cookie(sessioncookie.CookieName)
 	if errors.Is(err, http.ErrNoCookie) {
-		if s.requireSession {
-			return false, sessioncookie.ErrInvalidCookie
+		if s.requireSession || expectedSessionID == "" {
+			return "", false, sessioncookie.ErrInvalidCookie
 		}
-		return false, nil
+		return expectedSessionID, false, nil
 	}
 	if err != nil || s.sessionCookies == nil {
-		return false, sessioncookie.ErrInvalidCookie
+		return "", false, sessioncookie.ErrInvalidCookie
 	}
 	claims, err := s.sessionCookies.Verify(cookie.Value, now)
-	if err != nil || claims.SessionID != expectedSessionID {
-		return false, sessioncookie.ErrInvalidCookie
+	if err != nil || (expectedSessionID != "" && claims.SessionID != expectedSessionID) {
+		return "", false, sessioncookie.ErrInvalidCookie
 	}
-	return true, nil
+	return claims.SessionID, true, nil
 }
 
 func (s *Server) authorized(r *http.Request) bool {

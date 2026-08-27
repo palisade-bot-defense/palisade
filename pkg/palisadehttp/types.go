@@ -1,0 +1,80 @@
+// Package palisadehttp provides reference net/http middleware for PALISADE.
+// It sends only closed, normalized fields to the PALISADE service and never
+// forwards an application request body, URL or query string.
+package palisadehttp
+
+import (
+	"errors"
+	"log/slog"
+	"net/http"
+	"time"
+)
+
+const (
+	SessionCookieName    = "__Host-palisade_session"
+	RedemptionCookieName = "__Host-palisade_redemption"
+	PendingCookieName    = "__Host-palisade_pending"
+	DefaultPrefix        = "/__palisade"
+	DefaultMaxSessions   = 100_000
+	DefaultMaxGrants     = 100_000
+	DefaultStateTTL      = 10 * time.Minute
+	DefaultGrantTTL      = 30 * time.Second
+	DefaultPendingTTL    = 15 * time.Minute
+)
+
+var (
+	ErrInvalidConfig         = errors.New("invalid PALISADE HTTP adapter configuration")
+	ErrInvalidClassification = errors.New("invalid PALISADE request classification")
+	ErrInvalidSignals        = errors.New("invalid PALISADE normalized signals")
+	ErrStateCapacity         = errors.New("PALISADE adapter state capacity exceeded")
+	ErrInvalidPending        = errors.New("invalid PALISADE pending challenge")
+	ErrInvalidResponse       = errors.New("invalid PALISADE service response")
+)
+
+type FailureMode string
+
+const (
+	FailOpen   FailureMode = "fail_open"
+	FailClosed FailureMode = "fail_closed"
+)
+
+type Classification struct {
+	Action        string
+	EndpointClass string
+}
+
+type Signals struct {
+	UserAgentPresent  bool    `json:"user_agent_present"`
+	BrowserEventCount int     `json:"browser_event_count"`
+	HoneypotHits      int     `json:"honeypot_hits"`
+	ChallengeVerdict  string  `json:"challenge_verdict,omitempty"`
+	ExternalRiskScore float64 `json:"external_risk_score,omitempty"`
+	PolicyAlert       bool    `json:"policy_alert"`
+	VerifiedBot       bool    `json:"verified_bot"`
+}
+
+type Classifier func(*http.Request) (Classification, error)
+type SignalProvider func(*http.Request) (Signals, error)
+
+type Config struct {
+	BaseURL      string
+	APIKey       string
+	HTTPClient   *http.Client
+	Classifier   Classifier
+	Signals      SignalProvider
+	FailureMode  FailureMode
+	Prefix       string
+	FallbackPath string
+	MaxSessions  int
+	MaxGrants    int
+	StateTTL     time.Duration
+	GrantTTL     time.Duration
+	PendingTTL   time.Duration
+	Logger       *slog.Logger
+}
+
+func StaticClassification(action, endpointClass string) Classifier {
+	return func(*http.Request) (Classification, error) {
+		return Classification{Action: action, EndpointClass: endpointClass}, nil
+	}
+}

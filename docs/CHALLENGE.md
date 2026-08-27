@@ -28,8 +28,8 @@ X-Palisade-Challenge-ID: <32-character identifier>
 Location: /v1/challenge/<identifier>
 ```
 
-The deployment adapter then performs this same-origin sequence while forwarding
-the PALISADE session cookie:
+The included Go [`palisadehttp`](../pkg/palisadehttp) middleware implements this
+same-origin sequence while forwarding the PALISADE session cookie:
 
 1. `GET /v1/challenge/{id}` returns closed metadata, `ready_at`, `expires_at`,
    remaining attempts and a signed verification token.
@@ -39,15 +39,16 @@ the PALISADE session cookie:
 3. Before the redemption expiry, the adapter calls
    `POST /v1/challenge/redeem` with the original closed `action` and
    `endpoint_class`.
-4. A `204` plus `X-Palisade-Challenge: redeemed` authorizes the adapter to
-   continue exactly one request matching that local origin flow. The token
-   cannot be replayed or moved to another PALISADE session, action or endpoint
-   class.
+4. A `204` plus `X-Palisade-Challenge: redeemed` authorizes exactly one retry
+   matching the original method, escaped path, raw query, action and endpoint
+   class. The reference adapter binds this locally with a process-random HMAC;
+   it never stores or sends the raw request target. A mismatched request neither
+   passes nor consumes the grant.
 
 Do not put an original URL, query string, request body, cookie or upstream token
 in any challenge request. PALISADE intentionally does not store a return URL.
-The origin owns the mapping from the completed capability to its pending
-request and must bound and expire that mapping independently.
+Custom origins own this same bounded mapping. The reference adapter limits
+pending challenges and retry grants, expires both, and loses them on restart.
 
 Example verification bodies:
 
@@ -100,6 +101,11 @@ single-instance baseline. Multi-instance deployment requires a shared,
 atomic, TTL-aware state implementation with the same one-time semantics before
 traffic is spread across replicas; adding a general database or cache is not a
 baseline requirement.
+
+The reference UI is served below `/__palisade`, uses a restrictive CSP, is
+keyboard-operable and nonvisual, and reloads the current browser location only
+after successful redemption. Only challenged `GET` requests receive this page;
+unsafe methods are never buffered or replayed. See [ORIGIN_ADAPTER.md](ORIGIN_ADAPTER.md).
 
 ## Stable HTTP errors
 

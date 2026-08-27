@@ -32,7 +32,7 @@ with `POST /v1/token`, then submits a normalized decision request:
 ```json
 {
   "session_id": "session-12345678",
-  "action": "read_public_content",
+  "action": "read",
   "endpoint_class": "public_content",
   "sequence": 42,
   "proof_token": "server-issued-one-time-proof",
@@ -142,4 +142,6 @@ For an enforcing integration, call `POST /v1/origin-check` instead of
 `/v1/decision`. It evaluates and records the same closed request exactly once,
 then returns only `204 pass`, `429 throttle`, or `403 challenge/block` with
 bounded `X-Palisade-*` headers. Risky results are possible only under a valid
-operator-signed rollout. See [signed rollout and rollback](ROLLOUT.md).
+operator-signed rollout. Go applications can use the checked reference
+[`palisadehttp`](../pkg/palisadehttp) middleware described in
+[ORIGIN_ADAPTER.md](ORIGIN_ADAPTER.md). See [signed rollout and rollback](ROLLOUT.md).
