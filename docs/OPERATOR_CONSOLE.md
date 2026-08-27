@@ -23,6 +23,7 @@ uses a constant-time bearer comparison and sends `Cache-Control: no-store`.
 - process uptime and configured runtime, policy, model and rollout identifiers;
 - accepted event batches and bounded event counts;
 - computed and enforced action counters;
+- bounded aggregate reason-code counts explaining why decisions were reached;
 - successful encrypted decision/outcome writes and explicit drop counters;
 - whether the encrypted sink and event-triggered shadow evaluation are active;
 - an optional aggregate v3 analysis report with linked endpoint/cohort Wilson
@@ -37,6 +38,13 @@ challenge completion only from uniquely linked decision/outcome evidence. Empty
 denominators display as `no sample`; ambiguous, unresolved and mismatched
 evidence stays visible rather than being treated as success. Canary differences
 remain descriptive, not causal.
+
+The control center exposes only real tab-local controls: manual refresh,
+bounded polling intervals, pause/resume and lock. It also shows the effective
+runtime mode, rollout ID and activation authority. It cannot edit detector
+weights, sign a plan or activate enforcement. Aggregate reason-code counts are
+deduplicated per decision, limited to 64 stable codes and sorted by frequency;
+they explain system behavior without disclosing an individual request trail.
 
 ## Loading analysis
 

@@ -35,7 +35,7 @@ type Summary = {
   uptime_seconds: number;
   runtime: { mode: string; rollout_id?: string; policy_version: string; model_version: string };
   capabilities: { shadow_log: boolean; event_shadow: boolean; analysis_report: boolean };
-  traffic: { accepted_event_batches: number; accepted_events: number; decisions: number; origin_checks: number; enforced: ActionCounts; computed: ActionCounts };
+  traffic: { accepted_event_batches: number; accepted_events: number; decisions: number; origin_checks: number; enforced: ActionCounts; computed: ActionCounts; reasons: { code: string; count: number }[] };
   recording: { decisions: number; outcomes: number; dropped: number; event_shadow_dropped: number };
   analysis_status: { state: "not_configured" | "ready" | "invalid_update"; loaded_at: string | null; last_attempt_at: string | null };
   analysis: Analysis | null;
@@ -47,6 +47,33 @@ const formatPercent = (value: number) => new Intl.NumberFormat(undefined, { styl
 export const formatInterval = (value: Proportion) => value.total === 0 ? "no sample" : `${formatPercent(value.rate)} · 95% ${formatPercent(value.lower_95)}–${formatPercent(value.upper_95)}`;
 export const countComparableCanaries = (values: { comparable: boolean }[]) => values.filter((value) => value.comparable).length;
 const formatDuration = (seconds: number) => seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m` : `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+const reasonCopy: Record<string, string> = {
+  BASELINE_LOW_RISK: "No configured risk threshold matched.",
+  STEP_UP_REQUIRED: "Policy recommends a reversible verification step.",
+  ELEVATED_RISK: "Signals crossed the observation threshold.",
+  HIGH_RISK: "Multiple or high-confidence signals crossed the high-risk threshold.",
+  PUBLIC_CONTENT_HIGH_RISK: "Public-content policy limited the response to progressive friction.",
+  MULTI_SOURCE_ABUSE: "Independent policy and decoy signals agreed.",
+  SHADOW_ACTION_OVERRIDDEN: "A risky computed action was safely reduced in shadow mode.",
+  NAVIGATION_SURFACE_SWEEP: "A session crossed many closed endpoint classes unusually quickly.",
+  HONEYPOT_INTERACTION: "A trusted origin adapter reported interaction with a decoy surface.",
+  COMPARE_NOINDEX_CAMPAIGN_SURFACE: "The request reached a public comparison surface associated with the configured campaign pattern.",
+  POLICY_ALERT: "A trusted deployment policy adapter reported elevated abuse intent.",
+  EXTERNAL_RISK: "A trusted external adapter contributed a normalized risk signal.",
+  CHALLENGE_VERDICT_SUSPICIOUS: "A trusted challenge adapter reported a suspicious outcome.",
+  VERIFIED_BOT_IDENTITY: "A trusted origin adapter verified the declared automation identity.",
+  VERIFIED_AUTOMATION_ALLOWED: "Verified automation remained below the intent and continuity risk thresholds.",
+  SERVER_SESSION_VERIFIED: "The server observed a valid first-party session continuity signal.",
+  BROWSER_PROTOCOL_CONTRADICTION: "Browser claims conflicted with the protocol behavior observed by the trusted origin.",
+  BROWSER_SEQUENCE_PRESENT: "Bounded browser-event sequencing was present for the session.",
+  SEQUENCE_GAP_HIGH: "The server observed unusually large gaps in the bounded event sequence.",
+  SESSION_SEQUENCE_STABLE: "The bounded session sequence progressed without suspicious gaps.",
+  SESSION_BURST: "The session produced a short request burst above the conservative baseline.",
+  SESSION_BURST_FAST: "A session produced a high request volume in a short window.",
+  SESSION_VOLUME_HIGH: "A session crossed the conservative volume threshold.",
+  UA_MISSING: "The trusted origin observed no User-Agent header.",
+};
+export const explainReason = (code: string) => reasonCopy[code] ?? "Stable detector or policy reason; inspect the matching versioned rule before changing enforcement.";
 
 function StatusPill({ enabled, children }: { enabled: boolean; children: ReactNode }) {
   return <span className={`status-pill ${enabled ? "on" : "off"}`}><i />{children}</span>;
@@ -57,6 +84,9 @@ export function App() {
   const [loadState, setLoadState] = useState<LoadState>("locked");
   const [adminKey, setAdminKey] = useState("");
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [refreshSeconds, setRefreshSeconds] = useState(10);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshWarning, setRefreshWarning] = useState(false);
 
   const comparableCanaries = countComparableCanaries(summary?.analysis?.canary_comparisons ?? []);
 
@@ -82,17 +112,26 @@ export function App() {
       }
       if (!response.ok) throw new Error("summary unavailable");
       setSummary(await response.json() as Summary);
+      setRefreshWarning(false);
       setLoadState("ready");
     } catch {
-      setLoadState("error");
+      setSummary((current) => {
+        if (current) {
+          setRefreshWarning(true);
+          setLoadState("ready");
+        } else {
+          setLoadState("error");
+        }
+        return current;
+      });
     }
   }, []);
 
   useEffect(() => {
-    if (loadState !== "ready" || !adminKey) return;
-    const timer = window.setInterval(() => void refresh(adminKey), 10_000);
+    if (loadState !== "ready" || !adminKey || !autoRefresh) return;
+    const timer = window.setInterval(() => void refresh(adminKey), refreshSeconds * 1_000);
     return () => window.clearInterval(timer);
-  }, [adminKey, loadState, refresh]);
+  }, [adminKey, autoRefresh, loadState, refresh, refreshSeconds]);
 
   function connect(event: FormEvent) {
     event.preventDefault();
@@ -105,13 +144,16 @@ export function App() {
     setLoadState("locked");
   }
 
+  const generatedAt = summary ? new Date(summary.generated_at) : null;
+  const stale = generatedAt ? Date.now() - generatedAt.getTime() > Math.max(30_000, refreshSeconds * 3_000) : false;
+
   return (
     <main>
       <header>
         <img src="/palisade-horizontal.svg" alt="PALISADE" />
         <nav>
           <span className={`health ${health}`}><i /> runtime {health}</span>
-          {loadState === "ready" && <button className="text-button" onClick={lock}>Lock console</button>}
+          {loadState === "ready" && <><button className="text-button" onClick={() => void refresh(adminKey)}>Refresh now</button><button className="text-button" onClick={lock}>Lock console</button></>}
         </nav>
       </header>
 
@@ -135,12 +177,17 @@ export function App() {
         </section>
       ) : (
         <>
+          <div className={`connection-banner ${refreshWarning || stale ? "warning" : "ok"}`} role="status" aria-live="polite">
+            <span>{refreshWarning ? "Refresh failed — showing the last valid summary." : stale ? "Summary is stale — verify the local service." : "Live aggregate telemetry connected."}</span>
+            <b>{generatedAt ? generatedAt.toLocaleString() : "No timestamp"}</b>
+          </div>
           <section className="console-heading">
             <div><p className="eyebrow">OPERATOR OVERVIEW</p><h1>Shadow evidence,<br /><em>without raw traffic.</em></h1></div>
             <div className="runtime-badges">
               <StatusPill enabled={summary.runtime.mode === "shadow"}>{summary.runtime.mode} mode</StatusPill>
               <StatusPill enabled={summary.capabilities.shadow_log}>encrypted log</StatusPill>
               <StatusPill enabled={summary.capabilities.event_shadow}>event analysis</StatusPill>
+              <StatusPill enabled={summary.capabilities.analysis_report}>aggregate report</StatusPill>
             </div>
           </section>
 
@@ -157,6 +204,15 @@ export function App() {
               <div className="action-table">
                 <div className="table-head"><span>Action</span><span>Computed</span><span>Enforced</span></div>
                 {actionNames.map((action) => <div className="action-row" key={action}><b className={action}>{action}</b><strong>{formatNumber(summary.traffic.computed[action])}</strong><strong>{formatNumber(summary.traffic.enforced[action])}</strong></div>)}
+              </div>
+              <div className="reason-list">
+                <div className="subsection-title"><div><p className="eyebrow">DECISION EXPLANATIONS</p><h3>Why PALISADE decided</h3></div><span>aggregate · no request rows</span></div>
+                {(summary.traffic.reasons ?? []).length > 0 ? (summary.traffic.reasons ?? []).slice(0, 8).map((reason) => (
+                  <details className="reason-item" key={reason.code}>
+                    <summary><code>{reason.code}</code><strong>{formatNumber(reason.count)}</strong></summary>
+                    <p>{explainReason(reason.code)}</p>
+                  </details>
+                )) : <p className="inline-empty">No decision reasons recorded in this process yet.</p>}
               </div>
               <footer className="panel-footer"><span>{summary.runtime.policy_version}</span><span>{summary.runtime.model_version}</span></footer>
             </article>
@@ -195,7 +251,18 @@ export function App() {
             </article>
           </section>
 
-          <footer className="page-footer"><span>Updated {new Date(summary.generated_at).toLocaleTimeString()}</span><span>No raw records exposed · refreshes every 10 seconds</span></footer>
+          <section className="control-panel" aria-labelledby="control-title">
+            <div className="control-copy"><p className="eyebrow">CONTROL CENTER</p><h2 id="control-title">Operational controls, without unsafe shortcuts.</h2><p>These settings affect only this browser tab. Policy, canary and enforcement changes still require validated local reports and signed rollout artifacts.</p></div>
+            <div className="control-grid">
+              <label><span>Automatic refresh</span><select value={refreshSeconds} onChange={(event) => setRefreshSeconds(Number(event.target.value))} disabled={!autoRefresh}><option value={5}>Every 5 seconds</option><option value={10}>Every 10 seconds</option><option value={30}>Every 30 seconds</option><option value={60}>Every minute</option></select></label>
+              <div className="control-action"><span>Polling state</span><button type="button" className="secondary-button" onClick={() => setAutoRefresh((current) => !current)}>{autoRefresh ? "Pause auto-refresh" : "Resume auto-refresh"}</button></div>
+              <div className="control-action"><span>Latest aggregate</span><button type="button" className="primary-button" onClick={() => void refresh(adminKey)}>Refresh now</button></div>
+              <div className="control-action danger-zone"><span>Console credential</span><button type="button" className="secondary-button" onClick={lock}>Lock console</button></div>
+            </div>
+            <dl className="runtime-contract"><div><dt>Runtime mode</dt><dd>{summary.runtime.mode}</dd></div><div><dt>Rollout</dt><dd>{summary.runtime.rollout_id || "none loaded"}</dd></div><div><dt>Activation authority</dt><dd>signed rollout only</dd></div><div><dt>Automatic enforcement</dt><dd>{summary.analysis?.readiness.automatic_enforcement ? "reported enabled" : "disabled"}</dd></div></dl>
+          </section>
+
+          <footer className="page-footer"><span>Updated {generatedAt?.toLocaleTimeString()}</span><span>No raw records exposed · {autoRefresh ? `refreshes every ${refreshSeconds} seconds` : "auto-refresh paused"}</span></footer>
         </>
       )}
     </main>
