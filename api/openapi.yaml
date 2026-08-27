@@ -25,6 +25,20 @@ paths:
       responses:
         "200":
           description: Process is ready.
+  /v1/admin/summary:
+    get:
+      summary: Read privacy-limited operator aggregates
+      description: Available only on the separate loopback administrative listener. The public decision listener does not register this route.
+      operationId: adminSummary
+      security:
+        - adminBearer: []
+      responses:
+        "200":
+          description: Process-local counters and an optional validated aggregate shadow-analysis report. No row-level records or identifiers are included.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSummary" }
+        "401": { $ref: "#/components/responses/Error" }
   /v1/session:
     post:
       summary: Issue a server-bound continuity cookie
@@ -282,6 +296,10 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
+    adminBearer:
+      type: http
+      scheme: bearer
+      description: Distinct PALISADE_ADMIN_KEY accepted only by the loopback administrative listener.
     eventProof:
       type: apiKey
       in: header
@@ -301,6 +319,67 @@ components:
             properties:
               error: { type: string }
   schemas:
+    ActionCounts:
+      type: object
+      additionalProperties: false
+      required: [allow, observe, throttle, challenge, block]
+      properties:
+        allow: { type: integer, minimum: 0 }
+        observe: { type: integer, minimum: 0 }
+        throttle: { type: integer, minimum: 0 }
+        challenge: { type: integer, minimum: 0 }
+        block: { type: integer, minimum: 0 }
+    AdminSummary:
+      type: object
+      additionalProperties: false
+      required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, analysis]
+      properties:
+        schema_version: { type: string, const: palisade.admin-summary.v1 }
+        generated_at: { type: string, format: date-time }
+        uptime_seconds: { type: integer, minimum: 0 }
+        runtime:
+          type: object
+          additionalProperties: false
+          required: [mode, policy_version, model_version]
+          properties:
+            mode: { type: string, enum: [shadow, canary, enforce] }
+            rollout_id: { type: string }
+            policy_version: { type: string }
+            model_version: { type: string }
+        capabilities:
+          type: object
+          additionalProperties: false
+          required: [shadow_log, event_shadow, analysis_report]
+          properties:
+            shadow_log: { type: boolean }
+            event_shadow: { type: boolean }
+            analysis_report: { type: boolean }
+        traffic:
+          type: object
+          additionalProperties: false
+          required: [accepted_event_batches, accepted_events, decisions, origin_checks, enforced, computed]
+          properties:
+            accepted_event_batches: { type: integer, minimum: 0 }
+            accepted_events: { type: integer, minimum: 0 }
+            decisions: { type: integer, minimum: 0 }
+            origin_checks: { type: integer, minimum: 0 }
+            enforced: { $ref: "#/components/schemas/ActionCounts" }
+            computed: { $ref: "#/components/schemas/ActionCounts" }
+        recording:
+          type: object
+          additionalProperties: false
+          required: [decisions, outcomes, dropped, event_shadow_dropped]
+          properties:
+            decisions: { type: integer, minimum: 0 }
+            outcomes: { type: integer, minimum: 0 }
+            dropped: { type: integer, minimum: 0 }
+            event_shadow_dropped: { type: integer, minimum: 0 }
+        analysis:
+          description: Validated palisade.shadow-analysis.v1 aggregate report, or null when no report was loaded. The report contains no row-level records.
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [schema_version, source, readiness, decisions, outcomes, scores, endpoints, top_reason_codes, policy_versions, model_versions, canary_rollouts, recommendations]
     Error:
       type: object
       additionalProperties: false

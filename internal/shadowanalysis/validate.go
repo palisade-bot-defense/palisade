@@ -10,17 +10,17 @@ import (
 
 var ErrInvalidReport = errors.New("invalid shadow analysis report")
 
-// ValidateForRollout checks the aggregate arithmetic and recomputes the
-// default readiness gate. A signed rollout must never trust a caller-supplied
-// readiness string without validating the measurements that produced it.
-func ValidateForRollout(report Report) error {
+// ValidateReport checks the aggregate arithmetic and recomputes the default
+// readiness gate. It is suitable for read-only presentation of reports that
+// are still collecting their first complete traffic cycle.
+func ValidateReport(report Report) error {
 	if report.SchemaVersion != SchemaVersion || report.Source.EncryptedBytes < 0 ||
 		report.Source.Decisions != report.Decisions.Total || report.Source.Outcomes != report.Outcomes.Total ||
 		!equalSum(report.Source.Records, report.Source.Decisions, report.Source.Outcomes) ||
 		(report.Source.Records > 0 && report.Source.Files == 0) {
 		return ErrInvalidReport
 	}
-	if !validSourceTimes(report.Source.FirstAt, report.Source.LastAt) || !sourceWindowAtLeast(report.Source.FirstAt, report.Source.LastAt, MinimumRolloutWindow) ||
+	if !validSourceTimes(report.Source.FirstAt, report.Source.LastAt) ||
 		!equalSum(report.Decisions.Total, report.Decisions.Enforced.Allow, report.Decisions.Enforced.Observe, report.Decisions.Enforced.Throttle, report.Decisions.Enforced.Challenge, report.Decisions.Enforced.Block) ||
 		!equalSum(report.Decisions.Total, report.Decisions.Computed.Allow, report.Decisions.Computed.Observe, report.Decisions.Computed.Throttle, report.Decisions.Computed.Challenge, report.Decisions.Computed.Block) ||
 		!equalSum(report.Decisions.Total, report.Decisions.Modes.Shadow, report.Decisions.Modes.Canary, report.Decisions.Modes.Enforce) ||
@@ -49,6 +49,16 @@ func ValidateForRollout(report Report) error {
 	if report.Readiness.State != expected.State || report.Readiness.OperatorAction != expected.OperatorAction ||
 		report.Readiness.AutomaticEnforcement != expected.AutomaticEnforcement || !slices.Equal(report.Readiness.ReasonCodes, expected.ReasonCodes) ||
 		!slices.Equal(report.Recommendations, expectedRecommendations) {
+		return ErrInvalidReport
+	}
+	return nil
+}
+
+// ValidateForRollout additionally requires a complete minimum observation
+// window. A signed rollout must never trust a caller-supplied readiness string
+// without validating the measurements that produced it.
+func ValidateForRollout(report Report) error {
+	if ValidateReport(report) != nil || !sourceWindowAtLeast(report.Source.FirstAt, report.Source.LastAt, MinimumRolloutWindow) {
 		return ErrInvalidReport
 	}
 	return nil
