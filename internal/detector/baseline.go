@@ -24,17 +24,29 @@ func (d ProtocolConsistency) Evaluate(_ context.Context, input core.DetectorInpu
 	if obs.BrowserEventCount >= 3 && obs.UserAgentPresent {
 		result = append(result, evidence("BROWSER_SEQUENCE_PRESENT", d.ID(), core.DimensionContinuity, core.DirectionBenign, .24, .64))
 	}
+	if obs.ServerSessionVerified {
+		// Cookie integrity links page views; it does not establish humanity or
+		// account identity and therefore affects continuity only.
+		result = append(result, evidence("SERVER_SESSION_VERIFIED", d.ID(), core.DimensionContinuity, core.DirectionBenign, .30, .95))
+	}
 	return result, nil
 }
 
 type SequenceVelocity struct{}
 
-func (SequenceVelocity) ID() string { return "sequence_velocity_v1" }
+func (SequenceVelocity) ID() string { return "sequence_velocity_v2" }
 
 func (d SequenceVelocity) Evaluate(_ context.Context, input core.DetectorInput) ([]core.Evidence, error) {
 	var result []core.Evidence
-	if input.Session.RequestCount > 40 {
-		result = append(result, evidence("SESSION_BURST", d.ID(), core.DimensionIntent, core.DirectionSuspicious, .7, .78))
+	// The evaluated offline export contains weak policy labels but no confirmed-human
+	// cohort. Volume therefore contributes conservative, explainable evidence
+	// instead of becoming a standalone high-confidence abuse decision.
+	if input.Session.RequestCount >= 100 {
+		result = append(result, evidence("SESSION_VOLUME_HIGH", d.ID(), core.DimensionIntent, core.DirectionSuspicious, .54, .58))
+	}
+	duration := input.Session.LastSeen.Sub(input.Session.FirstSeen)
+	if input.Session.RequestCount >= 50 && duration >= 0 && duration <= time.Minute {
+		result = append(result, evidence("SESSION_BURST_FAST", d.ID(), core.DimensionIntent, core.DirectionSuspicious, .56, .60))
 	}
 	if input.Session.MaxSequenceGap > 20 {
 		result = append(result, evidence("SEQUENCE_GAP_HIGH", d.ID(), core.DimensionAutomation, core.DirectionSuspicious, .56, .7))
@@ -49,28 +61,46 @@ func (d SequenceVelocity) Evaluate(_ context.Context, input core.DetectorInput) 
 	return result, nil
 }
 
+// CampaignSurface describes endpoint intent learned from an evaluated offline
+// export, not client identity. The noindex comparison surfaces were the narrow
+// target of a measured enumeration campaign, so they justify a reversible
+// step-up in shadow mode but never a standalone block or an identity claim.
+type CampaignSurface struct{}
+
+func (CampaignSurface) ID() string { return "campaign_surface_v1" }
+
+func (d CampaignSurface) Evaluate(_ context.Context, input core.DetectorInput) ([]core.Evidence, error) {
+	if input.Request.EndpointClass != "compare_noindex" {
+		return nil, nil
+	}
+	return []core.Evidence{
+		evidence("COMPARE_NOINDEX_CAMPAIGN_SURFACE", d.ID(), core.DimensionIntent, core.DirectionSuspicious, .51, .75),
+	}, nil
+}
+
 type ExternalVerdicts struct{}
 
-func (ExternalVerdicts) ID() string { return "external_verdicts_v1" }
+func (ExternalVerdicts) ID() string { return "external_verdicts_v2" }
 
 func (d ExternalVerdicts) Evaluate(_ context.Context, input core.DetectorInput) ([]core.Evidence, error) {
 	var result []core.Evidence
 	obs := input.Request.Observations
-	verdict := strings.ToLower(strings.TrimSpace(obs.AnubisVerdict))
+	verdict := strings.ToLower(strings.TrimSpace(obs.ChallengeVerdict))
 	switch verdict {
-	case "bot", "deny", "blocked", "challenge_failed":
-		result = append(result, evidence("ANUBIS_SUSPICIOUS", d.ID(), core.DimensionAutomation, core.DirectionSuspicious, .74, .78))
-	case "human", "allow", "passed":
-		result = append(result, evidence("ANUBIS_PASSED", d.ID(), core.DimensionAutomation, core.DirectionBenign, .2, .55))
+	case "suspicious", "failed", "blocked":
+		result = append(result, evidence("CHALLENGE_VERDICT_SUSPICIOUS", d.ID(), core.DimensionAutomation, core.DirectionSuspicious, .74, .78))
+	case "allowed", "passed", "unknown", "":
+		// A policy allow or solved proof-of-work is an outcome, not evidence of
+		// humanity. Browser automation can complete the same challenge.
 	}
-	if obs.CannaiScore > 0 {
-		result = append(result, evidence("CANNAI_RISK", d.ID(), core.DimensionIntent, core.DirectionSuspicious, clamp(obs.CannaiScore), .72))
+	if obs.ExternalRiskScore > 0 {
+		result = append(result, evidence("EXTERNAL_RISK", d.ID(), core.DimensionIntent, core.DirectionSuspicious, clamp(obs.ExternalRiskScore), .72))
 	}
-	if obs.CrowdSecAlert {
-		result = append(result, evidence("CROWDSEC_ALERT", d.ID(), core.DimensionIntent, core.DirectionSuspicious, .82, .86))
+	if obs.PolicyAlert {
+		result = append(result, evidence("POLICY_ALERT", d.ID(), core.DimensionIntent, core.DirectionSuspicious, .82, .86))
 	}
 	if obs.VerifiedBot {
-		result = append(result, evidence("VERIFIED_BOT_IDENTITY", d.ID(), core.DimensionIntent, core.DirectionBenign, .68, .92))
+		result = append(result, evidence("VERIFIED_BOT_IDENTITY", d.ID(), core.DimensionAutomation, core.DirectionBenign, .68, .92))
 	}
 	return result, nil
 }

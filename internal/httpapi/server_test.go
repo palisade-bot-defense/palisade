@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	"github.com/palisade-bot-defense/palisade/internal/events"
+	"github.com/palisade-bot-defense/palisade/internal/sessioncookie"
+	"github.com/palisade-bot-defense/palisade/internal/shadowlog"
 	"github.com/palisade-bot-defense/palisade/internal/token"
 )
 
@@ -27,6 +30,33 @@ func (e *recordingEngine) Decide(_ context.Context, request core.DecisionRequest
 	return core.Decision{DecisionID: "test", Action: core.ActionAllow, ExpiresAt: time.Now()}, nil
 }
 
+type contractEngine struct{}
+
+func (contractEngine) Decide(context.Context, core.DecisionRequest) (core.Decision, error) {
+	return core.Decision{
+		DecisionID:     "decision-contract",
+		Action:         core.ActionObserve,
+		ComputedAction: core.ActionBlock,
+		Mode:           core.RuntimeModeShadow,
+		ExpiresAt:      time.Unix(1_800_000_000, 0).UTC(),
+	}, nil
+}
+
+type recordingShadow struct {
+	decisions int
+	outcomes  []shadowlog.OutcomeRequest
+}
+
+func (r *recordingShadow) RecordDecision(core.DecisionRequest, core.Decision, time.Time) error {
+	r.decisions++
+	return nil
+}
+
+func (r *recordingShadow) RecordOutcome(request shadowlog.OutcomeRequest, _ time.Time) error {
+	r.outcomes = append(r.outcomes, request)
+	return nil
+}
+
 func TestDecisionRejectsUnknownFields(t *testing.T) {
 	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
 	server := New(fakeEngine{}, tokens, "key", slog.Default())
@@ -35,6 +65,82 @@ func TestDecisionRejectsUnknownFields(t *testing.T) {
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", response.Code)
+	}
+}
+
+func TestServerIssuedSessionCookieBindsDecisionContinuity(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+	cookies, err := sessioncookie.New(secret, sessioncookie.DefaultTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := &recordingEngine{}
+	server := New(engine, tokens, "key", slog.Default()).WithSessionCookies(cookies, true)
+
+	unauthorized := httptest.NewRequest(http.MethodPost, "/v1/session", nil)
+	unauthorizedResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(unauthorizedResponse, unauthorized)
+	if unauthorizedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthorized session issuance status = %d", unauthorizedResponse.Code)
+	}
+	withBody := httptest.NewRequest(http.MethodPost, "/v1/session", bytes.NewBufferString(`{}`))
+	withBody.Header.Set("Authorization", "Bearer key")
+	withBodyResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(withBodyResponse, withBody)
+	if withBodyResponse.Code != http.StatusBadRequest {
+		t.Fatalf("session issuance accepted a body: %d", withBodyResponse.Code)
+	}
+
+	issue := httptest.NewRequest(http.MethodPost, "/v1/session", nil)
+	issue.Header.Set("Authorization", "Bearer key")
+	issueResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(issueResponse, issue)
+	if issueResponse.Code != http.StatusCreated {
+		t.Fatalf("session issuance status = %d: %s", issueResponse.Code, issueResponse.Body.String())
+	}
+	issuedCookies := issueResponse.Result().Cookies()
+	if len(issuedCookies) != 1 || issuedCookies[0].Name != sessioncookie.CookieName || !issuedCookies[0].Secure || !issuedCookies[0].HttpOnly {
+		t.Fatalf("unsafe issued cookies: %+v", issuedCookies)
+	}
+	var issued struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := json.Unmarshal(issueResponse.Body.Bytes(), &issued); err != nil {
+		t.Fatal(err)
+	}
+	decision := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"session_id":"`+issued.SessionID+`","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+	decision.AddCookie(issuedCookies[0])
+	decisionResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(decisionResponse, decision)
+	if decisionResponse.Code != http.StatusOK || !engine.request.Observations.ServerSessionVerified {
+		t.Fatalf("verified session was not attached: status=%d request=%+v", decisionResponse.Code, engine.request)
+	}
+
+	mismatch := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"session_id":"different-session-id","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+	mismatch.AddCookie(issuedCookies[0])
+	mismatchResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(mismatchResponse, mismatch)
+	if mismatchResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("cookie/session mismatch status = %d", mismatchResponse.Code)
+	}
+
+	missing := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"session_id":"missing-cookie-session","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+	missingResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(missingResponse, missing)
+	if missingResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("required cookie missing status = %d", missingResponse.Code)
+	}
+}
+
+func TestClientCannotClaimServerSessionVerification(t *testing.T) {
+	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
+	server := New(fakeEngine{}, tokens, "key", slog.Default())
+	request := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"session_id":"abcdefgh","action":"read","endpoint_class":"public_content","sequence":1,"observations":{"server_session_verified":true}}`))
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("client-supplied server trust status = %d", response.Code)
 	}
 }
 
@@ -68,5 +174,51 @@ func TestEventProofIsOneTimeAndFeedsDecision(t *testing.T) {
 	server.Handler().ServeHTTP(decisionResponse, decision)
 	if decisionResponse.Code != http.StatusOK || engine.request.Observations.BrowserEventCount != 1 {
 		t.Fatalf("event count was not attached to decision: status=%d count=%d", decisionResponse.Code, engine.request.Observations.BrowserEventCount)
+	}
+}
+
+func TestDecisionJSONDistinguishesEnforcedAndComputedActions(t *testing.T) {
+	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
+	server := New(contractEngine{}, tokens, "key", slog.Default())
+	request := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"session_id":"abcdefgh","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["action"] != "observe" || body["computed_action"] != "block" || body["mode"] != "shadow" {
+		t.Fatalf("unexpected decision contract: %v", body)
+	}
+}
+
+func TestDecisionAndOutcomeReachShadowRecorder(t *testing.T) {
+	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
+	recorder := &recordingShadow{}
+	server := New(contractEngine{}, tokens, "key", slog.Default()).WithShadowRecorder(recorder)
+	decision := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"session_id":"session-12345678","action":"read","endpoint_class":"compare_noindex","sequence":1,"observations":{}}`))
+	decisionResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(decisionResponse, decision)
+	if decisionResponse.Code != http.StatusOK || recorder.decisions != 1 {
+		t.Fatalf("decision was not recorded: status=%d records=%d", decisionResponse.Code, recorder.decisions)
+	}
+
+	outcome := httptest.NewRequest(http.MethodPost, "/v1/outcome", bytes.NewBufferString(`{"session_id":"session-12345678","decision_id":"decision-contract","endpoint_class":"compare_noindex","outcome":"challenge_passed","provenance":"server_observed","confidence":"confirmed"}`))
+	outcome.Header.Set("Authorization", "Bearer key")
+	outcomeResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(outcomeResponse, outcome)
+	if outcomeResponse.Code != http.StatusAccepted || len(recorder.outcomes) != 1 || recorder.outcomes[0].Outcome != "challenge_passed" {
+		t.Fatalf("outcome was not recorded: status=%d records=%+v", outcomeResponse.Code, recorder.outcomes)
+	}
+
+	invalid := httptest.NewRequest(http.MethodPost, "/v1/outcome", bytes.NewBufferString(`{"session_id":"session-12345678","endpoint_class":"compare_noindex","outcome":"human_likely","provenance":"unknown","confidence":"unknown"}`))
+	invalid.Header.Set("Authorization", "Bearer key")
+	invalidResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(invalidResponse, invalid)
+	if invalidResponse.Code != http.StatusBadRequest {
+		t.Fatalf("unsupported outcome status = %d", invalidResponse.Code)
 	}
 }

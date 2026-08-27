@@ -11,6 +11,6 @@ Describe the defensive problem and the smallest change that addresses it.
 - [ ] No secrets, personal data or live production traffic included
 - [ ] Privacy boundaries preserved
 
-## License gate
+## Contribution gate
 
-Substantive code contributions cannot be accepted until the final project license and CLA are active. Design-only pull requests may be closed and continued in an issue.
+The project licenses are active: AGPL-3.0-only for the core and Apache-2.0 for the browser sensor. Substantive external code contributions cannot be accepted until the separate contributor agreement is active. Design-only pull requests may be closed and continued in an issue.

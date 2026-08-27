@@ -5,18 +5,22 @@ type Mode = "traffic" | "attack";
 
 const samples = {
   traffic: {
-    action: "ALLOW",
+    enforcedAction: "ALLOW",
+    computedAction: "ALLOW",
+    runtimeMode: "SHADOW",
     automation: 18,
     intent: 9,
     continuity: 91,
     reasons: ["browser_events_consistent", "sequence_stable", "no_external_alert"],
   },
   attack: {
-    action: "BLOCK",
+    enforcedAction: "OBSERVE",
+    computedAction: "BLOCK",
+    runtimeMode: "SHADOW",
     automation: 97,
     intent: 94,
     continuity: 22,
-    reasons: ["browser_claim_contradiction", "honeypot_hit", "anubis_bot", "crowdsec_alert"],
+    reasons: ["browser_claim_contradiction", "honeypot_hit", "challenge_verdict_suspicious", "policy_alert"],
   },
 } as const;
 
@@ -76,9 +80,9 @@ export function App() {
 
       <section className="decision-panel">
         <div className="verdict">
-          <p>Latest decision</p>
-          <strong className={sample.action.toLowerCase()}>{sample.action}</strong>
-          <span>{now} · shadow policy v0.1</span>
+          <p>Enforced action</p>
+          <strong className={sample.enforcedAction.toLowerCase()}>{sample.enforcedAction}</strong>
+          <span>computed {sample.computedAction} · {sample.runtimeMode} mode · {now}</span>
         </div>
         <div className="evidence">
           <div className="panel-title"><h2>Evidence trail</h2><span>{sample.reasons.length} signals</span></div>

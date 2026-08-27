@@ -28,13 +28,14 @@ type Evidence struct {
 }
 
 type Observations struct {
-	UserAgentPresent  bool    `json:"user_agent_present"`
-	BrowserEventCount int     `json:"browser_event_count"`
-	HoneypotHits      int     `json:"honeypot_hits"`
-	AnubisVerdict     string  `json:"anubis_verdict,omitempty"`
-	CannaiScore       float64 `json:"cannai_score,omitempty"`
-	CrowdSecAlert     bool    `json:"crowdsec_alert"`
-	VerifiedBot       bool    `json:"verified_bot"`
+	UserAgentPresent      bool    `json:"user_agent_present"`
+	BrowserEventCount     int     `json:"browser_event_count"`
+	HoneypotHits          int     `json:"honeypot_hits"`
+	ChallengeVerdict      string  `json:"challenge_verdict,omitempty"`
+	ExternalRiskScore     float64 `json:"external_risk_score,omitempty"`
+	PolicyAlert           bool    `json:"policy_alert"`
+	VerifiedBot           bool    `json:"verified_bot"`
+	ServerSessionVerified bool    `json:"-"`
 }
 
 type DecisionRequest struct {
@@ -76,13 +77,24 @@ const (
 	ActionBlock     Action = "block"
 )
 
+type RuntimeMode string
+
+const (
+	RuntimeModeShadow  RuntimeMode = "shadow"
+	RuntimeModeEnforce RuntimeMode = "enforce"
+)
+
+const ReasonShadowActionOverridden = "SHADOW_ACTION_OVERRIDDEN"
+
 type Decision struct {
-	DecisionID    string     `json:"decision_id"`
-	Action        Action     `json:"action"`
-	Scores        Scores     `json:"scores"`
-	ReasonCodes   []string   `json:"reason_codes"`
-	Evidence      []Evidence `json:"evidence"`
-	PolicyVersion string     `json:"policy_version"`
-	ModelVersion  string     `json:"model_version"`
-	ExpiresAt     time.Time  `json:"expires_at"`
+	DecisionID     string      `json:"decision_id"`
+	Action         Action      `json:"action"`
+	ComputedAction Action      `json:"computed_action"`
+	Mode           RuntimeMode `json:"mode"`
+	Scores         Scores      `json:"scores"`
+	ReasonCodes    []string    `json:"reason_codes"`
+	Evidence       []Evidence  `json:"evidence"`
+	PolicyVersion  string      `json:"policy_version"`
+	ModelVersion   string      `json:"model_version"`
+	ExpiresAt      time.Time   `json:"expires_at"`
 }

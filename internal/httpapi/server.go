@@ -9,12 +9,15 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+	"sync/atomic"
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/adminui"
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	decisionengine "github.com/palisade-bot-defense/palisade/internal/engine"
 	"github.com/palisade-bot-defense/palisade/internal/events"
+	"github.com/palisade-bot-defense/palisade/internal/sessioncookie"
+	"github.com/palisade-bot-defense/palisade/internal/shadowlog"
 	"github.com/palisade-bot-defense/palisade/internal/token"
 )
 
@@ -24,6 +27,11 @@ type DecisionEngine interface {
 	Decide(context.Context, core.DecisionRequest) (core.Decision, error)
 }
 
+type ShadowRecorder interface {
+	RecordDecision(core.DecisionRequest, core.Decision, time.Time) error
+	RecordOutcome(shadowlog.OutcomeRequest, time.Time) error
+}
+
 type Server struct {
 	engine            DecisionEngine
 	tokens            *token.Service
@@ -31,6 +39,10 @@ type Server struct {
 	logger            *slog.Logger
 	events            *events.Store
 	requireEventProof bool
+	sessionCookies    *sessioncookie.Service
+	requireSession    bool
+	shadowRecorder    ShadowRecorder
+	shadowDrops       atomic.Uint64
 }
 
 func New(engine DecisionEngine, tokens *token.Service, apiKey string, logger *slog.Logger) *Server {
@@ -47,6 +59,17 @@ func (s *Server) RequireEventProof(required bool) *Server {
 	return s
 }
 
+func (s *Server) WithSessionCookies(service *sessioncookie.Service, required bool) *Server {
+	s.sessionCookies = service
+	s.requireSession = required
+	return s
+}
+
+func (s *Server) WithShadowRecorder(recorder ShadowRecorder) *Server {
+	s.shadowRecorder = recorder
+	return s
+}
+
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) {
@@ -56,8 +79,10 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
 	mux.HandleFunc("POST /v1/token", s.handleToken)
+	mux.HandleFunc("POST /v1/session", s.handleSession)
 	mux.HandleFunc("POST /v1/events", s.handleEvents)
 	mux.HandleFunc("POST /v1/decision", s.handleDecision)
+	mux.HandleFunc("POST /v1/outcome", s.handleOutcome)
 	mux.Handle("GET /", adminui.Handler())
 	return s.recover(s.securityHeaders(mux))
 }
@@ -70,6 +95,10 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	var batch events.Batch
 	if err := decodeJSON(w, r, &batch); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if _, err := s.verifySession(r, batch.SessionID, time.Now().UTC()); err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid_session")
 		return
 	}
 	if s.requireEventProof {
@@ -88,6 +117,41 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
+	if !s.authorized(r) {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if err := requireEmptyBody(w, r); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_session_request")
+		return
+	}
+	if s.sessionCookies == nil {
+		writeError(w, http.StatusServiceUnavailable, "session_service_unavailable")
+		return
+	}
+	cookie, claims, err := s.sessionCookies.Issue(time.Now().UTC())
+	if err != nil {
+		s.logger.Error("session issuance failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "session_issue_failed")
+		return
+	}
+	http.SetCookie(w, &cookie)
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"session_id": claims.SessionID,
+		"expires_at": time.Unix(claims.ExpiresAt, 0).UTC(),
+	})
+}
+
+func requireEmptyBody(w http.ResponseWriter, r *http.Request) error {
+	r.Body = http.MaxBytesReader(w, r.Body, 1)
+	contents, err := io.ReadAll(r.Body)
+	if err != nil || len(contents) != 0 {
+		return errors.New("request body must be empty")
+	}
+	return nil
 }
 
 func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
@@ -111,6 +175,10 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_token_request")
 		return
 	}
+	if _, err := s.verifySession(r, request.SessionID, time.Now().UTC()); err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid_session")
+		return
+	}
 	raw, err := s.tokens.Issue(request.SessionID, request.Action, time.Duration(request.TTLSeconds)*time.Second, time.Now().UTC())
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_token_request")
@@ -125,6 +193,12 @@ func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
+	verifiedSession, err := s.verifySession(r, request.SessionID, time.Now().UTC())
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid_session")
+		return
+	}
+	request.Observations.ServerSessionVerified = verifiedSession
 	if s.events != nil {
 		if observed := s.events.Count(request.SessionID, time.Now().UTC()); observed > request.Observations.BrowserEventCount {
 			request.Observations.BrowserEventCount = observed
@@ -145,7 +219,58 @@ func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if s.shadowRecorder != nil {
+		if err := s.shadowRecorder.RecordDecision(request, decision, time.Now().UTC()); err != nil {
+			dropped := s.shadowDrops.Add(1)
+			if dropped == 1 || dropped%1024 == 0 {
+				s.logger.Warn("shadow record dropped", "dropped_total", dropped)
+			}
+		}
+	}
 	writeJSON(w, http.StatusOK, decision)
+}
+
+func (s *Server) handleOutcome(w http.ResponseWriter, r *http.Request) {
+	if !s.authorized(r) {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if s.shadowRecorder == nil {
+		writeError(w, http.StatusServiceUnavailable, "shadow_log_unavailable")
+		return
+	}
+	var request shadowlog.OutcomeRequest
+	if err := decodeJSON(w, r, &request); err != nil || request.Validate() != nil {
+		writeError(w, http.StatusBadRequest, "invalid_outcome")
+		return
+	}
+	if _, err := s.verifySession(r, request.SessionID, time.Now().UTC()); err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid_session")
+		return
+	}
+	if err := s.shadowRecorder.RecordOutcome(request, time.Now().UTC()); err != nil {
+		writeError(w, http.StatusServiceUnavailable, "shadow_log_unavailable")
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (s *Server) verifySession(r *http.Request, expectedSessionID string, now time.Time) (bool, error) {
+	cookie, err := r.Cookie(sessioncookie.CookieName)
+	if errors.Is(err, http.ErrNoCookie) {
+		if s.requireSession {
+			return false, sessioncookie.ErrInvalidCookie
+		}
+		return false, nil
+	}
+	if err != nil || s.sessionCookies == nil {
+		return false, sessioncookie.ErrInvalidCookie
+	}
+	claims, err := s.sessionCookies.Verify(cookie.Value, now)
+	if err != nil || claims.SessionID != expectedSessionID {
+		return false, sessioncookie.ErrInvalidCookie
+	}
+	return true, nil
 }
 
 func (s *Server) authorized(r *http.Request) bool {

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/offline-manifest-v1.schema.json",
+  "title": "PALISADE offline import manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "importer_version", "provenance", "config", "inputs", "shards", "totals", "warnings"],
+  "properties": {
+    "schema_version": { "const": "palisade.offline-manifest.v1" },
+    "importer_version": { "const": "offline-importer-v3" },
+    "provenance": { "const": "offline_export" },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shard_size", "max_line_bytes", "classifier_version", "pseudonymization", "domain_id", "anubis_peer_source", "sort_chunk_size", "max_decompressed_bytes", "max_input_records", "max_events", "max_shards", "max_output_bytes", "max_working_bytes"],
+      "properties": {
+        "shard_size": { "type": "integer", "minimum": 100, "maximum": 100000 },
+        "max_line_bytes": { "type": "integer", "minimum": 4096, "maximum": 8388608 },
+        "classifier_version": { "const": "closed-v2" },
+        "pseudonymization": { "const": "domain_daily_hmac_sha256_v2" },
+        "domain_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{16}$" },
+        "anubis_peer_source": { "enum": ["direct_peer_only", "trusted_x_real_ip"] },
+        "sort_chunk_size": { "type": "integer", "minimum": 2, "maximum": 250000 },
+        "max_decompressed_bytes": { "type": "integer", "minimum": 1 },
+        "max_input_records": { "type": "integer", "minimum": 1 },
+        "max_events": { "type": "integer", "minimum": 1 },
+        "max_shards": { "type": "integer", "minimum": 1, "maximum": 999999 },
+        "max_output_bytes": { "type": "integer", "minimum": 1 },
+        "max_working_bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/input" }
+    },
+    "shards": {
+      "type": "array",
+      "maxItems": 999999,
+      "items": { "$ref": "#/$defs/shard" }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["records", "invalid", "skipped", "events"],
+      "properties": {
+        "records": { "$ref": "#/$defs/count" },
+        "invalid": { "$ref": "#/$defs/count" },
+        "skipped": { "$ref": "#/$defs/count" },
+        "events": { "$ref": "#/$defs/count" }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string", "enum": [
+        "crowdsec labels are weak policy labels and are not ground truth",
+        "forwarded client addresses are ignored; direct peer identifiers are used only transiently",
+        "Anubis x-real-ip is trusted under an operator-asserted Cloudflare edge boundary and used only transiently"
+      ] }
+    }
+  },
+  "$defs": {
+    "count": { "type": "integer", "minimum": 0 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filename", "size_bytes", "sha256", "records", "invalid", "skipped"],
+      "properties": {
+        "filename": { "enum": ["access.log.gz", "anubis-strain.jsonl.gz", "crowdsec-alerts.json", "crowdsec-decisions.json", "error.log.gz"] },
+        "size_bytes": { "$ref": "#/$defs/count" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "records": { "$ref": "#/$defs/count" },
+        "invalid": { "$ref": "#/$defs/count" },
+        "skipped": { "$ref": "#/$defs/count" },
+        "first_observed_at": { "type": "string", "format": "date-time" },
+        "last_observed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "shard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filename", "records", "size_bytes", "sha256"],
+      "properties": {
+        "filename": { "type": "string", "pattern": "^events-[0-9]{6}\\.jsonl$" },
+        "records": { "$ref": "#/$defs/count" },
+        "size_bytes": { "$ref": "#/$defs/count" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}
