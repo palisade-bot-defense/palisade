@@ -2,7 +2,10 @@ package httpapi
 
 import (
 	"crypto/subtle"
+	"math"
 	"net/http"
+	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -43,6 +46,19 @@ type runtimeCounters struct {
 	recordedOutcomes  atomic.Uint64
 	enforced          actionCounters
 	computed          actionCounters
+	reasons           reasonCounters
+}
+
+const maxAdminReasonCodes = 64
+
+type reasonCounters struct {
+	mu     sync.Mutex
+	counts map[string]uint64
+}
+
+type CountedReason struct {
+	Code  string `json:"code"`
+	Count uint64 `json:"count"`
 }
 
 type AdminSummary struct {
@@ -77,6 +93,7 @@ type AdminTraffic struct {
 	OriginChecks         uint64                      `json:"origin_checks"`
 	Enforced             shadowanalysis.ActionCounts `json:"enforced"`
 	Computed             shadowanalysis.ActionCounts `json:"computed"`
+	Reasons              []CountedReason             `json:"reasons"`
 }
 
 type AdminRecording struct {
@@ -145,7 +162,7 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 		}
 	}
 	return AdminSummary{
-		SchemaVersion: "palisade.admin-summary.v4",
+		SchemaVersion: "palisade.admin-summary.v5",
 		GeneratedAt:   now,
 		UptimeSeconds: uptime,
 		Runtime: AdminRuntime{
@@ -158,7 +175,7 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 		Traffic: AdminTraffic{
 			AcceptedEventBatches: s.counters.eventBatches.Load(), AcceptedEvents: s.counters.events.Load(),
 			Decisions: s.counters.decisions.Load(), OriginChecks: s.counters.originChecks.Load(),
-			Enforced: s.counters.enforced.snapshot(), Computed: s.counters.computed.snapshot(),
+			Enforced: s.counters.enforced.snapshot(), Computed: s.counters.computed.snapshot(), Reasons: s.counters.reasons.snapshot(),
 		},
 		Recording: AdminRecording{
 			Decisions: s.counters.recordedDecisions.Load(), Outcomes: s.counters.recordedOutcomes.Load(),
@@ -182,6 +199,7 @@ func (s *Server) recordRuntimeDecision(decision core.Decision) {
 	s.counters.decisions.Add(1)
 	s.counters.enforced.increment(decision.Action)
 	s.counters.computed.increment(decision.ComputedAction)
+	s.counters.reasons.increment(decision.ReasonCodes)
 }
 
 func (c *actionCounters) increment(action core.Action) {
@@ -197,6 +215,58 @@ func (c *actionCounters) increment(action core.Action) {
 	case core.ActionBlock:
 		c.block.Add(1)
 	}
+}
+
+func (c *reasonCounters) increment(codes []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.counts == nil {
+		c.counts = make(map[string]uint64)
+	}
+	seen := make(map[string]struct{}, len(codes))
+	for _, code := range codes {
+		if !validAdminReason(code) {
+			continue
+		}
+		if _, duplicate := seen[code]; duplicate {
+			continue
+		}
+		seen[code] = struct{}{}
+		if _, exists := c.counts[code]; !exists && len(c.counts) >= maxAdminReasonCodes {
+			continue
+		}
+		if c.counts[code] < math.MaxUint64 {
+			c.counts[code]++
+		}
+	}
+}
+
+func (c *reasonCounters) snapshot() []CountedReason {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	result := make([]CountedReason, 0, len(c.counts))
+	for code, count := range c.counts {
+		result = append(result, CountedReason{Code: code, Count: count})
+	}
+	sort.Slice(result, func(left, right int) bool {
+		if result[left].Count != result[right].Count {
+			return result[left].Count > result[right].Count
+		}
+		return result[left].Code < result[right].Code
+	})
+	return result
+}
+
+func validAdminReason(value string) bool {
+	if len(value) < 3 || len(value) > 64 {
+		return false
+	}
+	for _, character := range value {
+		if (character < 'A' || character > 'Z') && (character < '0' || character > '9') && character != '_' {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *actionCounters) snapshot() shadowanalysis.ActionCounts {

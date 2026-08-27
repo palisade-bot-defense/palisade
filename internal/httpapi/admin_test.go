@@ -21,6 +21,7 @@ func TestAdminSurfaceIsSeparateAuthenticatedAndAggregateOnly(t *testing.T) {
 	decision := core.Decision{
 		DecisionID: "admin-counter-test", Action: core.ActionObserve, ComputedAction: core.ActionChallenge,
 		Mode: core.RuntimeModeShadow, ExpiresAt: time.Now().UTC().Add(time.Minute),
+		ReasonCodes: []string{"STEP_UP_REQUIRED", "HONEYPOT_INTERACTION", "STEP_UP_REQUIRED", "raw invalid"},
 	}
 	server := New(fixedEngine{decision: decision}, tokens, "api-key", slog.Default()).WithAdmin(AdminConfig{
 		Key: "admin-key", StartedAt: time.Now().UTC().Add(-time.Minute), Mode: core.RuntimeModeShadow,
@@ -62,7 +63,8 @@ func TestAdminSurfaceIsSeparateAuthenticatedAndAggregateOnly(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &summary); err != nil {
 		t.Fatal(err)
 	}
-	if summary.SchemaVersion != "palisade.admin-summary.v4" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Challenge != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" {
+	if summary.SchemaVersion != "palisade.admin-summary.v5" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Challenge != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" ||
+		len(summary.Traffic.Reasons) != 2 || summary.Traffic.Reasons[0].Code != "HONEYPOT_INTERACTION" || summary.Traffic.Reasons[0].Count != 1 || summary.Traffic.Reasons[1].Code != "STEP_UP_REQUIRED" || summary.Traffic.Reasons[1].Count != 1 {
 		t.Fatalf("unexpected aggregate summary: %+v", summary)
 	}
 	for _, forbidden := range []string{"session-12345678", "api-key", "admin-key", "proof_token", "decision_id"} {
