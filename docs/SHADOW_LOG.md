@@ -2,6 +2,38 @@
 
 The shadow sink is an optional, local-only measurement channel. It records PALISADE decisions and normalized delayed outcomes without placing raw requests, browser events or direct session identifiers on disk. It is disabled unless both `--shadow-log-dir` and `--shadow-log-key-file` are supplied.
 
+## Closing the sensor-only measurement loop
+
+`POST /v1/events` normally updates only the five-minute in-memory event store.
+For deployments that have a sensor but no origin decision stream yet, enable
+the server-trusted event shadow profile:
+
+```sh
+palisade serve \
+  --require-session-cookie \
+  --event-shadow-action read \
+  --event-shadow-endpoint-class public_content \
+  --shadow-log-dir /private/local/palisade-shadow/logs \
+  --shadow-log-key-file /private/local/palisade-shadow/shadow.key
+```
+
+Each authenticated, accepted batch then produces one internal shadow decision
+using its last event sequence and the fresh aggregate event count. The original
+event proof must be minted for `events`; PALISADE creates and consumes a second
+internal proof for the configured decision action. Neither proof reaches the
+recorder. The browser gets no decision body, scores or evidence.
+
+The `X-Palisade-Shadow-Evaluation` response header is `recorded` when the closed
+decision was queued and `dropped` when evaluation or queueing failed. The event
+response remains `202` in both cases because retrying an accepted batch would
+duplicate or reorder sequences. Drops are counted in process logs and must be
+included as measurement loss.
+
+This collection bridge requires the encrypted sink and signed session cookie.
+It rejects signed rollout configuration and therefore cannot enforce. Disable
+it before enabling the origin middleware or a rollout; otherwise flush-based
+and request-based decisions would double-count the same session.
+
 ## Data contract
 
 Decision records contain a keyed 128-bit session link, decision ID, allowlisted request-action class, normalized endpoint class, enforced and computed actions, runtime mode, three scores, bounded stable reason codes, and policy/model versions. Unknown or dynamic action strings are stored as `other`. Outcome records contain the same session link, optional PALISADE decision ID, normalized endpoint class, a closed outcome label, provenance and confidence. Record times are UTC and quantized to whole seconds.

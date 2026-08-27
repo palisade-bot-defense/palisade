@@ -23,6 +23,7 @@ enum EventKind {
 }
 
 message EventBatch {
+  // Optional on HTTP when a valid PALISADE session cookie is supplied.
   string session_id = 1;
   repeated BrowserEvent events = 2;
   string sensor_version = 3;

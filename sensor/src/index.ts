@@ -8,21 +8,22 @@ export interface SensorEvent {
 }
 
 export interface SensorBatch {
-  sessionId: string;
+  sessionId?: string;
   sensorVersion: string;
   events: SensorEvent[];
 }
 
 export interface SensorOptions {
   endpoint: string;
-  sessionId: string;
+  sessionId?: string;
   flushIntervalMs?: number;
   maxBatchSize?: number;
+  maxQueueSize?: number;
   fetchImpl?: typeof fetch;
-  proofProvider?: () => Promise<string>;
+  proofProvider?: (action: "events") => Promise<string>;
 }
 
-const SENSOR_VERSION = "0.1.0";
+const SENSOR_VERSION = "0.2.0";
 const TIME_BUCKET_MS = 25;
 const VALUE_BUCKET = 16;
 
@@ -31,7 +32,7 @@ function bucket(value: number, size: number): number {
 }
 
 export class PalisadeSensor {
-  readonly #options: Required<Pick<SensorOptions, "flushIntervalMs" | "maxBatchSize">> & SensorOptions;
+  readonly #options: Required<Pick<SensorOptions, "flushIntervalMs" | "maxBatchSize" | "maxQueueSize">> & SensorOptions;
   readonly #startedAt = performance.now();
   readonly #queue: SensorEvent[] = [];
   #sequence = 0;
@@ -39,10 +40,16 @@ export class PalisadeSensor {
   #lastPointerAt = 0;
   #lastScrollAt = 0;
   #abort: AbortController | undefined;
+  #inFlight: Promise<void> | undefined;
 
   constructor(options: SensorOptions) {
-    if (!options.endpoint || !options.sessionId) throw new Error("endpoint and sessionId are required");
-    this.#options = { flushIntervalMs: 2_000, maxBatchSize: 32, ...options };
+    if (!options.endpoint) throw new Error("endpoint is required");
+    this.#options = { flushIntervalMs: 15_000, maxBatchSize: 64, maxQueueSize: 256, ...options };
+    if (!Number.isInteger(this.#options.flushIntervalMs) || this.#options.flushIntervalMs < 15_000 || this.#options.flushIntervalMs > 300_000 ||
+      !Number.isInteger(this.#options.maxBatchSize) || this.#options.maxBatchSize < 1 || this.#options.maxBatchSize > 64 ||
+      !Number.isInteger(this.#options.maxQueueSize) || this.#options.maxQueueSize < this.#options.maxBatchSize || this.#options.maxQueueSize > 1_024) {
+      throw new Error("invalid sensor flush or queue bounds");
+    }
   }
 
   start(): this {
@@ -67,16 +74,34 @@ export class PalisadeSensor {
   }
 
   async flush(useBeacon = false): Promise<void> {
+    if (this.#inFlight) {
+      await this.#inFlight;
+      return;
+    }
+    const operation = this.#flushOnce(useBeacon);
+    this.#inFlight = operation;
+    try {
+      await operation;
+    } finally {
+      if (this.#inFlight === operation) this.#inFlight = undefined;
+    }
+  }
+
+  async #flushOnce(useBeacon: boolean): Promise<void> {
     if (this.#queue.length === 0) return;
     const events = this.#queue.splice(0, this.#options.maxBatchSize);
-    const payload: SensorBatch = { sessionId: this.#options.sessionId, sensorVersion: SENSOR_VERSION, events };
+    const payload: SensorBatch = {
+      ...(this.#options.sessionId ? { sessionId: this.#options.sessionId } : {}),
+      sensorVersion: SENSOR_VERSION,
+      events,
+    };
     const body = JSON.stringify(payload);
     // sendBeacon cannot attach the one-time proof header required in production.
     // When a proof provider exists, keepalive fetch is the only valid transport.
     if (useBeacon && !this.#options.proofProvider && navigator.sendBeacon?.(this.#options.endpoint, new Blob([body], { type: "application/json" }))) return;
     const request = this.#options.fetchImpl ?? fetch;
     try {
-      const proof = await this.#options.proofProvider?.();
+      const proof = await this.#options.proofProvider?.("events");
       const response = await request(this.#options.endpoint, {
         method: "POST",
         headers: { "content-type": "application/json", ...(proof ? { "x-palisade-proof": proof } : {}) },
@@ -84,20 +109,26 @@ export class PalisadeSensor {
         keepalive: true,
         credentials: "same-origin",
       });
-      if (!response.ok) this.#queue.unshift(...events);
+      if (!response.ok) this.#restore(events);
     } catch {
-      this.#queue.unshift(...events);
+      this.#restore(events);
     }
   }
 
+  #restore(events: SensorEvent[]): void {
+    this.#queue.unshift(...events);
+    if (this.#queue.length > this.#options.maxQueueSize) this.#queue.length = this.#options.maxQueueSize;
+  }
+
   #record(kind: SensorEventKind, valueBucket: number): void {
+    const sequence = ++this.#sequence;
+    if (this.#queue.length >= this.#options.maxQueueSize) return;
     this.#queue.push({
-      sequence: ++this.#sequence,
+      sequence,
       elapsedBucketMs: bucket(performance.now() - this.#startedAt, TIME_BUCKET_MS),
       kind,
       valueBucket,
     });
-    if (this.#queue.length >= this.#options.maxBatchSize) void this.flush();
   }
 
   #onPointer = (event: PointerEvent): void => {

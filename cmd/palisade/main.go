@@ -186,6 +186,8 @@ func serve(args []string) error {
 	shadowLogMaxAge := flags.Duration("shadow-log-max-age", shadowlog.DefaultMaxFileAge, "rotate shadow logs after this duration")
 	shadowLogRetention := flags.Duration("shadow-log-retention", shadowlog.DefaultRetention, "delete managed shadow logs older than this duration")
 	shadowLogQueue := flags.Int("shadow-log-queue", shadowlog.DefaultQueueSize, "bounded asynchronous shadow record queue")
+	eventShadowAction := flags.String("event-shadow-action", "", "server-trusted action for one shadow decision after each accepted event batch")
+	eventShadowEndpoint := flags.String("event-shadow-endpoint-class", "", "server-trusted endpoint class for event-triggered shadow decisions")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -201,6 +203,26 @@ func serve(args []string) error {
 	}
 	if (*shadowLogDir == "") != (*shadowLogKeyFile == "") {
 		return errors.New("--shadow-log-dir and --shadow-log-key-file must be configured together")
+	}
+	if (*eventShadowAction == "") != (*eventShadowEndpoint == "") {
+		return errors.New("--event-shadow-action and --event-shadow-endpoint-class must be configured together")
+	}
+	eventShadowEnabled := *eventShadowAction != ""
+	if eventShadowEnabled && *shadowLogDir == "" {
+		return errors.New("event shadow evaluation requires the encrypted shadow log")
+	}
+	if eventShadowEnabled && !*requireSessionCookie {
+		return errors.New("event shadow evaluation requires --require-session-cookie")
+	}
+	if eventShadowEnabled && *rolloutPlanPath != "" {
+		return errors.New("event shadow evaluation is shadow-only and cannot run with a signed rollout plan")
+	}
+	var eventShadowProfile httpapi.EventShadowProfile
+	if eventShadowEnabled {
+		eventShadowProfile, err = httpapi.NewEventShadowProfile(*eventShadowAction, *eventShadowEndpoint)
+		if err != nil {
+			return err
+		}
 	}
 	if *dev && (*rolloutPlanPath != "" || *rolloutPublicKeyPath != "") {
 		return errors.New("signed rollout plans require stable production secrets and cannot run with --dev")
@@ -256,6 +278,9 @@ func serve(args []string) error {
 	if shadowSink != nil {
 		api.WithShadowRecorder(shadowSink)
 	}
+	if eventShadowEnabled {
+		api.WithEventShadowEvaluation(eventShadowProfile)
+	}
 	server := &http.Server{
 		Addr:              *listen,
 		Handler:           api.Handler(),
@@ -282,7 +307,7 @@ func serve(args []string) error {
 	if rolloutController != nil {
 		rolloutID = rolloutController.Plan().RolloutID
 	}
-	logger.Info("PALISADE starting", "version", version, "listen", *listen, "dev", *dev, "mode", mode, "rollout_id", rolloutID, "require_session_cookie", *requireSessionCookie, "shadow_log", shadowSink != nil)
+	logger.Info("PALISADE starting", "version", version, "listen", *listen, "dev", *dev, "mode", mode, "rollout_id", rolloutID, "require_session_cookie", *requireSessionCookie, "shadow_log", shadowSink != nil, "event_shadow_evaluation", eventShadowEnabled)
 	if *dev {
 		logger.Warn("development mode active; proof tokens are not required")
 	}

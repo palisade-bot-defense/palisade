@@ -112,6 +112,28 @@ func TestServeRequiresBothShadowLogPaths(t *testing.T) {
 	}
 }
 
+func TestServeEventShadowEvaluationRequiresCompleteSafeConfiguration(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "paired profile", args: []string{"--dev", "--event-shadow-action", "read"}, want: "configured together"},
+		{name: "encrypted sink", args: []string{"--dev", "--event-shadow-action", "read", "--event-shadow-endpoint-class", "public_content", "--require-session-cookie"}, want: "encrypted shadow log"},
+		{name: "signed session", args: []string{"--dev", "--event-shadow-action", "read", "--event-shadow-endpoint-class", "public_content", "--shadow-log-dir", "synthetic", "--shadow-log-key-file", "synthetic-key"}, want: "require-session-cookie"},
+		{name: "closed profile", args: []string{"--dev", "--event-shadow-action", "unbounded", "--event-shadow-endpoint-class", "public_content", "--shadow-log-dir", "synthetic", "--shadow-log-key-file", "synthetic-key", "--require-session-cookie"}, want: "invalid event shadow evaluation profile"},
+		{name: "shadow only", args: []string{"--dev", "--event-shadow-action", "read", "--event-shadow-endpoint-class", "public_content", "--shadow-log-dir", "synthetic", "--shadow-log-key-file", "synthetic-key", "--require-session-cookie", "--rollout-plan", "synthetic-plan", "--rollout-public-key", "synthetic-public-key"}, want: "shadow-only"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := serve(test.args)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("serve error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
 func TestServeRejectsUnsignedEnforcement(t *testing.T) {
 	err := serve([]string{"--dev", "--mode", "enforce"})
 	if err == nil || !strings.Contains(err.Error(), "signed rollout plan") {
