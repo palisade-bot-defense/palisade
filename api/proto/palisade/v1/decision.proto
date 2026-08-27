@@ -15,9 +15,9 @@ message Observations {
   bool user_agent_present = 1;
   uint32 browser_event_count = 2;
   uint32 honeypot_hits = 3;
-  string anubis_verdict = 4;
-  double cannai_score = 5;
-  bool crowdsec_alert = 6;
+  string challenge_verdict = 4;
+  double external_risk_score = 5;
+  bool policy_alert = 6;
   bool verified_bot = 7;
 }
 
@@ -32,10 +32,14 @@ message DecideRequest {
 
 message DecideResponse {
   string decision_id = 1;
+  // Enforced action. Shadow mode limits this to allow or observe.
   Action action = 2;
   Scores scores = 3;
   repeated string reason_codes = 4;
   string policy_version = 5;
   string model_version = 6;
   google.protobuf.Timestamp expires_at = 7;
+  // Unmodified result of policy evaluation.
+  Action computed_action = 8;
+  RuntimeMode mode = 9;
 }

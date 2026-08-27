@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/offline-event-v1.schema.json",
+  "title": "PALISADE normalized offline event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provenance",
+    "source",
+    "observed_at",
+    "subject_id",
+    "endpoint_class",
+    "action_class",
+    "status_class",
+    "source_verdict",
+    "reason_category",
+    "label_class",
+    "label_provenance",
+    "label_trust",
+    "features"
+  ],
+  "properties": {
+    "schema_version": { "const": "palisade.offline-event.v1" },
+    "provenance": { "const": "offline_export" },
+    "source": { "enum": ["access", "anubis", "crowdsec_alert", "crowdsec_decision"] },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "subject_id": { "$ref": "#/$defs/pseudonym" },
+    "session_id": { "$ref": "#/$defs/pseudonym" },
+    "endpoint_class": { "enum": ["compare_index", "compare_noindex", "anubis_worker", "other_public"] },
+    "action_class": { "enum": ["read", "write", "other"] },
+    "status_class": { "enum": ["success", "redirect", "client_error", "server_error", "unknown"] },
+    "source_verdict": { "enum": ["unknown", "suspected_automation", "passed", "failed", "policy_alert", "policy_decision"] },
+    "reason_category": { "enum": ["none", "challenge_signal", "check_pass", "check_fail", "crowdsec_http_abuse", "crowdsec_credential_abuse", "crowdsec_reputation", "crowdsec_other", "unknown"] },
+    "label_class": { "enum": ["unknown", "probable_abuse"] },
+    "label_provenance": { "enum": ["none", "weak_policy_label"] },
+    "label_trust": { "enum": ["untrusted", "weak_policy_label"] },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ua_present", "challenge_present", "size_bucket", "weight_bucket"],
+      "properties": {
+        "ua_present": { "type": "boolean" },
+        "challenge_present": { "type": "boolean" },
+        "size_bucket": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "weight_bucket": { "type": "integer", "minimum": 0, "maximum": 4 }
+      }
+    }
+  },
+  "$defs": {
+    "pseudonym": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # Contributor License Agreement — draft, not active
 
-This draft cannot be accepted or enforced until `[LEGAL RIGHTS HOLDER]` is replaced with the exact legal name and the final core license is committed.
+The project licenses are active, but this separate contributor agreement is not. This draft cannot be accepted or enforced until `[LEGAL RIGHTS HOLDER]` is replaced with the final contracting party and an acceptance process is approved.
 
 By submitting a contribution after this agreement becomes active, you state that you have the right to submit it and grant `[LEGAL RIGHTS HOLDER]` a perpetual, worldwide, non-exclusive, royalty-free, irrevocable copyright and patent license to use, reproduce, modify, distribute, sublicense and relicense the contribution as part of PALISADE.
 

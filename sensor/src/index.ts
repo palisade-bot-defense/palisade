@@ -71,7 +71,9 @@ export class PalisadeSensor {
     const events = this.#queue.splice(0, this.#options.maxBatchSize);
     const payload: SensorBatch = { sessionId: this.#options.sessionId, sensorVersion: SENSOR_VERSION, events };
     const body = JSON.stringify(payload);
-    if (useBeacon && navigator.sendBeacon?.(this.#options.endpoint, new Blob([body], { type: "application/json" }))) return;
+    // sendBeacon cannot attach the one-time proof header required in production.
+    // When a proof provider exists, keepalive fetch is the only valid transport.
+    if (useBeacon && !this.#options.proofProvider && navigator.sendBeacon?.(this.#options.endpoint, new Blob([body], { type: "application/json" }))) return;
     const request = this.#options.fetchImpl ?? fetch;
     try {
       const proof = await this.#options.proofProvider?.();

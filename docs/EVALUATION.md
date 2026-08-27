@@ -4,7 +4,20 @@
 
 Evaluate a session/action decision, not an isolated request. Preserve event order and time while replacing direct identifiers with pilot-scoped pseudonyms. Keep raw source data outside the repository.
 
-Each replay record needs an endpoint class, observation window, source verdicts, final outcome label, label provenance and confidence. Separate `unknown` from human or bot; uncertain traffic must not be silently treated as benign.
+Each replay record requires an RFC 3339 `observed_at` timestamp, endpoint class, observation window, source verdicts, final outcome label, label provenance and confidence. Records in every versioned shard must be globally chronological; equal timestamps are allowed. `observed_at` drives session TTLs and output expiry, and sanitized importer output must always provide the normalized real observation time. Separate `unknown` from human or bot; uncertain traffic must not be silently treated as benign.
+
+The deployment shadow sink may collect only its closed outcome vocabulary. `human_confirmed` requires an authenticated account or operator review; `operator_confirmed_abuse` requires operator review; challenge and successful-action outcomes must be server-observed. Each outcome carries `provenance` and `confidence`, and challenge completion must never be promoted to a human label. Record queue drops, unavailable outcome writes and missing outcome coverage are reported as measurement loss, not silently excluded from denominators.
+
+`palisade analyze-shadow-log` produces the closed aggregate `palisade.shadow-analysis.v1` readiness report from authenticated local records. Its default volume, coverage, confirmed-label and challenge-friction gates are operational collection checks, not a substitute for the metrics below. `operator_review_candidate` permits only review of a reversible endpoint canary; the report never enables enforcement and never claims a false-positive rate from unlinked aggregate counts.
+
+The evaluated 2026-08-26 offline export contains 16 `human_confirmed` admin clients,
+17,841 weak `campaign_signature` clients and 169,050 `unlabeled` clients.
+Neither rendered subresources/internal referers nor timing regularity define a
+human cohort: the browser campaign loads and renders assets, and its median
+`gap_cv` is 4.36 versus 2.45 for the selected unlabeled comparison. Challenge
+completion is also only an outcome; the campaign commonly solved proof-of-work.
+These fields may be reported diagnostically but must not be converted into
+benign labels or used to claim a false-positive rate.
 
 ## Splits
 
@@ -24,8 +37,8 @@ Report confusion matrices by endpoint class. A global average can hide unaccepta
 
 ## Promotion gates
 
-1. **Replay:** deterministic output, versioned inputs and no regression beyond approved tolerances.
-2. **Shadow:** no response changes; compare decisions with downstream outcomes for at least one full traffic cycle.
+1. **Replay:** deterministic output, versioned inputs and no regression beyond approved tolerances. Assert enforced `expected_action` separately from policy `expected_computed_action`.
+2. **Shadow:** no risky response changes; `action` remains `allow` or `observe` while `computed_action` is compared with downstream outcomes for at least one full traffic cycle.
 3. **Canary:** progressive response on a small, reversible endpoint cohort.
 4. **Enforcement:** automatic blocks only for narrow, high-confidence policies with rollback and operator review.
 
