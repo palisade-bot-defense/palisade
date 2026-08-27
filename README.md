@@ -91,7 +91,8 @@ go run ./cmd/palisade verify-shadow-log \
 go run ./cmd/palisade analyze-shadow-log \
   --dir /private/local/palisade-shadow/logs \
   --key-file /private/local/palisade-shadow/shadow.key \
-  --output /private/local/palisade-shadow/analysis.json
+  --output /private/local/palisade-shadow/analysis.json \
+  --watch-interval 5m
 
 go run ./cmd/palisade serve \
   --admin-analysis-report /private/local/palisade-shadow/analysis.json \
@@ -99,7 +100,7 @@ go run ./cmd/palisade serve \
   --shadow-log-key-file /private/local/palisade-shadow/shadow.key
 ```
 
-The default rotation limits are 64 MiB or one hour; default retention is seven days. `POST /v1/outcome` requires the backend bearer credential and accepts only closed labels with explicit provenance and confidence. `analyze-shadow-log` authenticates and decrypts the retained files locally, emits aggregate counts, score ranges, endpoint summaries and deterministic recommendations, and never prints records or session links. Its recommendations can hold the deployment in shadow mode or nominate a reversible canary for operator review; they never activate enforcement. The [signed rollout guide](docs/ROLLOUT.md) explains operator approval, exact-canary promotion, origin handling and rollback. See the [shadow-log operations, analysis gates and threat model](docs/SHADOW_LOG.md) before enabling it.
+The default rotation limits are 64 MiB or one hour; default retention is seven days. `POST /v1/outcome` requires the backend bearer credential and accepts only closed labels with explicit provenance and confidence. `analyze-shadow-log` authenticates and decrypts the retained files locally, emits aggregate counts, score ranges, endpoint summaries and deterministic recommendations, and never prints records or session links. With `--watch-interval`, it runs immediately and then periodically replaces only the validated aggregate report atomically. The Operator Console polls that report, retains the last valid version after a rejected update and never receives the log key. Its recommendations can hold the deployment in shadow mode or nominate a reversible canary for operator review; they never activate enforcement. See the [automated analysis operations](docs/ANALYSIS_AUTOMATION.md), [signed rollout guide](docs/ROLLOUT.md) and [shadow-log threat model](docs/SHADOW_LOG.md) before enabling it.
 
 The browser sensor defaults to—and enforces a minimum of—one bounded flush every 15 seconds. Its proof callback is called with the literal action `events`; minting that proof for `read` or another action is rejected. Accepted batches receive `202`. With event-triggered shadow evaluation enabled, `X-Palisade-Shadow-Evaluation` reports `recorded` or `dropped`; a dropped evaluation never causes the already accepted batch to be retried.
 
@@ -120,7 +121,7 @@ The first deployment should ingest normalized challenge, external-risk and polic
 
 Authorized historical exports can be normalized with the local-only `palisade import-offline` command. Raw inputs and normalized outputs must stay outside every Git worktree. The importer accepts only `offline_export`, never emits raw rows, and treats upstream policy outcomes as weak labels rather than ground truth. Deployment-local and opt-in community ingestion are future, separate trust boundaries and are not accepted by this command.
 
-See the [architecture and stack](docs/ARCHITECTURE.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
+See the [architecture and stack](docs/ARCHITECTURE.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
 
 ## Project status and license
 

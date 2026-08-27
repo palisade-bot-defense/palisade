@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/adminui"
+	"github.com/palisade-bot-defense/palisade/internal/analysisfeed"
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
 )
@@ -22,7 +23,7 @@ type AdminConfig struct {
 	ModelVersion       string
 	ShadowLogEnabled   bool
 	EventShadowEnabled bool
-	Analysis           *shadowanalysis.Report
+	AnalysisFeed       *analysisfeed.Feed
 }
 
 type actionCounters struct {
@@ -45,14 +46,15 @@ type runtimeCounters struct {
 }
 
 type AdminSummary struct {
-	SchemaVersion string                     `json:"schema_version"`
-	GeneratedAt   time.Time                  `json:"generated_at"`
-	UptimeSeconds uint64                     `json:"uptime_seconds"`
-	Runtime       AdminRuntime               `json:"runtime"`
-	Capabilities  AdminCapabilities          `json:"capabilities"`
-	Traffic       AdminTraffic               `json:"traffic"`
-	Recording     AdminRecording             `json:"recording"`
-	Analysis      *shadowanalysis.Report     `json:"analysis"`
+	SchemaVersion  string                 `json:"schema_version"`
+	GeneratedAt    time.Time              `json:"generated_at"`
+	UptimeSeconds  uint64                 `json:"uptime_seconds"`
+	Runtime        AdminRuntime           `json:"runtime"`
+	Capabilities   AdminCapabilities      `json:"capabilities"`
+	Traffic        AdminTraffic           `json:"traffic"`
+	Recording      AdminRecording         `json:"recording"`
+	AnalysisStatus AdminAnalysisStatus    `json:"analysis_status"`
+	Analysis       *shadowanalysis.Report `json:"analysis"`
 }
 
 type AdminRuntime struct {
@@ -63,8 +65,8 @@ type AdminRuntime struct {
 }
 
 type AdminCapabilities struct {
-	ShadowLog     bool `json:"shadow_log"`
-	EventShadow   bool `json:"event_shadow"`
+	ShadowLog      bool `json:"shadow_log"`
+	EventShadow    bool `json:"event_shadow"`
 	AnalysisReport bool `json:"analysis_report"`
 }
 
@@ -78,10 +80,16 @@ type AdminTraffic struct {
 }
 
 type AdminRecording struct {
-	Decisions         uint64 `json:"decisions"`
-	Outcomes          uint64 `json:"outcomes"`
-	Dropped           uint64 `json:"dropped"`
+	Decisions          uint64 `json:"decisions"`
+	Outcomes           uint64 `json:"outcomes"`
+	Dropped            uint64 `json:"dropped"`
 	EventShadowDropped uint64 `json:"event_shadow_dropped"`
+}
+
+type AdminAnalysisStatus struct {
+	State         string     `json:"state"`
+	LoadedAt      *time.Time `json:"loaded_at"`
+	LastAttemptAt *time.Time `json:"last_attempt_at"`
 }
 
 func (s *Server) WithAdmin(config AdminConfig) *Server {
@@ -121,8 +129,23 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 	if now.After(s.admin.StartedAt) {
 		uptime = uint64(now.Sub(s.admin.StartedAt) / time.Second)
 	}
+	analysisStatus := AdminAnalysisStatus{State: "not_configured"}
+	var analysis *shadowanalysis.Report
+	if s.admin.AnalysisFeed != nil {
+		snapshot := s.admin.AnalysisFeed.Snapshot()
+		analysis = snapshot.Report
+		analysisStatus.State = snapshot.State
+		if !snapshot.LoadedAt.IsZero() {
+			loadedAt := snapshot.LoadedAt
+			analysisStatus.LoadedAt = &loadedAt
+		}
+		if !snapshot.LastAttemptAt.IsZero() {
+			attemptedAt := snapshot.LastAttemptAt
+			analysisStatus.LastAttemptAt = &attemptedAt
+		}
+	}
 	return AdminSummary{
-		SchemaVersion: "palisade.admin-summary.v1",
+		SchemaVersion: "palisade.admin-summary.v2",
 		GeneratedAt:   now,
 		UptimeSeconds: uptime,
 		Runtime: AdminRuntime{
@@ -130,7 +153,7 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 			PolicyVersion: s.admin.PolicyVersion, ModelVersion: s.admin.ModelVersion,
 		},
 		Capabilities: AdminCapabilities{
-			ShadowLog: s.admin.ShadowLogEnabled, EventShadow: s.admin.EventShadowEnabled, AnalysisReport: s.admin.Analysis != nil,
+			ShadowLog: s.admin.ShadowLogEnabled, EventShadow: s.admin.EventShadowEnabled, AnalysisReport: analysis != nil,
 		},
 		Traffic: AdminTraffic{
 			AcceptedEventBatches: s.counters.eventBatches.Load(), AcceptedEvents: s.counters.events.Load(),
@@ -141,7 +164,8 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 			Decisions: s.counters.recordedDecisions.Load(), Outcomes: s.counters.recordedOutcomes.Load(),
 			Dropped: s.shadowDrops.Load(), EventShadowDropped: s.eventShadowDrops.Load(),
 		},
-		Analysis: s.admin.Analysis,
+		AnalysisStatus: analysisStatus,
+		Analysis:       analysis,
 	}
 }
 

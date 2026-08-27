@@ -332,9 +332,9 @@ components:
     AdminSummary:
       type: object
       additionalProperties: false
-      required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, analysis]
+      required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, analysis_status, analysis]
       properties:
-        schema_version: { type: string, const: palisade.admin-summary.v1 }
+        schema_version: { type: string, const: palisade.admin-summary.v2 }
         generated_at: { type: string, format: date-time }
         uptime_seconds: { type: integer, minimum: 0 }
         runtime:
@@ -374,6 +374,14 @@ components:
             outcomes: { type: integer, minimum: 0 }
             dropped: { type: integer, minimum: 0 }
             event_shadow_dropped: { type: integer, minimum: 0 }
+        analysis_status:
+          type: object
+          additionalProperties: false
+          required: [state, loaded_at, last_attempt_at]
+          properties:
+            state: { type: string, enum: [not_configured, ready, invalid_update] }
+            loaded_at: { type: [string, "null"], format: date-time }
+            last_attempt_at: { type: [string, "null"], format: date-time }
         analysis:
           description: Validated palisade.shadow-analysis.v1 aggregate report, or null when no report was loaded. The report contains no row-level records.
           oneOf:

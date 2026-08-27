@@ -46,6 +46,9 @@ browser sensor ─────────── POST /v1/events ───┼─
 
 trusted backend ─────────── POST /v1/outcome ─> encrypted outcome record
 encrypted records ───────── analyze-shadow-log ─> aggregate recommendations
+                                  periodic worker ─> atomic owner-only report
+                                                        │
+loopback console ─────────── validated report feed <─────┘
 aggregate report ────────── operator signature ─> bounded canary/enforce plan
 origin middleware ───────── POST /v1/origin-check ─> 204 / 429 / 403
                                                       │ challenge
@@ -93,6 +96,10 @@ action. Full enforcement must reference the exact measured predecessor canary.
 - Administrative assets and summaries are absent from the public listener. A
   separate loopback-only listener requires a distinct admin bearer credential,
   exposes no row-level data and does not read the encrypted log at request time.
+- Periodic analysis is a separate local process. It owns log/key access and
+  publishes only a validated aggregate report through a same-directory atomic
+  rename. The serving process polls that report and retains its last valid
+  snapshot when an update is missing, partial or invalid.
 
 See [reference origin adapter](ORIGIN_ADAPTER.md), [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
-[native challenge](CHALLENGE.md), [shadow logging](SHADOW_LOG.md), [Operator Console](OPERATOR_CONSOLE.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).
+[native challenge](CHALLENGE.md), [shadow logging](SHADOW_LOG.md), [automated analysis](ANALYSIS_AUTOMATION.md), [Operator Console](OPERATOR_CONSOLE.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).

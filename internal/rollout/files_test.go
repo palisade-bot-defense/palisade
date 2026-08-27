@@ -72,3 +72,41 @@ func TestAnalysisReportFileIsOwnerOnlyAndCannotBeOverwritten(t *testing.T) {
 		t.Fatal("existing report was overwritten")
 	}
 }
+
+func TestAnalysisReportCanBeAtomicallyReplacedButNotRedirected(t *testing.T) {
+	directory, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "analysis.json")
+	first := candidateReport(1000, 0)
+	first.Source.FirstAt = "2026-08-26T00:00:00Z"
+	first.Source.LastAt = "2026-08-27T00:00:00Z"
+	if err := ReplaceAnalysisReport(path, first); err != nil {
+		t.Fatal(err)
+	}
+	second := candidateReport(2000, 0)
+	if err := ReplaceAnalysisReport(path, second); err != nil {
+		t.Fatal(err)
+	}
+	_, decoded, err := ReadAnalysisReport(path)
+	if err != nil || decoded.Decisions.Total != 2000 {
+		t.Fatalf("replacement report = %+v, %v", decoded, err)
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("replacement permissions = %v, %v", info, err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(directory, "elsewhere"), path); err != nil {
+		t.Fatal(err)
+	}
+	if err := ReplaceAnalysisReport(path, second); err == nil {
+		t.Fatal("symlink target was replaced")
+	}
+}
