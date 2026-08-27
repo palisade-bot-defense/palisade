@@ -53,6 +53,13 @@ origin middleware ───────── POST /v1/origin-check ─> 204 / 4
 signed browser session ──── /v1/challenge/* ────────> one-time bound redemption
 ```
 
+In a sensor-only shadow deployment, an optional server-trusted profile turns
+each accepted event batch into one internal shadow decision after ingestion.
+This path uses the fresh aggregate event count, returns no decision body to the
+browser and writes only the same closed encrypted decision record. It is a
+temporary collection bridge, not an enforcement path, and is mutually exclusive
+with signed rollouts and the authoritative origin decision stream.
+
 `automation`, `intent` and `continuity` remain separate dimensions. Automation
 alone is not abuse. In `shadow` mode, a computed `throttle`, `challenge` or
 `block` is returned for measurement but the enforced action is only `allow` or

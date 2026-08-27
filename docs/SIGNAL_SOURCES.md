@@ -24,6 +24,33 @@ the actual TCP peer and proxy allowlist in the deployment adapter first. If a
 proxy supplies a client address, accept it only when the direct peer belongs to
 the configured trusted proxy network.
 
+The event proof is action-bound to the literal `events`. A token minted for
+`read` is valid cryptographically but is correctly rejected by `/v1/events`.
+The sensor asks its proof callback explicitly for `events`, defaults to and
+enforces a minimum 15-second interval, serializes flushes and keeps at most 256
+events locally.
+
+Sensor-only deployments may configure a server-trusted event shadow profile:
+
+```sh
+palisade serve \
+  --require-session-cookie \
+  --event-shadow-action read \
+  --event-shadow-endpoint-class public_content \
+  --shadow-log-dir /private/local/palisade-shadow/logs \
+  --shadow-log-key-file /private/local/palisade-shadow/shadow.key
+```
+
+After an event batch is authenticated and ingested, PALISADE mints and consumes
+an internal one-time proof for that configured action, evaluates the fresh
+in-memory event count and queues one closed encrypted shadow decision. The
+browser receives only `202` and the closed `recorded|dropped` status header,
+never scores, evidence, credentials or the server-side classification. Event
+acceptance remains final if the decision queue is full, preventing duplicate
+sequence retries. This bridge is shadow-only, requires the encrypted sink and
+signed session cookie, cannot run with a signed rollout, and must not be used in
+parallel with the origin adapter's authoritative decision stream.
+
 ## HTTP integration
 
 The origin creates or reuses a stable session ID, obtains a short-lived proof

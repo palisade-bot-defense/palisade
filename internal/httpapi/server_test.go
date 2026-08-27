@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -50,14 +51,29 @@ func (e fixedEngine) Decide(context.Context, core.DecisionRequest) (core.Decisio
 	return e.decision, nil
 }
 
-type recordingShadow struct {
-	decisions int
-	outcomes  []shadowlog.OutcomeRequest
+type capturingEngine struct {
+	request  core.DecisionRequest
+	decision core.Decision
 }
 
-func (r *recordingShadow) RecordDecision(core.DecisionRequest, core.Decision, time.Time) error {
+func (e *capturingEngine) Decide(_ context.Context, request core.DecisionRequest) (core.Decision, error) {
+	e.request = request
+	return e.decision, nil
+}
+
+type recordingShadow struct {
+	decisions        int
+	decisionRequests []core.DecisionRequest
+	decisionValues   []core.Decision
+	decisionErr      error
+	outcomes         []shadowlog.OutcomeRequest
+}
+
+func (r *recordingShadow) RecordDecision(request core.DecisionRequest, decision core.Decision, _ time.Time) error {
 	r.decisions++
-	return nil
+	r.decisionRequests = append(r.decisionRequests, request)
+	r.decisionValues = append(r.decisionValues, decision)
+	return r.decisionErr
 }
 
 func (r *recordingShadow) RecordOutcome(request shadowlog.OutcomeRequest, _ time.Time) error {
@@ -207,6 +223,17 @@ func TestEventProofIsOneTimeAndFeedsDecision(t *testing.T) {
 		t.Fatal(err)
 	}
 	batch := `{"sessionId":"session-12345678","sensorVersion":"0.1.0","events":[{"sequence":1,"elapsedBucketMs":25,"kind":"navigation","valueBucket":1}]}`
+	wrongProof, err := tokens.Issue("session-12345678", "read", time.Minute, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrong := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(batch))
+	wrong.Header.Set("X-Palisade-Proof", wrongProof)
+	wrongResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(wrongResponse, wrong)
+	if wrongResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("read proof accepted for events: %d", wrongResponse.Code)
+	}
 	request := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(batch))
 	request.Header.Set("X-Palisade-Proof", proof)
 	response := httptest.NewRecorder()
@@ -228,6 +255,85 @@ func TestEventProofIsOneTimeAndFeedsDecision(t *testing.T) {
 	server.Handler().ServeHTTP(decisionResponse, decision)
 	if decisionResponse.Code != http.StatusOK || engine.request.Observations.BrowserEventCount != 1 {
 		t.Fatalf("event count was not attached to decision: status=%d count=%d", decisionResponse.Code, engine.request.Observations.BrowserEventCount)
+	}
+}
+
+func TestAcceptedEventBatchRecordsServerClassifiedShadowDecision(t *testing.T) {
+	now := time.Now().UTC()
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+	cookies, err := sessioncookie.New(secret, sessioncookie.DefaultTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuedCookie, claims, err := cookies.Issue(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := NewEventShadowProfile("read", "public_content")
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := &capturingEngine{decision: core.Decision{
+		DecisionID: "event-shadow-decision", Action: core.ActionBlock, ComputedAction: core.ActionBlock,
+		Mode: core.RuntimeModeEnforce, RolloutID: "must-not-survive", ReasonCodes: []string{"HIGH_RISK"},
+	}}
+	recorder := &recordingShadow{}
+	server := New(engine, tokens, "key", slog.Default()).
+		WithEventStore(events.NewStore(time.Minute)).
+		RequireEventProof(true).
+		WithSessionCookies(cookies, true).
+		WithShadowRecorder(recorder).
+		WithEventShadowEvaluation(profile)
+	eventProof, err := tokens.Issue(claims.SessionID, "events", time.Minute, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch := `{"sensorVersion":"0.2.0","events":[{"sequence":7,"elapsedBucketMs":25,"kind":"navigation","valueBucket":1}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(batch))
+	request.Header.Set("User-Agent", "synthetic-browser")
+	request.Header.Set("X-Palisade-Proof", eventProof)
+	request.AddCookie(&issuedCookie)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusAccepted || response.Header().Get("X-Palisade-Shadow-Evaluation") != "recorded" {
+		t.Fatalf("event shadow response = %d headers=%v body=%s", response.Code, response.Header(), response.Body.String())
+	}
+	if engine.request.SessionID != claims.SessionID || engine.request.Action != "read" || engine.request.EndpointClass != "public_content" ||
+		engine.request.Sequence != 7 || engine.request.ProofToken == "" || !engine.request.Observations.ServerSessionVerified ||
+		!engine.request.Observations.UserAgentPresent || engine.request.Observations.BrowserEventCount != 1 {
+		t.Fatalf("internal event decision request = %+v", engine.request)
+	}
+	if _, err := tokens.VerifyAndConsume(engine.request.ProofToken, claims.SessionID, "read", time.Now().UTC()); err != nil {
+		t.Fatalf("internal event decision proof was not action-bound: %v", err)
+	}
+	if recorder.decisions != 1 || len(recorder.decisionRequests) != 1 || recorder.decisionRequests[0].ProofToken != "" {
+		t.Fatalf("recorded requests = %+v", recorder.decisionRequests)
+	}
+	decision := recorder.decisionValues[0]
+	if decision.Action != core.ActionObserve || decision.ComputedAction != core.ActionBlock || decision.Mode != core.RuntimeModeShadow ||
+		decision.RolloutID != "" || decision.Directive.Handling != "pass" || !strings.Contains(strings.Join(decision.ReasonCodes, ","), core.ReasonShadowActionOverridden) {
+		t.Fatalf("recorded event shadow decision = %+v", decision)
+	}
+}
+
+func TestAcceptedEventsRemainAcceptedWhenShadowRecordDrops(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+	profile, err := NewEventShadowProfile("read", "public_content")
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := &recordingShadow{decisionErr: errors.New("synthetic recorder failure")}
+	server := New(contractEngine{}, tokens, "key", slog.Default()).
+		WithEventStore(events.NewStore(time.Minute)).
+		WithShadowRecorder(recorder).
+		WithEventShadowEvaluation(profile)
+	batch := `{"sessionId":"session-12345678","sensorVersion":"0.2.0","events":[{"sequence":1,"elapsedBucketMs":25,"kind":"navigation","valueBucket":1}]}`
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(batch)))
+	if response.Code != http.StatusAccepted || response.Header().Get("X-Palisade-Shadow-Evaluation") != "dropped" || recorder.decisions != 1 {
+		t.Fatalf("accepted event/drop response = %d headers=%v decisions=%d", response.Code, response.Header(), recorder.decisions)
 	}
 }
 

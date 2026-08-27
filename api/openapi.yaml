@@ -89,7 +89,12 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/EventBatch" }
       responses:
-        "202": { description: Accepted. }
+        "202":
+          description: Accepted. When event-triggered shadow evaluation is configured, the batch remains accepted even if its separate encrypted decision record is dropped.
+          headers:
+            X-Palisade-Shadow-Evaluation:
+              description: Present only when event-triggered shadow evaluation is configured. Reports whether the accepted batch also queued a closed encrypted shadow decision.
+              schema: { type: string, enum: [recorded, dropped] }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
   /v1/decision:
@@ -394,9 +399,13 @@ components:
     EventBatch:
       type: object
       additionalProperties: false
-      required: [sessionId, sensorVersion, events]
+      required: [sensorVersion, events]
       properties:
-        sessionId: { type: string, minLength: 8, maxLength: 128 }
+        sessionId:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Optional when a valid PALISADE session cookie is supplied; if both are present they must match.
         sensorVersion: { type: string, maxLength: 32 }
         events:
           type: array

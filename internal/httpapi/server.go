@@ -46,6 +46,8 @@ type Server struct {
 	shadowRecorder    ShadowRecorder
 	challenges        *challenge.Service
 	shadowDrops       atomic.Uint64
+	eventShadow       *EventShadowProfile
+	eventShadowDrops  atomic.Uint64
 }
 
 func New(engine DecisionEngine, tokens *token.Service, apiKey string, logger *slog.Logger) *Server {
@@ -70,6 +72,11 @@ func (s *Server) WithSessionCookies(service *sessioncookie.Service, required boo
 
 func (s *Server) WithShadowRecorder(recorder ShadowRecorder) *Server {
 	s.shadowRecorder = recorder
+	return s
+}
+
+func (s *Server) WithEventShadowEvaluation(profile EventShadowProfile) *Server {
+	s.eventShadow = &profile
 	return s
 }
 
@@ -113,24 +120,35 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	if _, err := s.verifySession(r, batch.SessionID, time.Now().UTC()); err != nil {
+	now := time.Now().UTC()
+	sessionID, verifiedSession, err := s.resolveSession(r, batch.SessionID, now)
+	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid_session")
 		return
 	}
+	batch.SessionID = sessionID
 	if s.requireEventProof {
 		proof := r.Header.Get("X-Palisade-Proof")
 		if proof == "" {
 			writeError(w, http.StatusUnauthorized, "event_proof_required")
 			return
 		}
-		if _, err := s.tokens.VerifyAndConsume(proof, batch.SessionID, "events", time.Now().UTC()); err != nil {
+		if _, err := s.tokens.VerifyAndConsume(proof, batch.SessionID, "events", now); err != nil {
 			writeError(w, http.StatusUnauthorized, "invalid_event_proof")
 			return
 		}
 	}
-	if err := s.events.Ingest(batch, time.Now().UTC()); err != nil {
+	if err := s.events.Ingest(batch, now); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_event_batch")
 		return
+	}
+	if s.eventShadow != nil {
+		if err := s.recordEventShadowDecision(r.Context(), batch, verifiedSession, r.UserAgent() != "", now); err != nil {
+			s.recordEventShadowDrop(err)
+			w.Header().Set("X-Palisade-Shadow-Evaluation", "dropped")
+		} else {
+			w.Header().Set("X-Palisade-Shadow-Evaluation", "recorded")
+		}
 	}
 	w.WriteHeader(http.StatusAccepted)
 }

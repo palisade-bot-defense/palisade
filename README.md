@@ -40,6 +40,8 @@ go run ./cmd/palisade replay --file examples/replay/synthetic.jsonl
 
 The server always starts from `--mode shadow`. In shadow mode, risky computed actions remain visible as `computed_action`, while the enforced `action` is limited to `allow` or `observe`. Canary/enforcement requires a valid, expiring operator-signed rollout plan; `serve --mode enforce` is rejected. Production refuses to start without `PALISADE_HMAC_KEY` and `PALISADE_API_KEY`; development mode intentionally disables proof enforcement, rejects rollout plans and must never face public traffic. `--require-session-cookie` is a separate integration gate: enable it only after the origin adapter forwards the backend-issued `__Host-palisade_session` cookie on token, event and decision requests.
 
+For a sensor-only shadow deployment, `--event-shadow-action` and `--event-shadow-endpoint-class` turn every accepted event flush into one server-classified shadow decision. This closes the measurement loop without adding latency to page delivery or returning scores to the browser. It requires the encrypted sink and signed session cookie, is unavailable with a signed rollout, and must be disabled once origin middleware becomes the authoritative decision stream.
+
 ## HTTP surface
 
 | Route | Purpose |
@@ -68,6 +70,9 @@ Shadow decisions and explicitly submitted outcomes can be recorded to an optiona
 
 ```sh
 go run ./cmd/palisade serve \
+  --require-session-cookie \
+  --event-shadow-action read \
+  --event-shadow-endpoint-class public_content \
   --shadow-log-dir /private/local/palisade-shadow/logs \
   --shadow-log-key-file /private/local/palisade-shadow/shadow.key
 
@@ -82,6 +87,8 @@ go run ./cmd/palisade analyze-shadow-log \
 ```
 
 The default rotation limits are 64 MiB or one hour; default retention is seven days. `POST /v1/outcome` requires the backend bearer credential and accepts only closed labels with explicit provenance and confidence. `analyze-shadow-log` authenticates and decrypts the retained files locally, emits aggregate counts, score ranges, endpoint summaries and deterministic recommendations, and never prints records or session links. Its recommendations can hold the deployment in shadow mode or nominate a reversible canary for operator review; they never activate enforcement. The [signed rollout guide](docs/ROLLOUT.md) explains operator approval, exact-canary promotion, origin handling and rollback. See the [shadow-log operations, analysis gates and threat model](docs/SHADOW_LOG.md) before enabling it.
+
+The browser sensor defaults to—and enforces a minimum of—one bounded flush every 15 seconds. Its proof callback is called with the literal action `events`; minting that proof for `read` or another action is rejected. Accepted batches receive `202`. With event-triggered shadow evaluation enabled, `X-Palisade-Shadow-Evaluation` reports `recorded` or `dropped`; a dropped evaluation never causes the already accepted batch to be retried.
 
 ## Architecture
 
