@@ -51,16 +51,17 @@ Analyze the authenticated records on the deployment host:
 palisade analyze-shadow-log \
   --dir /private/local/palisade-shadow/logs \
   --key-file /private/local/palisade-shadow/shadow.key \
-  > /private/local/palisade-shadow/analysis.json
+  --output /private/local/palisade-shadow/analysis.json
 ```
 
-The command streams decrypted records through bounded aggregation and writes only the closed `palisade.shadow-analysis.v1` report. It reports decision/action distributions, shadow-versus-enforce counts, score minimum/maximum/mean values, outcome coverage, challenge failure/abandonment, endpoint totals, bounded reason-code counts and policy/model versions. It does not emit decision IDs, session links or individual records.
+The command streams decrypted records through bounded aggregation and writes only the closed `palisade.shadow-analysis.v1` report. It reports decision/action distributions, shadow/canary/enforce counts, exact canary rollout counts, score minimum/maximum/mean values, outcome coverage, challenge failure/abandonment, endpoint totals, bounded reason-code counts and policy/model versions. It does not emit decision IDs, session links or individual records. `--output` creates a new `0600` file outside Git and never overwrites an existing report.
 
 Default scan budgets are 4096 managed files, 10 million records and 16 GiB of encrypted input. `--max-files`, `--max-records` and `--max-encrypted-bytes` may lower or raise them only within compiled hard caps. Distinct reason, policy and model values are also bounded; exceeding a budget fails closed instead of growing memory without limit.
 
 The v1 recommendation gates are deliberately conservative:
 
 - at least 1000 decisions across a representative traffic cycle;
+- at least 24 hours between the first and last authenticated record before a rollout can be signed;
 - at least 10% normalized outcome coverage;
 - at least 100 confirmed-human outcomes and 100 operator-confirmed abuse outcomes;
 - review when computed challenge rate exceeds 5%;
@@ -68,6 +69,8 @@ The v1 recommendation gates are deliberately conservative:
 - any risky action actually enforced by a record marked `shadow` is a critical safety violation.
 
 Meeting the data gates produces only `operator_review_candidate` and `review_reversible_canary`. `automatic_enforcement` is always `false`. The report cannot establish a false-positive rate by itself: endpoint-specific confidence intervals, cohort coverage, accessibility results, rollback readiness and operator approval remain external release gates. Sparse or contaminated labels produce concrete data-collection recommendations rather than an enforcement recommendation.
+
+Promotion uses the separate [signed rollout workflow](ROLLOUT.md). Full enforcement requires at least 1000 recorded decisions attributed to the exact named predecessor canary; unrelated historical canaries do not satisfy that gate.
 
 The JSON contract is [`schemas/shadow-analysis-report-v1.schema.json`](../schemas/shadow-analysis-report-v1.schema.json). Keep generated reports beside the private logs, outside Git. They are aggregate but may still disclose operational security posture and should not be published automatically.
 

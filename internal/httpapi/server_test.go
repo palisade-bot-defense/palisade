@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,6 +41,12 @@ func (contractEngine) Decide(context.Context, core.DecisionRequest) (core.Decisi
 		Mode:           core.RuntimeModeShadow,
 		ExpiresAt:      time.Unix(1_800_000_000, 0).UTC(),
 	}, nil
+}
+
+type fixedEngine struct{ decision core.Decision }
+
+func (e fixedEngine) Decide(context.Context, core.DecisionRequest) (core.Decision, error) {
+	return e.decision, nil
 }
 
 type recordingShadow struct {
@@ -192,6 +199,57 @@ func TestDecisionJSONDistinguishesEnforcedAndComputedActions(t *testing.T) {
 	}
 	if body["action"] != "observe" || body["computed_action"] != "block" || body["mode"] != "shadow" {
 		t.Fatalf("unexpected decision contract: %v", body)
+	}
+}
+
+func TestOriginCheckAppliesOnlyValidatedDirectiveStatus(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	tests := []struct {
+		name      string
+		action    core.Action
+		directive core.EnforcementDirective
+		status    int
+		retry     string
+	}{
+		{name: "shadow pass", action: core.ActionObserve, directive: core.EnforcementDirective{Handling: "pass", HTTPStatus: 200, ExpiresAt: now}, status: http.StatusNoContent},
+		{name: "throttle", action: core.ActionThrottle, directive: core.EnforcementDirective{Handling: "throttle", HTTPStatus: 429, RetryAfterSeconds: 5, ExpiresAt: now}, status: http.StatusTooManyRequests, retry: "5"},
+		{name: "challenge", action: core.ActionChallenge, directive: core.EnforcementDirective{Handling: "challenge", HTTPStatus: 403, ExpiresAt: now}, status: http.StatusForbidden},
+		{name: "block", action: core.ActionBlock, directive: core.EnforcementDirective{Handling: "block", HTTPStatus: 403, RetryAfterSeconds: 300, ExpiresAt: now}, status: http.StatusForbidden, retry: "300"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
+			decision := core.Decision{
+				DecisionID: "origin-decision", Action: test.action, ComputedAction: test.action, Mode: core.RuntimeModeCanary,
+				RolloutID: "canary-20260827", Directive: test.directive, ExpiresAt: now,
+			}
+			server := New(fixedEngine{decision: decision}, tokens, "key", slog.Default())
+			request := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"session-12345678","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+			response := httptest.NewRecorder()
+			server.Handler().ServeHTTP(response, request)
+			if response.Code != test.status || response.Body.Len() != 0 {
+				t.Fatalf("status/body = %d/%q, want %d/empty", response.Code, response.Body.String(), test.status)
+			}
+			if response.Header().Get("X-Palisade-Action") != string(test.action) || response.Header().Get("X-Palisade-Handling") != test.directive.Handling ||
+				response.Header().Get("X-Palisade-Mode") != "canary" || response.Header().Get("X-Palisade-Rollout-ID") != "canary-20260827" || response.Header().Get("Retry-After") != test.retry {
+				t.Fatalf("unexpected origin headers: %v", response.Header())
+			}
+		})
+	}
+}
+
+func TestOriginCheckRejectsInconsistentDirective(t *testing.T) {
+	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
+	decision := core.Decision{
+		DecisionID: "invalid-directive", Action: core.ActionBlock, ComputedAction: core.ActionBlock, Mode: core.RuntimeModeEnforce,
+		Directive: core.EnforcementDirective{Handling: "pass", HTTPStatus: 200, ExpiresAt: time.Now().Add(time.Minute)},
+	}
+	server := New(fixedEngine{decision: decision}, tokens, "key", slog.Default())
+	request := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"session-12345678","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusServiceUnavailable || !strings.Contains(response.Body.String(), "invalid_enforcement_directive") {
+		t.Fatalf("unexpected invalid-directive response: %d %s", response.Code, response.Body.String())
 	}
 }
 

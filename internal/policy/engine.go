@@ -10,6 +10,8 @@ import (
 	"github.com/palisade-bot-defense/palisade/internal/core"
 )
 
+const DefaultVersion = "default-v3"
+
 type Input struct {
 	Scores        core.Scores
 	EndpointClass string
@@ -78,7 +80,7 @@ func NewDefault() (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create CEL environment: %w", err)
 	}
-	engine := &Engine{version: "default-v3"}
+	engine := &Engine{version: DefaultVersion}
 	for _, spec := range defaultRuleSpecs() {
 		ast, issues := env.Compile(spec.expression)
 		if issues != nil && issues.Err() != nil {

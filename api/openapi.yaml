@@ -106,6 +106,47 @@ paths:
               schema: { $ref: "#/components/schemas/Decision" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
+  /v1/origin-check:
+    post:
+      summary: Evaluate and return the bounded origin enforcement result
+      description: Alternative to /v1/decision for an origin or reverse-proxy subrequest. A valid signed rollout may return 429 for throttle or 403 for challenge/block. Shadow and excluded canary requests return 204. Scores and evidence are not reflected in this response.
+      operationId: checkOrigin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DecisionRequest" }
+      responses:
+        "204":
+          description: Pass the request. This includes shadow mode and requests excluded from a canary.
+          headers:
+            X-Palisade-Decision-ID: { schema: { type: string } }
+            X-Palisade-Action: { schema: { type: string, enum: [allow, observe] } }
+            X-Palisade-Handling: { schema: { type: string, enum: [pass] } }
+            X-Palisade-Mode: { schema: { type: string, enum: [shadow, canary, enforce] } }
+            X-Palisade-Rollout-ID: { schema: { type: string } }
+        "403":
+          description: Apply the challenge or temporary block selected by a valid signed rollout.
+          headers:
+            X-Palisade-Decision-ID: { schema: { type: string } }
+            X-Palisade-Action: { schema: { type: string, enum: [challenge, block] } }
+            X-Palisade-Handling: { schema: { type: string, enum: [challenge, block] } }
+            X-Palisade-Mode: { schema: { type: string, enum: [canary, enforce] } }
+            X-Palisade-Rollout-ID: { schema: { type: string } }
+            Retry-After: { schema: { type: integer, minimum: 1, maximum: 3600 } }
+        "429":
+          description: Temporarily throttle the request as selected by a valid signed rollout.
+          headers:
+            X-Palisade-Decision-ID: { schema: { type: string } }
+            X-Palisade-Action: { schema: { type: string, enum: [throttle] } }
+            X-Palisade-Handling: { schema: { type: string, enum: [throttle] } }
+            X-Palisade-Mode: { schema: { type: string, enum: [canary, enforce] } }
+            X-Palisade-Rollout-ID: { schema: { type: string } }
+            Retry-After: { schema: { type: integer, minimum: 1, maximum: 60 } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /v1/outcome:
     post:
       summary: Attach a normalized delayed outcome to a shadow session
@@ -226,7 +267,7 @@ components:
         observations: { $ref: "#/components/schemas/Observations" }
     Decision:
       type: object
-      required: [decision_id, action, computed_action, mode, scores, reason_codes, evidence, policy_version, model_version, expires_at]
+      required: [decision_id, action, computed_action, mode, directive, scores, reason_codes, evidence, policy_version, model_version, expires_at]
       properties:
         decision_id: { type: string }
         action:
@@ -239,7 +280,13 @@ components:
           description: Unmodified result of policy evaluation.
         mode:
           type: string
-          enum: [shadow, enforce]
+          enum: [shadow, canary, enforce]
+        rollout_id:
+          type: string
+          pattern: "^[A-Za-z0-9_.:-]{1,128}$"
+          description: Signed rollout identifier when a canary or enforcement plan evaluated this decision.
+        directive:
+          $ref: "#/components/schemas/EnforcementDirective"
         scores:
           type: object
           required: [automation_risk, abuse_intent_risk, account_continuity]
@@ -251,4 +298,14 @@ components:
         evidence: { type: array, items: { type: object } }
         policy_version: { type: string }
         model_version: { type: string }
+        expires_at: { type: string, format: date-time }
+    EnforcementDirective:
+      type: object
+      additionalProperties: false
+      required: [handling, http_status, expires_at]
+      description: Machine-readable origin handling. The integrating origin must still apply this directive; PALISADE is not an inline reverse proxy.
+      properties:
+        handling: { enum: [pass, throttle, challenge, block] }
+        http_status: { type: integer, enum: [200, 403, 429] }
+        retry_after_seconds: { type: integer, minimum: 1, maximum: 3600 }
         expires_at: { type: string, format: date-time }

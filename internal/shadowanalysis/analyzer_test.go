@@ -72,6 +72,22 @@ func TestRiskyEnforcedActionInShadowIsCritical(t *testing.T) {
 	}
 }
 
+func TestCanaryDecisionsAreAttributedToExactRollout(t *testing.T) {
+	analysis := newAnalyzer(normalizedTestConfig(t, Config{}))
+	for index := 0; index < 3; index++ {
+		record := decisionRecord(fmt.Sprintf("canary-decision-%d", index), core.ActionThrottle, core.ActionThrottle, "VELOCITY_HIGH")
+		record.Decision.Mode = core.RuntimeModeCanary
+		record.Decision.RolloutID = "canary-20260827"
+		if err := analysis.observe(record); err != nil {
+			t.Fatal(err)
+		}
+	}
+	report := analysis.finish(shadowlog.Verification{Records: 3, Decisions: 3})
+	if report.Decisions.Modes.Canary != 3 || len(report.CanaryRollouts) != 1 || report.CanaryRollouts[0].Value != "canary-20260827" || report.CanaryRollouts[0].Count != 3 {
+		t.Fatalf("canary attribution=%+v modes=%+v", report.CanaryRollouts, report.Decisions.Modes)
+	}
+}
+
 func TestChallengeFrictionRequiresTuningBeforeReview(t *testing.T) {
 	config := normalizedTestConfig(t, Config{
 		MinDecisions: 2, MinOutcomeCoverage: 0.5, MinConfirmedHumans: 1, MinConfirmedAbuse: 1,

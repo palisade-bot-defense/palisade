@@ -112,6 +112,53 @@ func TestServeRequiresBothShadowLogPaths(t *testing.T) {
 	}
 }
 
+func TestServeRejectsUnsignedEnforcement(t *testing.T) {
+	err := serve([]string{"--dev", "--mode", "enforce"})
+	if err == nil || !strings.Contains(err.Error(), "signed rollout plan") {
+		t.Fatalf("unsigned enforcement error=%v", err)
+	}
+}
+
+func TestServeRejectsSignedRolloutInDevelopmentMode(t *testing.T) {
+	err := serve([]string{"--dev", "--rollout-plan", "synthetic-plan", "--rollout-public-key", "synthetic-key"})
+	if err == nil || !strings.Contains(err.Error(), "stable production secrets") {
+		t.Fatalf("development rollout error=%v", err)
+	}
+}
+
+func TestServeRolloutRequiresStableSessionAndMeasurementSink(t *testing.T) {
+	err := serve([]string{
+		"--rollout-plan", "synthetic-plan", "--rollout-public-key", "synthetic-key",
+		"--shadow-log-dir", "synthetic-logs", "--shadow-log-key-file", "synthetic-log-key",
+	})
+	if err == nil || !strings.Contains(err.Error(), "require-session-cookie") {
+		t.Fatalf("missing session gate error=%v", err)
+	}
+	err = serve([]string{
+		"--rollout-plan", "synthetic-plan", "--rollout-public-key", "synthetic-key", "--require-session-cookie",
+	})
+	if err == nil || !strings.Contains(err.Error(), "encrypted shadow log") {
+		t.Fatalf("missing measurement sink error=%v", err)
+	}
+}
+
+func TestRolloutPathsMustBeConfiguredTogether(t *testing.T) {
+	_, err := loadRollout("synthetic-plan", "", []byte("0123456789abcdef0123456789abcdef"), time.Now())
+	if err == nil || !strings.Contains(err.Error(), "configured together") {
+		t.Fatalf("partial rollout error=%v", err)
+	}
+}
+
+func TestEnforcementPreparationRequiresNamedPredecessorCanary(t *testing.T) {
+	err := prepareRollout([]string{
+		"--analysis", "synthetic-analysis", "--private-key", "synthetic-key", "--output", "synthetic-plan",
+		"--rollout-id", "enforce-test", "--approval-id", "review-test", "--stage", "enforce", "--endpoints", "public_content",
+	})
+	if err == nil || !strings.Contains(err.Error(), "predecessor-rollout-id") {
+		t.Fatalf("missing predecessor error=%v", err)
+	}
+}
+
 func runReplayForTest(t *testing.T, input string) string {
 	t.Helper()
 	engine, _, err := buildReplayEngine(core.RuntimeModeShadow)

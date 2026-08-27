@@ -81,20 +81,30 @@ type RuntimeMode string
 
 const (
 	RuntimeModeShadow  RuntimeMode = "shadow"
+	RuntimeModeCanary  RuntimeMode = "canary"
 	RuntimeModeEnforce RuntimeMode = "enforce"
 )
 
 const ReasonShadowActionOverridden = "SHADOW_ACTION_OVERRIDDEN"
 
+type EnforcementDirective struct {
+	Handling          string    `json:"handling"`
+	HTTPStatus        int       `json:"http_status"`
+	RetryAfterSeconds int       `json:"retry_after_seconds,omitempty"`
+	ExpiresAt         time.Time `json:"expires_at"`
+}
+
 type Decision struct {
-	DecisionID     string      `json:"decision_id"`
-	Action         Action      `json:"action"`
-	ComputedAction Action      `json:"computed_action"`
-	Mode           RuntimeMode `json:"mode"`
-	Scores         Scores      `json:"scores"`
-	ReasonCodes    []string    `json:"reason_codes"`
-	Evidence       []Evidence  `json:"evidence"`
-	PolicyVersion  string      `json:"policy_version"`
-	ModelVersion   string      `json:"model_version"`
-	ExpiresAt      time.Time   `json:"expires_at"`
+	DecisionID     string               `json:"decision_id"`
+	Action         Action               `json:"action"`
+	ComputedAction Action               `json:"computed_action"`
+	Mode           RuntimeMode          `json:"mode"`
+	RolloutID      string               `json:"rollout_id,omitempty"`
+	Directive      EnforcementDirective `json:"directive"`
+	Scores         Scores               `json:"scores"`
+	ReasonCodes    []string             `json:"reason_codes"`
+	Evidence       []Evidence           `json:"evidence"`
+	PolicyVersion  string               `json:"policy_version"`
+	ModelVersion   string               `json:"model_version"`
+	ExpiresAt      time.Time            `json:"expires_at"`
 }

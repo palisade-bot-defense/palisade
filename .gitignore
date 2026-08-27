@@ -25,6 +25,11 @@ data/
 tmp/
 *.plog
 shadow-analysis*.json
+!schemas/shadow-analysis-report-v1.schema.json
+*.private
+*.rollout.json
+rollout-plan*.json
+!schemas/rollout-plan-v1.schema.json
 
 # Authorized offline exports must never enter a worktree
 access.log.gz

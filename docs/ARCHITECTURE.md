@@ -17,6 +17,7 @@ It is not a packet sniffer, a general log warehouse or a raw-vendor-event bus.
 | Offline research | Python and Go CLIs | Local-only import, replay, evaluation and aggregate reporting |
 | Runtime state | Bounded in-memory stores | Five-minute event/session windows for the current single-process baseline |
 | Local measurement | AES-256-GCM files | Optional append-only decision/outcome stream with rotation and retention |
+| Rollout approval | Ed25519 signed JSON | Expiring endpoint/action/cohort scope reviewed by an operator |
 
 The initial deployment is a modular monolith. A database, message broker or
 distributed cache is not required by the baseline. Shared state should be added
@@ -43,6 +44,8 @@ browser sensor ─────────── POST /v1/events ───┼─
 
 trusted backend ─────────── POST /v1/outcome ─> encrypted outcome record
 encrypted records ───────── analyze-shadow-log ─> aggregate recommendations
+aggregate report ────────── operator signature ─> bounded canary/enforce plan
+origin middleware ───────── POST /v1/origin-check ─> 204 / 429 / 403
 ```
 
 `automation`, `intent` and `continuity` remain separate dimensions. Automation
@@ -50,6 +53,10 @@ alone is not abuse. In `shadow` mode, a computed `throttle`, `challenge` or
 `block` is returned for measurement but the enforced action is only `allow` or
 `observe`. The analysis command can recommend operator review or a reversible
 canary; it cannot turn enforcement on.
+
+An expiring Ed25519-signed plan binds operator approval to the aggregate report
+hash, runtime policy/model, endpoint classes, stable canary cohort and maximum
+action. Full enforcement must reference the exact measured predecessor canary.
 
 ## Trust and persistence boundaries
 
@@ -64,4 +71,4 @@ canary; it cannot turn enforcement on.
   with `--shadow-log-dir` and `--shadow-log-key-file`.
 
 See [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
-[shadow logging](SHADOW_LOG.md) and the [OpenAPI contract](../api/openapi.yaml).
+[shadow logging](SHADOW_LOG.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).

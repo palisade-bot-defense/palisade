@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package palisade.v1;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/palisade-bot-defense/palisade/gen/palisade/v1;palisadev1";
 
 enum Action {
@@ -17,6 +19,14 @@ enum RuntimeMode {
   RUNTIME_MODE_UNSPECIFIED = 0;
   RUNTIME_MODE_SHADOW = 1;
   RUNTIME_MODE_ENFORCE = 2;
+  RUNTIME_MODE_CANARY = 3;
+}
+
+message EnforcementDirective {
+  string handling = 1;
+  uint32 http_status = 2;
+  uint32 retry_after_seconds = 3;
+  google.protobuf.Timestamp expires_at = 4;
 }
 
 message Scores {

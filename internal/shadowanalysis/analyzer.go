@@ -15,6 +15,7 @@ type analyzer struct {
 	reasons   map[string]uint64
 	policies  map[string]uint64
 	models    map[string]uint64
+	canaries  map[string]uint64
 	scores    [3]scoreAccumulator
 }
 
@@ -46,6 +47,7 @@ func newAnalyzer(config Config) *analyzer {
 		reasons:   make(map[string]uint64),
 		policies:  make(map[string]uint64),
 		models:    make(map[string]uint64),
+		canaries:  make(map[string]uint64),
 	}
 }
 
@@ -65,6 +67,11 @@ func (a *analyzer) observeDecision(entry *shadowlog.DecisionEntry) error {
 		a.report.Decisions.Modes.Shadow++
 		if isRisky(entry.Action) {
 			a.report.Decisions.ShadowRiskyEnforcements++
+		}
+	} else if entry.Mode == core.RuntimeModeCanary {
+		a.report.Decisions.Modes.Canary++
+		if err := incrementBounded(a.canaries, entry.RolloutID, a.config.MaxDistinctMetadata); err != nil {
+			return err
 		}
 	} else {
 		a.report.Decisions.Modes.Enforce++
@@ -134,6 +141,7 @@ func (a *analyzer) finish(source shadowlog.Verification) Report {
 	a.report.TopReasonCodes = sortedCounts(a.reasons, a.config.TopReasonCodes)
 	a.report.PolicyVersions = sortedCounts(a.policies, a.config.MaxDistinctMetadata)
 	a.report.ModelVersions = sortedCounts(a.models, a.config.MaxDistinctMetadata)
+	a.report.CanaryRollouts = sortedCounts(a.canaries, a.config.MaxDistinctMetadata)
 	a.report.Recommendations, a.report.Readiness = recommend(a.report, a.config)
 	return a.report
 }

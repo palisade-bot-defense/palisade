@@ -2,13 +2,17 @@ package engine
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	"github.com/palisade-bot-defense/palisade/internal/detector"
 	"github.com/palisade-bot-defense/palisade/internal/policy"
+	"github.com/palisade-bot-defense/palisade/internal/rollout"
 	"github.com/palisade-bot-defense/palisade/internal/session"
 	"github.com/palisade-bot-defense/palisade/internal/token"
 )
@@ -47,6 +51,44 @@ func TestEnforceModeUsesComputedAction(t *testing.T) {
 	}
 	if hasReason(decision.ReasonCodes, core.ReasonShadowActionOverridden) {
 		t.Fatalf("unexpected shadow override reason in %v", decision.ReasonCodes)
+	}
+}
+
+func TestSignedRolloutProducesOriginDirective(t *testing.T) {
+	base := newTestEngine(t, core.RuntimeModeShadow)
+	now := time.Unix(1_800_000_000, 0).UTC()
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := rollout.Plan{
+		SchemaVersion: rollout.SchemaVersion, RolloutID: "enforce-test", ApprovalID: "review-test", PredecessorRolloutID: "canary-test",
+		CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(time.Hour).Format(time.RFC3339),
+		SourceReportSHA256: strings.Repeat("a", 64), SourceReadinessState: "operator_review_candidate",
+		PolicyVersion: "default-v3", ModelVersion: "transparent-baseline-v6", Stage: core.RuntimeModeEnforce,
+		EndpointClasses: []string{"public_content"}, MaxAction: core.ActionBlock, CanaryBasisPoints: rollout.FullRolloutBasisPoints,
+		ThrottleSeconds: 5, ChallengeTTLSeconds: 300, BlockSeconds: 300,
+	}
+	signed, err := rollout.Sign(plan, privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	controller, err := rollout.NewController(signed, publicKey, []byte("0123456789abcdef0123456789abcdef"), "default-v3", "transparent-baseline-v6", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base.rollout = controller
+	request := highRiskRequest()
+	request.EndpointClass = "public_content"
+	decision, err := base.Decide(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.Action != core.ActionBlock || decision.Mode != core.RuntimeModeEnforce || decision.RolloutID != "enforce-test" {
+		t.Fatalf("decision=%+v", decision)
+	}
+	if decision.Directive.Handling != "block" || decision.Directive.HTTPStatus != 403 || decision.Directive.RetryAfterSeconds != 300 {
+		t.Fatalf("directive=%+v", decision.Directive)
 	}
 }
 

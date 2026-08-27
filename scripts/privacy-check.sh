@@ -95,6 +95,10 @@ while IFS="$tab" read -r metadata path; do
 		echo "privacy-check: possible private key or credential marker: $path" >&2
 		failed=1
 	fi
+	if [ "$path" != "scripts/privacy-check.sh" ] && grep -I -q -E -- '^[A-Za-z0-9_-]{86}$' "$blob_file"; then
+		echo "privacy-check: possible raw Ed25519 private key: $path" >&2
+		failed=1
+	fi
 
 	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.offline-(event|manifest)\.v1"' "$blob_file"; then
 		echo "privacy-check: normalized offline data content: $path" >&2
@@ -102,6 +106,10 @@ while IFS="$tab" read -r metadata path; do
 	fi
 	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.shadow-analysis\.v1"' "$blob_file"; then
 		echo "privacy-check: generated shadow analysis report: $path" >&2
+		failed=1
+	fi
+	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.rollout-plan\.v1"' "$blob_file"; then
+		echo "privacy-check: signed deployment rollout plan: $path" >&2
 		failed=1
 	fi
 	if grep -I -q -E -- '^[0-9A-Fa-f:.]+ - - \[[0-9]{2}/[A-Za-z]{3}/[0-9]{4}:[0-9]{2}:[0-9]{2}:[0-9]{2} [+-][0-9]{4}\] "[A-Z]+ ' "$blob_file"; then

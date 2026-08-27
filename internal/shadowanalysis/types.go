@@ -2,6 +2,7 @@ package shadowanalysis
 
 import (
 	"errors"
+	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/shadowlog"
 )
@@ -17,6 +18,7 @@ const (
 	DefaultMinChallengeResults = uint64(100)
 	DefaultMaxDistinctMetadata = 256
 	DefaultTopReasonCodes      = 32
+	MinimumRolloutWindow       = 24 * time.Hour
 )
 
 var ErrDistinctBudget = errors.New("shadow analysis distinct-value budget exceeded")
@@ -45,6 +47,7 @@ type Report struct {
 	TopReasonCodes  []CountedValue         `json:"top_reason_codes"`
 	PolicyVersions  []CountedValue         `json:"policy_versions"`
 	ModelVersions   []CountedValue         `json:"model_versions"`
+	CanaryRollouts  []CountedValue         `json:"canary_rollouts"`
 	Recommendations []Recommendation       `json:"recommendations"`
 }
 
@@ -74,6 +77,7 @@ type ActionCounts struct {
 
 type ModeCounts struct {
 	Shadow  uint64 `json:"shadow"`
+	Canary  uint64 `json:"canary"`
 	Enforce uint64 `json:"enforce"`
 }
 

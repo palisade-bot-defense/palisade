@@ -13,6 +13,7 @@ import (
 	"github.com/palisade-bot-defense/palisade/internal/detector"
 	"github.com/palisade-bot-defense/palisade/internal/fusion"
 	"github.com/palisade-bot-defense/palisade/internal/policy"
+	"github.com/palisade-bot-defense/palisade/internal/rollout"
 	"github.com/palisade-bot-defense/palisade/internal/session"
 	"github.com/palisade-bot-defense/palisade/internal/token"
 )
@@ -23,6 +24,8 @@ var (
 	ErrExplicitTimeWithProof = errors.New("explicit decision time is unavailable with proof enforcement")
 )
 
+const ModelVersion = "transparent-baseline-v6"
+
 type Engine struct {
 	sessions      *session.MemoryStore
 	detectors     *detector.Registry
@@ -30,6 +33,7 @@ type Engine struct {
 	tokens        *token.Service
 	requireProof  bool
 	mode          core.RuntimeMode
+	rollout       *rollout.Controller
 	now           func() time.Time
 	newDecisionID func() string
 }
@@ -49,6 +53,12 @@ func WithDecisionIDGenerator(generator func() string) Option {
 		if generator != nil {
 			engine.newDecisionID = generator
 		}
+	}
+}
+
+func WithRollout(controller *rollout.Controller) Option {
+	return func(engine *Engine) {
+		engine.rollout = controller
 	}
 }
 
@@ -114,9 +124,20 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 	}
 	computedAction := result.Action
 	action := computedAction
+	mode := e.mode
+	rolloutID := ""
+	directive := rollout.DefaultDirective(action, now)
 	reasons := []string{result.Reason}
-	if e.mode == core.RuntimeModeShadow && computedAction != core.ActionAllow && computedAction != core.ActionObserve {
+	if e.rollout != nil {
+		applied := e.rollout.Apply(request.SessionID, request.EndpointClass, computedAction, now)
+		action, mode, rolloutID, directive = applied.Action, applied.Mode, applied.RolloutID, applied.Directive
+		reasons = append(reasons, applied.Reasons...)
+		if mode == core.RuntimeModeShadow && computedAction != core.ActionAllow && computedAction != core.ActionObserve {
+			reasons = append(reasons, core.ReasonShadowActionOverridden)
+		}
+	} else if e.mode == core.RuntimeModeShadow && computedAction != core.ActionAllow && computedAction != core.ActionObserve {
 		action = core.ActionObserve
+		directive = rollout.DefaultDirective(action, now)
 		reasons = append(reasons, core.ReasonShadowActionOverridden)
 	}
 	for _, item := range evidence {
@@ -126,12 +147,14 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 		DecisionID:     e.newDecisionID(),
 		Action:         action,
 		ComputedAction: computedAction,
-		Mode:           e.mode,
+		Mode:           mode,
+		RolloutID:      rolloutID,
+		Directive:      directive,
 		Scores:         scores,
 		ReasonCodes:    reasons,
 		Evidence:       evidence,
 		PolicyVersion:  e.policy.Version(),
-		ModelVersion:   "transparent-baseline-v6",
+		ModelVersion:   ModelVersion,
 		ExpiresAt:      now.Add(30 * time.Second),
 	}, nil
 }

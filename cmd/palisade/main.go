@@ -24,6 +24,7 @@ import (
 	"github.com/palisade-bot-defense/palisade/internal/offlineimport"
 	"github.com/palisade-bot-defense/palisade/internal/policy"
 	"github.com/palisade-bot-defense/palisade/internal/replay"
+	"github.com/palisade-bot-defense/palisade/internal/rollout"
 	"github.com/palisade-bot-defense/palisade/internal/session"
 	"github.com/palisade-bot-defense/palisade/internal/sessioncookie"
 	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
@@ -42,7 +43,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: palisade <serve|doctor|replay|import-offline|verify-shadow-log|analyze-shadow-log|version>")
+		return errors.New("usage: palisade <serve|doctor|replay|import-offline|verify-shadow-log|analyze-shadow-log|rollout-keygen|prepare-rollout|verify-rollout|version>")
 	}
 	switch args[0] {
 	case "serve":
@@ -57,6 +58,12 @@ func run(args []string) error {
 		return verifyShadowLog(args[1:])
 	case "analyze-shadow-log":
 		return analyzeShadowLog(args[1:])
+	case "rollout-keygen":
+		return rolloutKeygen(args[1:])
+	case "prepare-rollout":
+		return prepareRollout(args[1:])
+	case "verify-rollout":
+		return verifyRollout(args[1:])
 	case "version":
 		fmt.Printf("palisade %s go=%s os=%s arch=%s\n", version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 		return nil
@@ -72,6 +79,7 @@ func analyzeShadowLog(args []string) error {
 	maxFiles := flags.Uint64("max-files", shadowlog.DefaultScanMaxFiles, "hard managed-file scan budget")
 	maxRecords := flags.Uint64("max-records", shadowlog.DefaultScanMaxRecords, "hard decrypted-record scan budget")
 	maxEncryptedBytes := flags.Int64("max-encrypted-bytes", shadowlog.DefaultScanMaxEncryptedBytes, "hard encrypted input byte budget")
+	outputPath := flags.String("output", "", "new owner-only aggregate report outside every Git worktree; defaults to stdout")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -83,6 +91,13 @@ func analyzeShadowLog(args []string) error {
 	}})
 	if err != nil {
 		return err
+	}
+	if *outputPath != "" {
+		if err := rollout.WriteAnalysisReport(*outputPath, report); err != nil {
+			return err
+		}
+		fmt.Println("shadow analysis report written")
+		return nil
 	}
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
@@ -160,7 +175,9 @@ func serve(args []string) error {
 	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
 	listen := flags.String("listen", "127.0.0.1:8080", "HTTP listen address")
 	dev := flags.Bool("dev", false, "allow ephemeral local secrets and proof-free decisions")
-	modeName := flags.String("mode", string(core.RuntimeModeShadow), "runtime mode: shadow or enforce")
+	modeName := flags.String("mode", string(core.RuntimeModeShadow), "runtime mode: serve requires shadow; signed plans enable canary/enforce")
+	rolloutPlanPath := flags.String("rollout-plan", "", "owner-only signed rollout plan outside every Git worktree")
+	rolloutPublicKeyPath := flags.String("rollout-public-key", "", "owner-only rollout verification public key outside every Git worktree")
 	requireSessionCookie := flags.Bool("require-session-cookie", false, "require a valid server-issued session cookie on token, event and decision requests")
 	shadowLogDir := flags.String("shadow-log-dir", "", "private encrypted append-only shadow log directory")
 	shadowLogKeyFile := flags.String("shadow-log-key-file", "", "owner-only file containing 32-4096 encryption key bytes")
@@ -175,11 +192,38 @@ func serve(args []string) error {
 	if err != nil {
 		return err
 	}
+	if mode != core.RuntimeModeShadow {
+		return errors.New("serve enforcement requires a signed rollout plan; --mode enforce is supported only by deterministic replay")
+	}
+	if (*rolloutPlanPath == "") != (*rolloutPublicKeyPath == "") {
+		return errors.New("--rollout-plan and --rollout-public-key must be configured together")
+	}
+	if (*shadowLogDir == "") != (*shadowLogKeyFile == "") {
+		return errors.New("--shadow-log-dir and --shadow-log-key-file must be configured together")
+	}
+	if *dev && (*rolloutPlanPath != "" || *rolloutPublicKeyPath != "") {
+		return errors.New("signed rollout plans require stable production secrets and cannot run with --dev")
+	}
+	if *rolloutPlanPath != "" && !*requireSessionCookie {
+		return errors.New("signed rollout plans require --require-session-cookie for stable cohort binding")
+	}
+	if *rolloutPlanPath != "" && *shadowLogDir == "" {
+		return errors.New("signed rollout plans require the encrypted shadow log for measurement and rollback evidence")
+	}
 	secret, apiKey, err := secrets(*dev)
 	if err != nil {
 		return err
 	}
-	engine, tokenService, err := buildEngine(secret, !*dev, mode)
+	rolloutController, err := loadRollout(*rolloutPlanPath, *rolloutPublicKeyPath, secret, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	var engineOptions []decisionengine.Option
+	if rolloutController != nil {
+		engineOptions = append(engineOptions, decisionengine.WithRollout(rolloutController))
+		mode = rolloutController.Plan().Stage
+	}
+	engine, tokenService, err := buildEngine(secret, !*dev, core.RuntimeModeShadow, engineOptions...)
 	if err != nil {
 		return err
 	}
@@ -188,9 +232,6 @@ func serve(args []string) error {
 		return err
 	}
 	var shadowSink *shadowlog.Sink
-	if (*shadowLogDir == "") != (*shadowLogKeyFile == "") {
-		return errors.New("--shadow-log-dir and --shadow-log-key-file must be configured together")
-	}
 	if *shadowLogDir != "" {
 		shadowSink, err = shadowlog.New(shadowlog.Config{
 			Directory: *shadowLogDir, KeyFile: *shadowLogKeyFile, MaxFileBytes: *shadowLogMaxBytes,
@@ -226,7 +267,11 @@ func serve(args []string) error {
 		defer cancel()
 		_ = server.Shutdown(shutdownCtx)
 	}()
-	logger.Info("PALISADE starting", "version", version, "listen", *listen, "dev", *dev, "mode", mode, "require_session_cookie", *requireSessionCookie, "shadow_log", shadowSink != nil)
+	rolloutID := ""
+	if rolloutController != nil {
+		rolloutID = rolloutController.Plan().RolloutID
+	}
+	logger.Info("PALISADE starting", "version", version, "listen", *listen, "dev", *dev, "mode", mode, "rollout_id", rolloutID, "require_session_cookie", *requireSessionCookie, "shadow_log", shadowSink != nil)
 	if *dev {
 		logger.Warn("development mode active; proof tokens are not required")
 	}

@@ -220,10 +220,13 @@ func validateRecord(record Record) error {
 		}
 		entry := record.Decision
 		if !stableValue.MatchString(entry.DecisionID) || normalizeRequestAction(entry.RequestAction) != entry.RequestAction || normalizeEndpoint(entry.EndpointClass) != entry.EndpointClass ||
-			!validAction(entry.Action) || !validAction(entry.ComputedAction) || (entry.Mode != core.RuntimeModeShadow && entry.Mode != core.RuntimeModeEnforce) ||
+			!validAction(entry.Action) || !validAction(entry.ComputedAction) || (entry.Mode != core.RuntimeModeShadow && entry.Mode != core.RuntimeModeCanary && entry.Mode != core.RuntimeModeEnforce) ||
 			entry.Scores.AutomationRisk < 0 || entry.Scores.AutomationRisk > 1 || entry.Scores.AbuseIntentRisk < 0 || entry.Scores.AbuseIntentRisk > 1 || entry.Scores.AccountContinuity < 0 || entry.Scores.AccountContinuity > 1 ||
-			!stableValue.MatchString(entry.PolicyVersion) || !stableValue.MatchString(entry.ModelVersion) || len(entry.ReasonCodes) > 32 {
+			(entry.RolloutID != "" && !stableValue.MatchString(entry.RolloutID)) || !stableValue.MatchString(entry.PolicyVersion) || !stableValue.MatchString(entry.ModelVersion) || len(entry.ReasonCodes) > 32 {
 			return errors.New("invalid decision record")
+		}
+		if entry.Mode == core.RuntimeModeCanary && entry.RolloutID == "" {
+			return errors.New("canary decision record requires rollout_id")
 		}
 		for _, reason := range entry.ReasonCodes {
 			if !stableValue.MatchString(reason) {

@@ -20,7 +20,8 @@
         "endpoint_class": { "$ref": "#/$defs/endpoint" },
         "action": { "$ref": "#/$defs/action" },
         "computed_action": { "$ref": "#/$defs/action" },
-        "mode": { "enum": ["shadow", "enforce"] },
+        "mode": { "enum": ["shadow", "canary", "enforce"] },
+        "rollout_id": { "$ref": "#/$defs/stable" },
         "scores": {
           "type": "object",
           "additionalProperties": false,
