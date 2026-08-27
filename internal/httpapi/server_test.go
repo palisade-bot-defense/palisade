@@ -579,4 +579,12 @@ func TestDecisionAndOutcomeReachShadowRecorder(t *testing.T) {
 	if invalidResponse.Code != http.StatusBadRequest {
 		t.Fatalf("unsupported outcome status = %d", invalidResponse.Code)
 	}
+
+	unlinked := httptest.NewRequest(http.MethodPost, "/v1/outcome", bytes.NewBufferString(`{"session_id":"session-12345678","endpoint_class":"compare_noindex","outcome":"challenge_passed","provenance":"server_observed","confidence":"confirmed"}`))
+	unlinked.Header.Set("Authorization", "Bearer key")
+	unlinkedResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(unlinkedResponse, unlinked)
+	if unlinkedResponse.Code != http.StatusBadRequest {
+		t.Fatalf("unlinked outcome status = %d", unlinkedResponse.Code)
+	}
 }

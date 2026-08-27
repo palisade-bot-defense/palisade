@@ -28,6 +28,8 @@ message DecideRequest {
   uint64 sequence = 4;
   string proof_token = 5;
   Observations observations = 6;
+  // Trusted coarse evaluation tag; omitted/empty values normalize to unknown.
+  string evaluation_cohort = 7;
 }
 
 message DecideResponse {

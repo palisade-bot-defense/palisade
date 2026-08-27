@@ -186,8 +186,6 @@ func candidateReport(decisions, canary uint64) shadowanalysis.Report {
 			Total: decisions, Enforced: shadowanalysis.ActionCounts{Allow: decisions}, Computed: shadowanalysis.ActionCounts{Allow: decisions - 20, Throttle: 20},
 			Modes: shadowanalysis.ModeCounts{Shadow: decisions - canary, Canary: canary},
 		},
-		Outcomes:       shadowanalysis.OutcomeSummary{Total: 200, Coverage: minimumForTest(1, float64(200)/float64(decisions)), HumanConfirmed: 100, OperatorConfirmedAbuse: 100},
-		Endpoints:      []shadowanalysis.EndpointSummary{testEndpoint("public_content", decisions, 200, 20, 100, 100)},
 		PolicyVersions: []shadowanalysis.CountedValue{{Value: "default-v3", Count: decisions}},
 		ModelVersions:  []shadowanalysis.CountedValue{{Value: "transparent-baseline-v6", Count: decisions}},
 		Recommendations: []shadowanalysis.Recommendation{{
@@ -195,6 +193,7 @@ func candidateReport(decisions, canary uint64) shadowanalysis.Report {
 			Unit: "boolean", Message: "Evidence gates are populated; an operator may review endpoint-specific confidence intervals and a reversible canary. PALISADE does not enable enforcement automatically.",
 		}},
 	}
+	setTestEndpoints(&report, []shadowanalysis.EndpointSummary{testEndpoint("public_content", decisions, 200, 20, 100, 100)})
 	if canary > 0 {
 		report.CanaryRollouts = []shadowanalysis.CountedValue{{Value: "canary-source", Count: canary}}
 		canaryRisky := minimumUint64(20, canary)
@@ -220,6 +219,13 @@ func candidateReport(decisions, canary uint64) shadowanalysis.Report {
 
 func testEndpoint(name string, decisions, outcomes, risky, humans, abuse uint64) shadowanalysis.EndpointSummary {
 	labels := humans + abuse
+	truePositive := minimumUint64(risky, abuse)
+	confusion := shadowanalysis.ConfusionMatrix{TruePositive: truePositive, FalseNegative: abuse - truePositive, TrueNegative: humans}
+	linked := shadowanalysis.LinkedEvaluation{
+		Decisions: decisions, ConfirmedLabels: labels, Confusion: confusion,
+		FalsePositiveRate: shadowanalysis.Proportion(0, humans), AbuseRecall: shadowanalysis.Proportion(truePositive, abuse),
+		AbusePrecision: shadowanalysis.Proportion(truePositive, truePositive),
+	}
 	return shadowanalysis.EndpointSummary{
 		EndpointClass: name, Decisions: decisions, Outcomes: outcomes, ComputedRiskyActions: risky,
 		HumanConfirmed: humans, OperatorConfirmedAbuse: abuse,
@@ -230,6 +236,38 @@ func testEndpoint(name string, decisions, outcomes, risky, humans, abuse uint64)
 			FallbackOutcomeShare: shadowanalysis.Proportion(0, outcomes), AppealOutcomeShare: shadowanalysis.Proportion(0, outcomes), UnknownOutcomeShare: shadowanalysis.Proportion(0, outcomes),
 			ConfirmedLabels: labels, AbuseLabelShare: shadowanalysis.Proportion(abuse, labels),
 		},
+		LinkedEvaluation: linked,
+	}
+}
+
+func setTestEndpoints(report *shadowanalysis.Report, endpoints []shadowanalysis.EndpointSummary) {
+	var decisions, outcomes, risky, humans, abuse uint64
+	report.EvaluationSlices = make([]shadowanalysis.EvaluationSlice, 0, len(endpoints))
+	for _, endpoint := range endpoints {
+		decisions += endpoint.Decisions
+		outcomes += endpoint.Outcomes
+		risky += endpoint.ComputedRiskyActions
+		humans += endpoint.HumanConfirmed
+		abuse += endpoint.OperatorConfirmedAbuse
+		if endpoint.LinkedEvaluation.Decisions > 0 {
+			report.EvaluationSlices = append(report.EvaluationSlices, shadowanalysis.EvaluationSlice{
+				EndpointClass: endpoint.EndpointClass, EvaluationCohort: core.EvaluationCohortUnknown, Evaluation: endpoint.LinkedEvaluation,
+			})
+		}
+	}
+	report.Endpoints = endpoints
+	report.Source.Decisions = decisions
+	report.Source.Outcomes = outcomes
+	report.Source.Records = decisions + outcomes
+	report.Decisions.Total = decisions
+	report.Decisions.Enforced = shadowanalysis.ActionCounts{Allow: decisions}
+	report.Decisions.Computed = shadowanalysis.ActionCounts{Allow: decisions - risky, Throttle: risky}
+	report.Outcomes = shadowanalysis.OutcomeSummary{
+		Total: outcomes, Coverage: minimumForTest(1, float64(outcomes)/float64(decisions)), HumanConfirmed: humans, OperatorConfirmedAbuse: abuse,
+	}
+	report.Linkage = shadowanalysis.LinkageSummary{
+		UniqueDecisionIDs: decisions, OutcomeEventsWithDecisionID: outcomes, MatchedOutcomeEvents: outcomes,
+		ConfirmedDecisionLabels: humans + abuse, ConfirmedLabelCoverage: shadowanalysis.Proportion(humans+abuse, decisions),
 	}
 }
 

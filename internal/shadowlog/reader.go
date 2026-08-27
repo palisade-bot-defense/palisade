@@ -203,7 +203,7 @@ func decodeRecord(encoded []byte) (Record, error) {
 }
 
 func validateRecord(record Record) error {
-	if record.SchemaVersion != SchemaVersion || (record.Kind != "decision" && record.Kind != "outcome") {
+	if (record.SchemaVersion != SchemaVersion && record.SchemaVersion != LegacySchemaVersion) || (record.Kind != "decision" && record.Kind != "outcome") {
 		return errors.New("unsupported shadow record")
 	}
 	parsedAt, err := time.Parse(time.RFC3339, record.RecordedAt)
@@ -219,7 +219,13 @@ func validateRecord(record Record) error {
 			return errors.New("invalid decision record shape")
 		}
 		entry := record.Decision
+		cohort, validCohort := core.NormalizeEvaluationCohort(entry.EvaluationCohort)
+		if record.SchemaVersion == LegacySchemaVersion {
+			validCohort = entry.EvaluationCohort == ""
+			cohort = core.EvaluationCohortUnknown
+		}
 		if !stableValue.MatchString(entry.DecisionID) || normalizeRequestAction(entry.RequestAction) != entry.RequestAction || normalizeEndpoint(entry.EndpointClass) != entry.EndpointClass ||
+			!validCohort || (record.SchemaVersion == SchemaVersion && cohort != entry.EvaluationCohort) ||
 			!validAction(entry.Action) || !validAction(entry.ComputedAction) || (entry.Mode != core.RuntimeModeShadow && entry.Mode != core.RuntimeModeCanary && entry.Mode != core.RuntimeModeEnforce) ||
 			entry.Scores.AutomationRisk < 0 || entry.Scores.AutomationRisk > 1 || entry.Scores.AbuseIntentRisk < 0 || entry.Scores.AbuseIntentRisk > 1 || entry.Scores.AccountContinuity < 0 || entry.Scores.AccountContinuity > 1 ||
 			(entry.RolloutID != "" && !stableValue.MatchString(entry.RolloutID)) || !stableValue.MatchString(entry.PolicyVersion) || !stableValue.MatchString(entry.ModelVersion) || len(entry.ReasonCodes) > 32 {
@@ -238,11 +244,12 @@ func validateRecord(record Record) error {
 	if record.Outcome == nil || record.Decision != nil {
 		return errors.New("invalid outcome record shape")
 	}
-	return OutcomeRequest{
+	request := OutcomeRequest{
 		SessionID: "verified-session-placeholder", DecisionID: record.Outcome.DecisionID,
 		EndpointClass: record.Outcome.EndpointClass, Outcome: record.Outcome.Outcome,
 		Provenance: record.Outcome.Provenance, Confidence: record.Outcome.Confidence,
-	}.Validate()
+	}
+	return validateOutcomeRequest(request, record.SchemaVersion == SchemaVersion)
 }
 
 func validAction(action core.Action) bool {

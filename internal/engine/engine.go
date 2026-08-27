@@ -175,6 +175,9 @@ func validateRequest(request core.DecisionRequest) error {
 	if request.Observations.ExternalRiskScore < 0 || request.Observations.ExternalRiskScore > 1 {
 		return ErrInvalidRequest
 	}
+	if _, valid := core.NormalizeEvaluationCohort(request.EvaluationCohort); !valid {
+		return ErrInvalidRequest
+	}
 	switch request.Observations.ChallengeVerdict {
 	case "", "suspicious", "failed", "blocked", "allowed", "passed", "unknown":
 	default:

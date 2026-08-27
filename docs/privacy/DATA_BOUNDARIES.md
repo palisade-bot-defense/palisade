@@ -11,6 +11,7 @@ PALISADE should decide from behavior without reconstructing a person's content.
 - Server-side protocol consistency signals.
 - Random, server-issued session identifiers authenticated by an HttpOnly cookie; they are continuity handles, not identity claims.
 - Reason codes and normalized verdicts from challenge systems, external risk providers and policy-alert sources.
+- One closed, deployment-supplied evaluation cohort (`standard`, `reduced_motion`, `keyboard_only`, `fallback_path`, `sensor_missing`, `unknown`) used only for aggregate safety measurement.
 
 ## Prohibited
 
@@ -46,3 +47,9 @@ application URL, query, body, user-agent value and PALISADE tokens are never
 stored in this map or sent as observations.
 
 Scores are decision support, not identity claims. Operators need an appeal/fallback path for challenged people and must measure false positives by endpoint and client cohort.
+
+The evaluation cohort is not detector evidence. It must not contain free text,
+account or device identifiers, browser fingerprints, medical diagnoses or
+demographic inference. Empty input becomes `unknown`; unknown values fail
+validation. Analysis emits only endpoint/cohort aggregates and never the
+decision-ID digests used for the bounded local join.

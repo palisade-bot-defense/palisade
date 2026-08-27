@@ -103,6 +103,15 @@ func TestUnknownModeFailsClosedToShadow(t *testing.T) {
 	}
 }
 
+func TestDecisionRejectsFreeFormEvaluationCohort(t *testing.T) {
+	current := newTestEngine(t, core.RuntimeModeShadow)
+	request := highRiskRequest()
+	request.EvaluationCohort = "browser-fingerprint-value"
+	if _, err := current.Decide(context.Background(), request); !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("free-form evaluation cohort error = %v", err)
+	}
+}
+
 func TestDecideAtRejectsProofEnforcement(t *testing.T) {
 	engine := newTestEngineWithProof(t, core.RuntimeModeShadow, true)
 	_, err := engine.DecideAt(context.Background(), highRiskRequest(), time.Unix(1_800_000_000, 0))

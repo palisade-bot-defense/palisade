@@ -28,6 +28,7 @@ tmp/
 shadow-analysis*.json
 !schemas/shadow-analysis-report-v1.schema.json
 !schemas/shadow-analysis-report-v2.schema.json
+!schemas/shadow-analysis-report-v3.schema.json
 *.private
 *.rollout.json
 rollout-plan*.json
@@ -35,6 +36,8 @@ rollout-plan*.json
 rollout-review*.json
 !schemas/rollout-review-v1.schema.json
 !schemas/rollout-review-v2.schema.json
+!schemas/rollout-review-v3.schema.json
+!schemas/shadow-record-v2.schema.json
 
 # Authorized offline exports must never enter a worktree
 access.log.gz

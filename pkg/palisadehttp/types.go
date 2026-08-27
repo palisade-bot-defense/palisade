@@ -39,8 +39,9 @@ const (
 )
 
 type Classification struct {
-	Action        string
-	EndpointClass string
+	Action           string
+	EndpointClass    string
+	EvaluationCohort string
 }
 
 type Signals struct {

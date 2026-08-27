@@ -5,15 +5,26 @@ type LoadState = "locked" | "loading" | "ready" | "unauthorized" | "error";
 type ActionCounts = { allow: number; observe: number; throttle: number; challenge: number; block: number };
 type Recommendation = { code: string; priority: string; message: string };
 type Proportion = { count: number; total: number; rate: number; lower_95: number; upper_95: number };
+type LinkedEvaluation = {
+  decisions: number; confirmed_labels: number; ambiguous_ground_truth: number;
+  confusion: { true_positive: number; false_positive: number; true_negative: number; false_negative: number };
+  false_positive_rate: Proportion; abuse_recall: Proportion; abuse_precision: Proportion;
+  mature_challenges: number; challenge_passed: number; challenge_failed: number; challenge_abandoned: number; fallback_used: number;
+  unresolved_mature_challenges: number; ambiguous_challenge_outcomes: number;
+  challenge_pass_rate: Proportion; challenge_failure_rate: Proportion; challenge_abandonment_rate: Proportion; fallback_rate: Proportion;
+};
 type EndpointEvidence = {
   endpoint_class: string; decisions: number; outcomes: number; human_confirmed: number; operator_confirmed_abuse: number;
   evaluation: { computed_risky_rate: Proportion; challenge_failure_rate: Proportion; challenge_abandonment_rate: Proportion; fallback_outcome_share: Proportion; unknown_outcome_share: Proportion; confirmed_labels: number; abuse_label_share: Proportion };
+  linked_evaluation: LinkedEvaluation;
 };
 type Analysis = {
   source: { first_at: string; last_at: string; decisions: number; outcomes: number };
   readiness: { state: string; operator_action: string; automatic_enforcement: boolean; reason_codes: string[] };
   decisions: { total: number; computed_challenge_rate: number };
   outcomes: { total: number; coverage: number; human_confirmed: number; operator_confirmed_abuse: number; challenge_failure_rate: number };
+  linkage: { confirmed_decision_labels: number; confirmed_label_coverage: Proportion; ambiguous_ground_truth_decisions: number; ambiguous_challenge_decisions: number };
+  evaluation_slices: { endpoint_class: string; evaluation_cohort: string; evaluation: LinkedEvaluation }[];
   endpoints: EndpointEvidence[];
   canary_comparisons: { rollout_id: string; endpoint_class: string; comparable: boolean; canary_decisions: number; computed_risk_difference: { estimate: number; lower_95: number; upper_95: number } }[];
   recommendations: Recommendation[];
@@ -157,7 +168,7 @@ export function App() {
                   {summary.analysis_status.state === "invalid_update" && <p className="feed-warning" role="status">A report update was rejected. Showing the last valid aggregate report.</p>}
                   <div className="analysis-stats">
                     <div><strong>{formatNumber(summary.analysis.decisions.total)}</strong><span>analyzed decisions</span></div>
-                    <div><strong>{formatPercent(summary.analysis.outcomes.coverage)}</strong><span>outcome coverage</span></div>
+                    <div><strong>{formatPercent(summary.analysis.linkage.confirmed_label_coverage.rate)}</strong><span>linked label coverage</span></div>
                     <div><strong>{formatPercent(summary.analysis.decisions.computed_challenge_rate)}</strong><span>challenge candidate rate</span></div>
                   </div>
                   <div className="endpoint-evidence">
@@ -166,14 +177,17 @@ export function App() {
                       <div className="endpoint-row" key={endpoint.endpoint_class}>
                         <div><code>{endpoint.endpoint_class}</code><small>{formatNumber(endpoint.decisions)} decisions · {formatNumber(endpoint.outcomes)} outcome events</small></div>
                         <div><span>computed risky</span><b>{formatInterval(endpoint.evaluation.computed_risky_rate)}</b></div>
-                        <div><span>challenge failure</span><b>{formatInterval(endpoint.evaluation.challenge_failure_rate)}</b></div>
-                        <div><span>confirmed labels</span><b>{formatNumber(endpoint.evaluation.confirmed_labels)}</b></div>
+                        <div><span>false-positive rate</span><b>{formatInterval(endpoint.linked_evaluation.false_positive_rate)}</b></div>
+                        <div><span>linked labels</span><b>{formatNumber(endpoint.linked_evaluation.confirmed_labels)}</b></div>
                       </div>
+                    ))}
+                    {summary.analysis.evaluation_slices.filter((slice) => slice.evaluation.mature_challenges > 0 || slice.evaluation.confirmed_labels > 0).slice(0, 4).map((slice) => (
+                      <p className="comparison-note" key={`${slice.endpoint_class}:${slice.evaluation_cohort}`}><code>{slice.endpoint_class}</code> · {slice.evaluation_cohort.replaceAll("_", " ")} · false positives {formatInterval(slice.evaluation.false_positive_rate)} · challenge pass {formatInterval(slice.evaluation.challenge_pass_rate)}</p>
                     ))}
                     {summary.analysis.canary_comparisons.length > 0 && <p className="comparison-note">{formatNumber(summary.analysis.canary_comparisons.length)} canary endpoint group{summary.analysis.canary_comparisons.length === 1 ? "" : "s"} recorded; {formatNumber(comparableCanaries)} have a same-window shadow baseline. Intervals describe aggregate uncertainty, not causality.</p>}
                   </div>
                   <div className="recommendations"><h3>Next recommended work</h3>{summary.analysis.recommendations.slice(0, 4).map((item) => <div className="recommendation" key={item.code}><span className={item.priority}>{item.priority}</span><div><code>{item.code}</code><p>{item.message}</p></div></div>)}</div>
-                  <p className="safety-note">Source through: <b>{summary.analysis.source.last_at || "no records yet"}</b><br />Automatic enforcement: <b>{summary.analysis.readiness.automatic_enforcement ? "enabled" : "disabled"}</b> · Operator action: <code>{summary.analysis.readiness.operator_action}</code></p>
+                  <p className="safety-note">Source through: <b>{summary.analysis.source.last_at || "no records yet"}</b><br />Ambiguous labels: <b>{formatNumber(summary.analysis.linkage.ambiguous_ground_truth_decisions)}</b> · ambiguous challenge outcomes: <b>{formatNumber(summary.analysis.linkage.ambiguous_challenge_decisions)}</b><br />Automatic enforcement: <b>{summary.analysis.readiness.automatic_enforcement ? "enabled" : "disabled"}</b> · Operator action: <code>{summary.analysis.readiness.operator_action}</code></p>
                 </>
               ) : (
                 <div className="empty-state"><div aria-hidden="true">◎</div><h3>No aggregate report loaded</h3><p>Live counters are available, but PALISADE will not invent readiness or false-positive claims. Generate a private report and restart with <code>--admin-analysis-report</code>.</p></div>

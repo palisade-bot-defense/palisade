@@ -25,15 +25,18 @@ uses a constant-time bearer comparison and sends `Cache-Control: no-store`.
 - computed and enforced action counters;
 - successful encrypted decision/outcome writes and explicit drop counters;
 - whether the encrypted sink and event-triggered shadow evaluation are active;
-- an optional aggregate v2 analysis report with endpoint Wilson 95% intervals
-  and same-endpoint shadow/canary comparisons reloaded from an atomic local feed.
+- an optional aggregate v3 analysis report with linked endpoint/cohort Wilson
+  95% intervals and same-endpoint shadow/canary comparisons reloaded from an
+  atomic local feed.
 
 The endpoint does not return session or decision identifiers, individual reason
 trails, request fields, proofs, keys, file paths or decrypted records. Counters
 are process-local and reset on restart; they are operational telemetry, not an
-audit log. Outcome shares are event-level because outcomes are not required to
-map one-to-one to decisions. The Console therefore does not label them as a
-false-positive rate, completion rate or causal canary effect.
+audit log. The Console labels false-positive rate, recall, precision and
+challenge completion only from uniquely linked decision/outcome evidence. Empty
+denominators display as `no sample`; ambiguous, unresolved and mismatched
+evidence stays visible rather than being treated as success. Canary differences
+remain descriptive, not causal.
 
 ## Loading analysis
 

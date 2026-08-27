@@ -131,7 +131,12 @@ func validClassification(classification Classification) bool {
 	}
 	switch classification.EndpointClass {
 	case "public_content", "compare_index", "compare_noindex", "challenge_worker", "other_public", "account", "login", "checkout", "other":
-		return true
+		switch classification.EvaluationCohort {
+		case "", "standard", "reduced_motion", "keyboard_only", "fallback_path", "sensor_missing", "unknown":
+			return true
+		default:
+			return false
+		}
 	default:
 		return false
 	}

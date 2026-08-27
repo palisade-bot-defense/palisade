@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	SchemaVersion                = "palisade.shadow-record.v1"
+	SchemaVersion                = "palisade.shadow-record.v2"
+	LegacySchemaVersion          = "palisade.shadow-record.v1"
 	DefaultMaxFileBytes          = int64(64 << 20)
 	DefaultMaxFileAge            = time.Hour
 	DefaultRetention             = 7 * 24 * time.Hour
@@ -59,22 +60,23 @@ type Record struct {
 }
 
 type DecisionEntry struct {
-	DecisionID     string           `json:"decision_id"`
-	RequestAction  string           `json:"request_action"`
-	EndpointClass  string           `json:"endpoint_class"`
-	Action         core.Action      `json:"action"`
-	ComputedAction core.Action      `json:"computed_action"`
-	Mode           core.RuntimeMode `json:"mode"`
-	RolloutID      string           `json:"rollout_id,omitempty"`
-	Scores         core.Scores      `json:"scores"`
-	ReasonCodes    []string         `json:"reason_codes"`
-	PolicyVersion  string           `json:"policy_version"`
-	ModelVersion   string           `json:"model_version"`
+	DecisionID       string                `json:"decision_id"`
+	RequestAction    string                `json:"request_action"`
+	EndpointClass    string                `json:"endpoint_class"`
+	EvaluationCohort core.EvaluationCohort `json:"evaluation_cohort,omitempty"`
+	Action           core.Action           `json:"action"`
+	ComputedAction   core.Action           `json:"computed_action"`
+	Mode             core.RuntimeMode      `json:"mode"`
+	RolloutID        string                `json:"rollout_id,omitempty"`
+	Scores           core.Scores           `json:"scores"`
+	ReasonCodes      []string              `json:"reason_codes"`
+	PolicyVersion    string                `json:"policy_version"`
+	ModelVersion     string                `json:"model_version"`
 }
 
 type OutcomeRequest struct {
 	SessionID     string `json:"session_id"`
-	DecisionID    string `json:"decision_id,omitempty"`
+	DecisionID    string `json:"decision_id"`
 	EndpointClass string `json:"endpoint_class"`
 	Outcome       string `json:"outcome"`
 	Provenance    string `json:"provenance"`
@@ -100,10 +102,14 @@ type Verification struct {
 }
 
 func (request OutcomeRequest) Validate() error {
+	return validateOutcomeRequest(request, true)
+}
+
+func validateOutcomeRequest(request OutcomeRequest, requireDecisionID bool) error {
 	if !validSessionID(request.SessionID) {
 		return ErrInvalidOutcome
 	}
-	if request.DecisionID != "" && !stableValue.MatchString(request.DecisionID) {
+	if (requireDecisionID && request.DecisionID == "") || (request.DecisionID != "" && !stableValue.MatchString(request.DecisionID)) {
 		return ErrInvalidOutcome
 	}
 	if normalizeEndpoint(request.EndpointClass) == "other" && request.EndpointClass != "other" {

@@ -34,7 +34,10 @@ bugs, not dependency outages.
 
 ## Request and trust boundary
 
-The classifier maps local routes to the closed action and endpoint enums. The
+The classifier maps local routes to the closed action and endpoint enums. It may
+also set one closed `EvaluationCohort` for aggregate measurement. That field is
+never policy input and must not contain free text, identity, fingerprint or a
+diagnosis; leave it empty to record `unknown`. The
 optional signal provider may read only already authenticated, normalized facts
 from trusted application context. Do not trust client headers for proxy,
 verified-bot, policy-alert or external-score values.
@@ -101,8 +104,8 @@ from application route rewriting, authentication redirects and caches.
 ## Rollout order
 
 1. Start PALISADE and the adapter in shadow mode with no signed rollout.
-2. Enable the encrypted local shadow sink and collect normalized outcomes.
-3. Review `analyze-shadow-log` aggregates and select explicit false-positive,
+2. Enable the encrypted local shadow sink and collect normalized outcomes linked to the exact decision IDs.
+3. Review linked `analyze-shadow-log` endpoint/cohort aggregates and select explicit false-positive,
    availability and accessibility budgets.
 4. Sign a small reversible canary and test pass, throttle, challenge, fallback,
    block and PALISADE-outage paths.

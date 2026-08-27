@@ -17,7 +17,7 @@ vendor payloads, headers and free text from silently becoming trusted features.
 | External score | `external_risk_score` | Trusted server-side adapter | Abuse intent, bounded to 0..1 |
 | Deployment policy alert | `policy_alert` | Trusted policy adapter | Abuse intent |
 | Verified beneficial bot | `verified_bot` | Authenticated server-side verification | Offsets automation only, never abusive intent |
-| Delayed outcome | `POST /v1/outcome` | Backend bearer credential | Local evaluation and recommendation gates |
+| Delayed outcome | `POST /v1/outcome` with exact `decision_id` | Backend bearer credential | Linked local evaluation and recommendation gates |
 
 Client-controlled forwarding headers must not set trusted observations. Resolve
 the actual TCP peer and proxy allowlist in the deployment adapter first. If a
@@ -61,6 +61,7 @@ with `POST /v1/token`, then submits a normalized decision request:
   "session_id": "session-12345678",
   "action": "read",
   "endpoint_class": "public_content",
+  "evaluation_cohort": "standard",
   "sequence": 42,
   "proof_token": "server-issued-one-time-proof",
   "observations": {
@@ -104,6 +105,13 @@ The response separates what PALISADE recommends from what it actually applies:
 The complete authentication, bounds and schemas are authoritative in
 [`api/openapi.yaml`](../api/openapi.yaml). `additionalProperties: false` rejects
 unknown observation fields instead of retaining them.
+
+`evaluation_cohort` is optional input and normalizes to `unknown`. It is a
+trusted coarse measurement slice, not a signal source: detectors and policy do
+not consume it. Use only the closed vocabulary and never derive it from a
+fingerprint, identity, diagnosis or free-form browser metadata. Delayed outcome
+writes must repeat the exact response `decision_id`; PALISADE rejects new
+unlinked outcomes.
 
 ## Adding a new source
 

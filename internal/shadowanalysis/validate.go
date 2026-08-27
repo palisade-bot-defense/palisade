@@ -7,6 +7,8 @@ import (
 	"slices"
 	"sort"
 	"time"
+
+	"github.com/palisade-bot-defense/palisade/internal/core"
 )
 
 var ErrInvalidReport = errors.New("invalid shadow analysis report")
@@ -42,7 +44,7 @@ func ValidateReport(report Report) error {
 		!validScore(report.Scores.AccountContinuity, report.Decisions.Total) || !validEndpoints(report) ||
 		!validRankedValues(report.TopReasonCodes, DefaultTopReasonCodes) ||
 		!validCountedValues(report.PolicyVersions, report.Decisions.Total) || !validCountedValues(report.ModelVersions, report.Decisions.Total) ||
-		!validCountedValues(report.CanaryRollouts, report.Decisions.Modes.Canary) || !validCanaryComparisons(report) {
+		!validCountedValues(report.CanaryRollouts, report.Decisions.Modes.Canary) || !validCanaryComparisons(report) || !validLinkage(report) {
 		return ErrInvalidReport
 	}
 	config, err := normalizeConfig(Config{})
@@ -106,7 +108,9 @@ func validEndpoints(report Report) bool {
 				endpoint.OutcomeKinds.ChallengeAbandoned, endpoint.OutcomeKinds.HumanConfirmed, endpoint.OutcomeKinds.OperatorConfirmedAbuse,
 				endpoint.OutcomeKinds.AppealRequested, endpoint.OutcomeKinds.FallbackUsed, endpoint.OutcomeKinds.Unknown) ||
 			endpoint.HumanConfirmed != endpoint.OutcomeKinds.HumanConfirmed || endpoint.OperatorConfirmedAbuse != endpoint.OutcomeKinds.OperatorConfirmedAbuse ||
-			!validEndpointEvaluation(endpoint) ||
+			!validEndpointEvaluation(endpoint) || !validLinkedEvaluation(endpoint.LinkedEvaluation) || endpoint.LinkedEvaluation.Decisions > endpoint.Decisions ||
+			endpoint.LinkedEvaluation.Confusion.FalsePositive+endpoint.LinkedEvaluation.Confusion.TrueNegative > endpoint.HumanConfirmed ||
+			endpoint.LinkedEvaluation.Confusion.TruePositive+endpoint.LinkedEvaluation.Confusion.FalseNegative > endpoint.OperatorConfirmedAbuse ||
 			!add(&decisions, endpoint.Decisions) || !add(&outcomes, endpoint.Outcomes) || !add(&risky, endpoint.ComputedRiskyActions) ||
 			!add(&humans, endpoint.HumanConfirmed) || !add(&abuse, endpoint.OperatorConfirmedAbuse) || !addOutcomeKinds(&outcomeKinds, endpoint.OutcomeKinds) {
 			return false
@@ -123,6 +127,100 @@ func validEndpoints(report Report) bool {
 	return add(&globalRisky, report.Decisions.Computed.Throttle) && add(&globalRisky, report.Decisions.Computed.Challenge) && add(&globalRisky, report.Decisions.Computed.Block) &&
 		decisions == report.Decisions.Total && outcomes == report.Outcomes.Total && risky == globalRisky && humans == report.Outcomes.HumanConfirmed &&
 		abuse == report.Outcomes.OperatorConfirmedAbuse && outcomeKinds == globalKinds
+}
+
+func validLinkage(report Report) bool {
+	linkage := report.Linkage
+	var decisionRecords, outcomeEvents, linkedOutcomeEvents uint64
+	if !add(&decisionRecords, linkage.UniqueDecisionIDs) || !add(&decisionRecords, linkage.DuplicateDecisionRecords) || decisionRecords != report.Source.Decisions ||
+		linkage.DuplicateDecisionIDs > linkage.UniqueDecisionIDs ||
+		!add(&outcomeEvents, linkage.OutcomeEventsWithDecisionID) || !add(&outcomeEvents, linkage.LegacyOutcomeEventsWithoutID) || outcomeEvents != report.Source.Outcomes ||
+		!add(&linkedOutcomeEvents, linkage.MatchedOutcomeEvents) || !add(&linkedOutcomeEvents, linkage.UnknownDecisionOutcomeEvents) ||
+		!add(&linkedOutcomeEvents, linkage.EndpointMismatchOutcomeEvents) || linkedOutcomeEvents != linkage.OutcomeEventsWithDecisionID ||
+		linkage.DuplicateOutcomeEvents > linkage.OutcomeEventsWithDecisionID {
+		return false
+	}
+
+	endpointEvaluations := make(map[string]LinkedEvaluation, len(report.Endpoints))
+	var endpointTotal LinkedEvaluation
+	for _, endpoint := range report.Endpoints {
+		if endpoint.LinkedEvaluation.Decisions > 0 {
+			endpointEvaluations[endpoint.EndpointClass] = endpoint.LinkedEvaluation
+		}
+		if !addLinkedEvaluation(&endpointTotal, endpoint.LinkedEvaluation) {
+			return false
+		}
+	}
+	if endpointTotal.Decisions != linkage.UniqueDecisionIDs-linkage.DuplicateDecisionIDs ||
+		endpointTotal.ConfirmedLabels != linkage.ConfirmedDecisionLabels ||
+		endpointTotal.AmbiguousGroundTruth != linkage.AmbiguousGroundTruthDecisions ||
+		endpointTotal.AmbiguousChallengeOutcomes != linkage.AmbiguousChallengeDecisions {
+		return false
+	}
+	if !validProportion(linkage.ConfirmedLabelCoverage) || linkage.ConfirmedLabelCoverage.Count != linkage.ConfirmedDecisionLabels ||
+		linkage.ConfirmedLabelCoverage.Total != report.Decisions.Total {
+		return false
+	}
+
+	sliceTotals := make(map[string]LinkedEvaluation, len(report.Endpoints))
+	previousEndpoint := ""
+	var previousCohort core.EvaluationCohort
+	for _, slice := range report.EvaluationSlices {
+		cohort, valid := core.NormalizeEvaluationCohort(slice.EvaluationCohort)
+		if !valid || cohort != slice.EvaluationCohort || !allowedReportEndpoint(slice.EndpointClass) || !validLinkedEvaluation(slice.Evaluation) ||
+			(previousEndpoint != "" && (slice.EndpointClass < previousEndpoint || (slice.EndpointClass == previousEndpoint && slice.EvaluationCohort <= previousCohort))) {
+			return false
+		}
+		total := sliceTotals[slice.EndpointClass]
+		if !addLinkedEvaluation(&total, slice.Evaluation) {
+			return false
+		}
+		sliceTotals[slice.EndpointClass] = total
+		previousEndpoint, previousCohort = slice.EndpointClass, slice.EvaluationCohort
+	}
+	if len(report.EvaluationSlices) > 54 || len(sliceTotals) != len(endpointEvaluations) {
+		return false
+	}
+	for endpoint, expected := range endpointEvaluations {
+		actual, exists := sliceTotals[endpoint]
+		if !exists || finalizeLinkedEvaluation(actual) != expected {
+			return false
+		}
+	}
+	return true
+}
+
+func validLinkedEvaluation(value LinkedEvaluation) bool {
+	var labels, humanLabels, abuseLabels, matureOutcomes, classifiedDecisions uint64
+	if !add(&labels, value.Confusion.TruePositive) || !add(&labels, value.Confusion.FalsePositive) ||
+		!add(&labels, value.Confusion.TrueNegative) || !add(&labels, value.Confusion.FalseNegative) || labels != value.ConfirmedLabels ||
+		!add(&humanLabels, value.Confusion.FalsePositive) || !add(&humanLabels, value.Confusion.TrueNegative) ||
+		!add(&abuseLabels, value.Confusion.TruePositive) || !add(&abuseLabels, value.Confusion.FalseNegative) ||
+		!add(&matureOutcomes, value.ChallengePassed) || !add(&matureOutcomes, value.ChallengeFailed) ||
+		!add(&matureOutcomes, value.ChallengeAbandoned) || !add(&matureOutcomes, value.FallbackUsed) ||
+		!add(&matureOutcomes, value.UnresolvedMatureChallenges) || !add(&matureOutcomes, value.AmbiguousChallengeOutcomes) ||
+		!add(&classifiedDecisions, value.ConfirmedLabels) || !add(&classifiedDecisions, value.AmbiguousGroundTruth) ||
+		matureOutcomes != value.MatureChallenges || classifiedDecisions > value.Decisions || value.MatureChallenges > value.Decisions {
+		return false
+	}
+	return validProportion(value.FalsePositiveRate) && value.FalsePositiveRate.Count == value.Confusion.FalsePositive && value.FalsePositiveRate.Total == humanLabels &&
+		validProportion(value.AbuseRecall) && value.AbuseRecall.Count == value.Confusion.TruePositive && value.AbuseRecall.Total == abuseLabels &&
+		validProportion(value.AbusePrecision) && value.AbusePrecision.Count == value.Confusion.TruePositive && value.AbusePrecision.Total == value.Confusion.TruePositive+value.Confusion.FalsePositive &&
+		validProportion(value.ChallengePassRate) && value.ChallengePassRate.Count == value.ChallengePassed && value.ChallengePassRate.Total == value.MatureChallenges &&
+		validProportion(value.ChallengeFailureRate) && value.ChallengeFailureRate.Count == value.ChallengeFailed && value.ChallengeFailureRate.Total == value.MatureChallenges &&
+		validProportion(value.ChallengeAbandonmentRate) && value.ChallengeAbandonmentRate.Count == value.ChallengeAbandoned && value.ChallengeAbandonmentRate.Total == value.MatureChallenges &&
+		validProportion(value.FallbackRate) && value.FallbackRate.Count == value.FallbackUsed && value.FallbackRate.Total == value.MatureChallenges
+}
+
+func addLinkedEvaluation(total *LinkedEvaluation, value LinkedEvaluation) bool {
+	return add(&total.Decisions, value.Decisions) && add(&total.ConfirmedLabels, value.ConfirmedLabels) &&
+		add(&total.AmbiguousGroundTruth, value.AmbiguousGroundTruth) &&
+		add(&total.Confusion.TruePositive, value.Confusion.TruePositive) && add(&total.Confusion.FalsePositive, value.Confusion.FalsePositive) &&
+		add(&total.Confusion.TrueNegative, value.Confusion.TrueNegative) && add(&total.Confusion.FalseNegative, value.Confusion.FalseNegative) &&
+		add(&total.MatureChallenges, value.MatureChallenges) && add(&total.ChallengePassed, value.ChallengePassed) &&
+		add(&total.ChallengeFailed, value.ChallengeFailed) && add(&total.ChallengeAbandoned, value.ChallengeAbandoned) &&
+		add(&total.FallbackUsed, value.FallbackUsed) && add(&total.UnresolvedMatureChallenges, value.UnresolvedMatureChallenges) &&
+		add(&total.AmbiguousChallengeOutcomes, value.AmbiguousChallengeOutcomes)
 }
 
 func addOutcomeKinds(total *OutcomeKindCounts, value OutcomeKindCounts) bool {

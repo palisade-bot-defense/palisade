@@ -87,6 +87,7 @@ func analyzeShadowLog(args []string) error {
 	maxFiles := flags.Uint64("max-files", shadowlog.DefaultScanMaxFiles, "hard managed-file scan budget")
 	maxRecords := flags.Uint64("max-records", shadowlog.DefaultScanMaxRecords, "hard decrypted-record scan budget")
 	maxEncryptedBytes := flags.Int64("max-encrypted-bytes", shadowlog.DefaultScanMaxEncryptedBytes, "hard encrypted input byte budget")
+	maxDecisionLinks := flags.Int("max-decision-links", shadowanalysis.DefaultMaxDecisionLinks, "hard in-memory decision/outcome linkage budget")
 	outputPath := flags.String("output", "", "new owner-only aggregate report outside every Git worktree; defaults to stdout")
 	watchInterval := flags.Duration("watch-interval", 0, "repeat local analysis and atomically replace --output at this interval")
 	if err := flags.Parse(args); err != nil {
@@ -97,7 +98,7 @@ func analyzeShadowLog(args []string) error {
 	}
 	config := shadowanalysis.Config{ScanLimits: shadowlog.ScanLimits{
 		MaxFiles: *maxFiles, MaxRecords: *maxRecords, MaxEncryptedBytes: *maxEncryptedBytes,
-	}}
+	}, MaxDecisionLinks: *maxDecisionLinks}
 	if *watchInterval != 0 {
 		if *outputPath == "" || *watchInterval < 10*time.Second || *watchInterval > 24*time.Hour {
 			return errors.New("--watch-interval requires --output and must be between 10s and 24h")
