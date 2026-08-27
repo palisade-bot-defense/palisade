@@ -50,6 +50,7 @@ h1 em { color: var(--cobalt); font-style: normal; }
 .verdict strong { width: fit-content; padding: 9px 14px; border-radius: 10px; font: 800 30px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .verdict .block { color: #a83545; background: #ffe6e6; }
 .verdict .allow { color: #117457; background: #d9fff1; }
+.verdict .observe { color: #8a5a00; background: #fff1c7; }
 .verdict span { margin-top: 18px; color: var(--copy); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .evidence { padding: 32px 36px; }
 .panel-title { display: flex; justify-content: space-between; align-items: center; }

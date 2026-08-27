@@ -13,6 +13,12 @@ enum Action {
   ACTION_BLOCK = 5;
 }
 
+enum RuntimeMode {
+  RUNTIME_MODE_UNSPECIFIED = 0;
+  RUNTIME_MODE_SHADOW = 1;
+  RUNTIME_MODE_ENFORCE = 2;
+}
+
 message Scores {
   double automation_risk = 1;
   double abuse_intent_risk = 2;

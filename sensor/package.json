@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Privacy-limited browser behavior sensor for PALISADE",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "files": ["dist"],
   "main": "./dist/palisade-sensor.umd.cjs",
   "module": "./dist/palisade-sensor.js",

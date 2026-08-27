@@ -11,7 +11,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -19,15 +19,13 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm test
+      - run: make check
+      - run: make test
       - run: pnpm build
-      - run: go test -race ./...
-      - run: go vet ./...
       - run: go run ./cmd/palisade replay --file examples/replay/synthetic.jsonl
       - run: go build -trimpath ./cmd/palisade

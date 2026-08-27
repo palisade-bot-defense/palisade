@@ -2,10 +2,10 @@ openapi: 3.1.0
 info:
   title: PALISADE HTTP API
   version: 0.1.0
-  description: Early behavior-first decision API. Production decision and event calls use short-lived, session/action-bound proofs.
+  description: Early behavior-first decision API. The runtime defaults to shadow mode; production decision and event calls use short-lived, session/action-bound proofs.
   license:
-    name: License pending — all rights reserved
-    url: https://github.com/palisade-bot-defense/palisade/blob/main/LICENSE-PENDING.md
+    name: GNU Affero General Public License v3.0 only
+    identifier: AGPL-3.0-only
 servers:
   - url: /
 paths:
@@ -25,6 +25,24 @@ paths:
       responses:
         "200":
           description: Process is ready.
+  /v1/session:
+    post:
+      summary: Issue a server-bound continuity cookie
+      description: Backend-only endpoint. The integrating origin forwards the Set-Cookie header to the browser; cookie integrity establishes continuity, not humanity or account identity.
+      operationId: issueSession
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Signed session cookie issued.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+        "401": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /v1/token:
     post:
       summary: Issue a short-lived one-time proof
@@ -72,7 +90,7 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
   /v1/decision:
     post:
-      summary: Produce an explainable action decision
+      summary: Produce an explainable computed and enforced action decision
       operationId: decide
       security: []
       requestBody:
@@ -88,6 +106,23 @@ paths:
               schema: { $ref: "#/components/schemas/Decision" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
+  /v1/outcome:
+    post:
+      summary: Attach a normalized delayed outcome to a shadow session
+      description: Backend-only. Outcomes are closed labels and are written only when the encrypted local shadow sink is configured.
+      operationId: recordOutcome
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OutcomeRequest" }
+      responses:
+        "202": { description: Outcome accepted by the local shadow sink. }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
     bearerAuth:
@@ -97,6 +132,10 @@ components:
       type: apiKey
       in: header
       name: X-Palisade-Proof
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-palisade_session
   responses:
     Error:
       description: Stable machine-readable error.
@@ -108,6 +147,33 @@ components:
             properties:
               error: { type: string }
   schemas:
+    SessionResponse:
+      type: object
+      additionalProperties: false
+      required: [session_id, expires_at]
+      properties:
+        session_id: { type: string, minLength: 32, maxLength: 32 }
+        expires_at: { type: string, format: date-time }
+    OutcomeRequest:
+      type: object
+      description: Closed backend outcome label. The server validates that provenance and confidence are compatible with the selected outcome; challenge completion is never human confirmation.
+      additionalProperties: false
+      required: [session_id, endpoint_class, outcome, provenance, confidence]
+      properties:
+        session_id: { type: string, minLength: 8, maxLength: 128, pattern: "^[A-Za-z0-9_.:-]+$" }
+        decision_id: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9_.:-]+$" }
+        endpoint_class:
+          type: string
+          enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]
+        outcome:
+          type: string
+          enum: [successful_action, challenge_passed, challenge_failed, challenge_abandoned, human_confirmed, operator_confirmed_abuse, appeal_requested, fallback_used, unknown]
+        provenance:
+          type: string
+          enum: [authenticated_account, operator_review, server_observed, user_feedback, unknown]
+        confidence:
+          type: string
+          enum: [confirmed, unknown]
     BrowserEvent:
       type: object
       additionalProperties: false
@@ -138,9 +204,14 @@ components:
         user_agent_present: { type: boolean }
         browser_event_count: { type: integer, minimum: 0, maximum: 10000 }
         honeypot_hits: { type: integer, minimum: 0, maximum: 100 }
-        anubis_verdict: { type: string }
-        cannai_score: { type: number, minimum: 0, maximum: 1 }
-        crowdsec_alert: { type: boolean }
+        challenge_verdict:
+          type: string
+          enum: [suspicious, failed, blocked, allowed, passed, unknown]
+          description: Normalized result from a trusted challenge adapter. A passed challenge is an outcome, not proof that the client is human.
+        external_risk_score: { type: number, minimum: 0, maximum: 1 }
+        policy_alert:
+          type: boolean
+          description: Trusted deployment policy alert normalized to a boolean; clients must not set this directly.
         verified_bot: { type: boolean }
     DecisionRequest:
       type: object
@@ -155,10 +226,20 @@ components:
         observations: { $ref: "#/components/schemas/Observations" }
     Decision:
       type: object
-      required: [decision_id, action, scores, reason_codes, evidence, policy_version, model_version, expires_at]
+      required: [decision_id, action, computed_action, mode, scores, reason_codes, evidence, policy_version, model_version, expires_at]
       properties:
         decision_id: { type: string }
-        action: { type: string, enum: [allow, observe, throttle, challenge, block] }
+        action:
+          type: string
+          enum: [allow, observe, throttle, challenge, block]
+          description: Enforced action. In shadow mode this is limited to allow or observe.
+        computed_action:
+          type: string
+          enum: [allow, observe, throttle, challenge, block]
+          description: Unmodified result of policy evaluation.
+        mode:
+          type: string
+          enum: [shadow, enforce]
         scores:
           type: object
           required: [automation_risk, abuse_intent_risk, account_continuity]
