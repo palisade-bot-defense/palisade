@@ -334,7 +334,7 @@ components:
       additionalProperties: false
       required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, analysis_status, analysis]
       properties:
-        schema_version: { type: string, const: palisade.admin-summary.v3 }
+        schema_version: { type: string, const: palisade.admin-summary.v4 }
         generated_at: { type: string, format: date-time }
         uptime_seconds: { type: integer, minimum: 0 }
         runtime:
@@ -383,11 +383,11 @@ components:
             loaded_at: { type: [string, "null"], format: date-time }
             last_attempt_at: { type: [string, "null"], format: date-time }
         analysis:
-          description: Validated palisade.shadow-analysis.v2 aggregate report, or null when no report was loaded. It contains endpoint Wilson intervals and aggregate canary comparisons, but no row-level records.
+          description: Validated palisade.shadow-analysis.v3 aggregate report, or null when no report was loaded. It contains linked endpoint/cohort Wilson intervals and aggregate canary comparisons, but no row-level records or decision identifiers.
           oneOf:
             - type: "null"
             - type: object
-              required: [schema_version, source, readiness, decisions, outcomes, scores, endpoints, top_reason_codes, policy_versions, model_versions, canary_rollouts, canary_comparisons, recommendations]
+              required: [schema_version, source, readiness, decisions, outcomes, scores, endpoints, top_reason_codes, policy_versions, model_versions, canary_rollouts, canary_comparisons, linkage, evaluation_slices, recommendations]
     Error:
       type: object
       additionalProperties: false
@@ -454,9 +454,9 @@ components:
         expires_at: { type: string, format: date-time }
     OutcomeRequest:
       type: object
-      description: Closed backend outcome label. The server validates that provenance and confidence are compatible with the selected outcome; challenge completion is never human confirmation.
+      description: Closed backend outcome label linked to the exact decision. The server validates that provenance and confidence are compatible with the selected outcome; challenge completion is never human confirmation.
       additionalProperties: false
-      required: [session_id, endpoint_class, outcome, provenance, confidence]
+      required: [session_id, decision_id, endpoint_class, outcome, provenance, confidence]
       properties:
         session_id: { type: string, minLength: 8, maxLength: 128, pattern: "^[A-Za-z0-9_.:-]+$" }
         decision_id: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9_.:-]+$" }
@@ -530,6 +530,10 @@ components:
         sequence: { type: integer, minimum: 1 }
         proof_token: { type: string }
         observations: { $ref: "#/components/schemas/Observations" }
+        evaluation_cohort:
+          type: string
+          enum: [standard, reduced_motion, keyboard_only, fallback_path, sensor_missing, unknown]
+          description: Optional trusted, coarse operational cohort used only for aggregate evaluation. PALISADE does not infer identity, disability or demographic attributes; omitted values become unknown.
     Decision:
       type: object
       required: [decision_id, action, computed_action, mode, directive, scores, reason_codes, evidence, policy_version, model_version, expires_at]

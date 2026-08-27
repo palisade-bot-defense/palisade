@@ -4,11 +4,12 @@ import (
 	"errors"
 	"time"
 
+	"github.com/palisade-bot-defense/palisade/internal/core"
 	"github.com/palisade-bot-defense/palisade/internal/shadowlog"
 )
 
 const (
-	SchemaVersion              = "palisade.shadow-analysis.v2"
+	SchemaVersion              = "palisade.shadow-analysis.v3"
 	DefaultMinDecisions        = uint64(1000)
 	DefaultMinOutcomeCoverage  = 0.10
 	DefaultMinConfirmedHumans  = uint64(100)
@@ -18,10 +19,16 @@ const (
 	DefaultMinChallengeResults = uint64(100)
 	DefaultMaxDistinctMetadata = 256
 	DefaultTopReasonCodes      = 32
+	DefaultMaxDecisionLinks    = 1_000_000
+	MaximumDecisionLinks       = 5_000_000
 	MinimumRolloutWindow       = 24 * time.Hour
+	ChallengeOutcomeMaturity   = 15 * time.Minute
 )
 
-var ErrDistinctBudget = errors.New("shadow analysis distinct-value budget exceeded")
+var (
+	ErrDistinctBudget = errors.New("shadow analysis distinct-value budget exceeded")
+	ErrLinkBudget     = errors.New("shadow analysis decision-link budget exceeded")
+)
 
 type Config struct {
 	ScanLimits          shadowlog.ScanLimits
@@ -34,6 +41,7 @@ type Config struct {
 	MinChallengeResults uint64
 	MaxDistinctMetadata int
 	TopReasonCodes      int
+	MaxDecisionLinks    int
 }
 
 type Report struct {
@@ -49,6 +57,8 @@ type Report struct {
 	ModelVersions     []CountedValue         `json:"model_versions"`
 	CanaryRollouts    []CountedValue         `json:"canary_rollouts"`
 	CanaryComparisons []CanaryComparison     `json:"canary_comparisons"`
+	Linkage           LinkageSummary         `json:"linkage"`
+	EvaluationSlices  []EvaluationSlice      `json:"evaluation_slices"`
 	Recommendations   []Recommendation       `json:"recommendations"`
 }
 
@@ -119,6 +129,57 @@ type EndpointSummary struct {
 	OperatorConfirmedAbuse uint64             `json:"operator_confirmed_abuse"`
 	OutcomeKinds           OutcomeKindCounts  `json:"outcome_kinds"`
 	Evaluation             EndpointEvaluation `json:"evaluation"`
+	LinkedEvaluation       LinkedEvaluation   `json:"linked_evaluation"`
+}
+
+type LinkageSummary struct {
+	UniqueDecisionIDs             uint64             `json:"unique_decision_ids"`
+	DuplicateDecisionIDs          uint64             `json:"duplicate_decision_ids"`
+	DuplicateDecisionRecords      uint64             `json:"duplicate_decision_records"`
+	OutcomeEventsWithDecisionID   uint64             `json:"outcome_events_with_decision_id"`
+	LegacyOutcomeEventsWithoutID  uint64             `json:"legacy_outcome_events_without_id"`
+	MatchedOutcomeEvents          uint64             `json:"matched_outcome_events"`
+	UnknownDecisionOutcomeEvents  uint64             `json:"unknown_decision_outcome_events"`
+	EndpointMismatchOutcomeEvents uint64             `json:"endpoint_mismatch_outcome_events"`
+	DuplicateOutcomeEvents        uint64             `json:"duplicate_outcome_events"`
+	ConfirmedDecisionLabels       uint64             `json:"confirmed_decision_labels"`
+	ConfirmedLabelCoverage        ProportionEstimate `json:"confirmed_label_coverage"`
+	AmbiguousGroundTruthDecisions uint64             `json:"ambiguous_ground_truth_decisions"`
+	AmbiguousChallengeDecisions   uint64             `json:"ambiguous_challenge_decisions"`
+}
+
+type ConfusionMatrix struct {
+	TruePositive  uint64 `json:"true_positive"`
+	FalsePositive uint64 `json:"false_positive"`
+	TrueNegative  uint64 `json:"true_negative"`
+	FalseNegative uint64 `json:"false_negative"`
+}
+
+type LinkedEvaluation struct {
+	Decisions                  uint64             `json:"decisions"`
+	ConfirmedLabels            uint64             `json:"confirmed_labels"`
+	AmbiguousGroundTruth       uint64             `json:"ambiguous_ground_truth"`
+	Confusion                  ConfusionMatrix    `json:"confusion"`
+	FalsePositiveRate          ProportionEstimate `json:"false_positive_rate"`
+	AbuseRecall                ProportionEstimate `json:"abuse_recall"`
+	AbusePrecision             ProportionEstimate `json:"abuse_precision"`
+	MatureChallenges           uint64             `json:"mature_challenges"`
+	ChallengePassed            uint64             `json:"challenge_passed"`
+	ChallengeFailed            uint64             `json:"challenge_failed"`
+	ChallengeAbandoned         uint64             `json:"challenge_abandoned"`
+	FallbackUsed               uint64             `json:"fallback_used"`
+	UnresolvedMatureChallenges uint64             `json:"unresolved_mature_challenges"`
+	AmbiguousChallengeOutcomes uint64             `json:"ambiguous_challenge_outcomes"`
+	ChallengePassRate          ProportionEstimate `json:"challenge_pass_rate"`
+	ChallengeFailureRate       ProportionEstimate `json:"challenge_failure_rate"`
+	ChallengeAbandonmentRate   ProportionEstimate `json:"challenge_abandonment_rate"`
+	FallbackRate               ProportionEstimate `json:"fallback_rate"`
+}
+
+type EvaluationSlice struct {
+	EndpointClass    string                `json:"endpoint_class"`
+	EvaluationCohort core.EvaluationCohort `json:"evaluation_cohort"`
+	Evaluation       LinkedEvaluation      `json:"evaluation"`
 }
 
 type OutcomeKindCounts struct {

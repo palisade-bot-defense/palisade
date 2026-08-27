@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	ReviewSchemaVersion        = "palisade.rollout-review.v2"
+	ReviewSchemaVersion        = "palisade.rollout-review.v3"
 	ReviewStateHold            = "hold"
 	ReviewStateCandidate       = "review_candidate"
 	ReviewGatePass             = "pass"
@@ -121,7 +121,7 @@ func BuildReviewProposal(report shadowanalysis.Report, reportBytes []byte, optio
 	endpoint, endpointOK := recommendedEndpoint(report.Endpoints)
 	observedEndpoint := "none"
 	if endpointOK {
-		observedEndpoint = fmt.Sprintf("%s:risky=%d/%d,human=%d,abuse=%d", endpoint.EndpointClass, endpoint.ComputedRiskyActions, endpoint.Decisions, endpoint.HumanConfirmed, endpoint.OperatorConfirmedAbuse)
+		observedEndpoint = fmt.Sprintf("%s:risky=%d/%d,linked_human=%d,linked_abuse=%d", endpoint.EndpointClass, endpoint.ComputedRiskyActions, endpoint.Decisions, linkedHumanLabels(endpoint), linkedAbuseLabels(endpoint))
 	}
 	proposal.addGate("ELIGIBLE_ENDPOINT_SCOPE", endpointOK, observedEndpoint, fmt.Sprintf("one_public_endpoint_with_risky_shadow_actions,human>=%d,abuse>=%d", shadowanalysis.DefaultMinConfirmedHumans, shadowanalysis.DefaultMinConfirmedAbuse), "Choose one narrow public endpoint with measured risky shadow actions and sufficient confirmed human and confirmed-abuse outcomes; account and authentication endpoints are excluded.")
 
@@ -302,7 +302,7 @@ func recommendedEndpoint(values []shadowanalysis.EndpointSummary) (shadowanalysi
 	candidates := make([]shadowanalysis.EndpointSummary, 0, len(values))
 	for _, endpoint := range values {
 		if allowedEndpoint(endpoint.EndpointClass) && endpoint.Decisions > 0 && endpoint.ComputedRiskyActions > 0 &&
-			endpoint.HumanConfirmed >= shadowanalysis.DefaultMinConfirmedHumans && endpoint.OperatorConfirmedAbuse >= shadowanalysis.DefaultMinConfirmedAbuse {
+			linkedHumanLabels(endpoint) >= shadowanalysis.DefaultMinConfirmedHumans && linkedAbuseLabels(endpoint) >= shadowanalysis.DefaultMinConfirmedAbuse {
 			candidates = append(candidates, endpoint)
 		}
 	}
@@ -324,6 +324,14 @@ func recommendedEndpoint(values []shadowanalysis.EndpointSummary) (shadowanalysi
 		return candidates[left].EndpointClass < candidates[right].EndpointClass
 	})
 	return candidates[0], true
+}
+
+func linkedHumanLabels(endpoint shadowanalysis.EndpointSummary) uint64 {
+	return endpoint.LinkedEvaluation.Confusion.FalsePositive + endpoint.LinkedEvaluation.Confusion.TrueNegative
+}
+
+func linkedAbuseLabels(endpoint shadowanalysis.EndpointSummary) uint64 {
+	return endpoint.LinkedEvaluation.Confusion.TruePositive + endpoint.LinkedEvaluation.Confusion.FalseNegative
 }
 
 func canaryComparison(values []shadowanalysis.CanaryComparison, rolloutID, endpoint string) (shadowanalysis.CanaryComparison, bool) {

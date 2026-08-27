@@ -18,6 +18,7 @@ type analyzer struct {
 	canaries        map[string]uint64
 	shadowEndpoints map[string]*modeAccumulator
 	canaryEndpoints map[canaryEndpointKey]*modeAccumulator
+	links           map[[32]byte]*linkedDecision
 	scores          [3]scoreAccumulator
 }
 
@@ -63,18 +64,21 @@ func newAnalyzer(config Config) *analyzer {
 		canaries:        make(map[string]uint64),
 		shadowEndpoints: make(map[string]*modeAccumulator),
 		canaryEndpoints: make(map[canaryEndpointKey]*modeAccumulator),
+		links:           make(map[[32]byte]*linkedDecision),
 	}
 }
 
 func (a *analyzer) observe(record shadowlog.Record) error {
 	if record.Kind == "decision" {
-		return a.observeDecision(record.Decision)
+		return a.observeDecision(record.Decision, record.RecordedAt)
 	}
-	a.observeOutcome(record.Outcome)
-	return nil
+	return a.observeOutcome(record.Outcome)
 }
 
-func (a *analyzer) observeDecision(entry *shadowlog.DecisionEntry) error {
+func (a *analyzer) observeDecision(entry *shadowlog.DecisionEntry, recordedAt string) error {
+	if err := a.observeLinkedDecision(entry, recordedAt); err != nil {
+		return err
+	}
 	a.report.Decisions.Total++
 	addAction(&a.report.Decisions.Enforced, entry.Action)
 	addAction(&a.report.Decisions.Computed, entry.ComputedAction)
@@ -121,7 +125,10 @@ func (a *analyzer) observeDecision(entry *shadowlog.DecisionEntry) error {
 	return incrementBounded(a.models, entry.ModelVersion, a.config.MaxDistinctMetadata)
 }
 
-func (a *analyzer) observeOutcome(entry *shadowlog.OutcomeEntry) {
+func (a *analyzer) observeOutcome(entry *shadowlog.OutcomeEntry) error {
+	if err := a.observeLinkedOutcome(entry); err != nil {
+		return err
+	}
 	a.report.Outcomes.Total++
 	endpoint := a.endpoint(entry.EndpointClass)
 	endpoint.Outcomes++
@@ -156,6 +163,7 @@ func (a *analyzer) observeOutcome(entry *shadowlog.OutcomeEntry) {
 		a.report.Outcomes.Unknown++
 		endpoint.OutcomeKinds.Unknown++
 	}
+	return nil
 }
 
 func (a *analyzer) finish(source shadowlog.Verification) Report {
@@ -172,6 +180,7 @@ func (a *analyzer) finish(source shadowlog.Verification) Report {
 	a.report.Scores = ScoreSummaries{
 		AutomationRisk: a.scores[0].summary(), AbuseIntentRisk: a.scores[1].summary(), AccountContinuity: a.scores[2].summary(),
 	}
+	a.finishLinkage(source)
 	for _, endpoint := range a.endpoints {
 		endpoint.Evaluation = evaluateEndpoint(*endpoint)
 	}
@@ -188,6 +197,8 @@ func (a *analyzer) finish(source shadowlog.Verification) Report {
 func recommend(report Report, config Config) ([]Recommendation, Readiness) {
 	var recommendations []Recommendation
 	var reasons []string
+	linkedHumans, linkedAbuse := linkedLabelCounts(report.Endpoints)
+	matureChallenges, challengeFriction := linkedChallengeFriction(report.Endpoints)
 	add := func(code, priority, disposition, metric string, observed, threshold float64, unit, message string) {
 		recommendations = append(recommendations, Recommendation{
 			Code: code, Priority: priority, Disposition: disposition, Metric: metric,
@@ -201,20 +212,20 @@ func recommend(report Report, config Config) ([]Recommendation, Readiness) {
 	if report.Decisions.Total < config.MinDecisions {
 		add("COLLECT_MORE_DECISIONS", "high", "required", "decisions", float64(report.Decisions.Total), float64(config.MinDecisions), "count", "Collect a larger local shadow sample across a complete traffic cycle.")
 	}
-	if report.Outcomes.Coverage < config.MinOutcomeCoverage {
-		add("IMPROVE_OUTCOME_COVERAGE", "high", "required", "outcome_coverage", report.Outcomes.Coverage, config.MinOutcomeCoverage, "ratio", "Increase normalized delayed-outcome coverage before estimating operational harm.")
+	if report.Linkage.ConfirmedLabelCoverage.Rate < config.MinOutcomeCoverage {
+		add("IMPROVE_OUTCOME_COVERAGE", "high", "required", "linked_label_coverage", report.Linkage.ConfirmedLabelCoverage.Rate, config.MinOutcomeCoverage, "ratio", "Increase uniquely linked confirmed-label coverage before estimating false positives or abuse recall.")
 	}
-	if report.Outcomes.HumanConfirmed < config.MinConfirmedHumans {
-		add("EXPAND_CONFIRMED_HUMANS", "high", "required", "human_confirmed", float64(report.Outcomes.HumanConfirmed), float64(config.MinConfirmedHumans), "count", "Add authenticated or operator-reviewed human outcomes; challenge completion is not a human label.")
+	if linkedHumans < config.MinConfirmedHumans {
+		add("EXPAND_CONFIRMED_HUMANS", "high", "required", "linked_human_confirmed", float64(linkedHumans), float64(config.MinConfirmedHumans), "count", "Add authenticated or operator-reviewed human outcomes linked to their exact decision; challenge completion is not a human label.")
 	}
-	if report.Outcomes.OperatorConfirmedAbuse < config.MinConfirmedAbuse {
-		add("EXPAND_CONFIRMED_ABUSE", "medium", "required", "operator_confirmed_abuse", float64(report.Outcomes.OperatorConfirmedAbuse), float64(config.MinConfirmedAbuse), "count", "Add operator-confirmed abuse outcomes to measure precision without treating automation as abuse.")
+	if linkedAbuse < config.MinConfirmedAbuse {
+		add("EXPAND_CONFIRMED_ABUSE", "medium", "required", "linked_operator_confirmed_abuse", float64(linkedAbuse), float64(config.MinConfirmedAbuse), "count", "Add operator-confirmed abuse outcomes linked to their exact decision to measure precision without treating automation as abuse.")
 	}
 	if report.Decisions.ComputedChallengeRate > config.MaxChallengeRate {
 		add("REVIEW_COMPUTED_CHALLENGE_RATE", "medium", "required", "computed_challenge_rate", report.Decisions.ComputedChallengeRate, config.MaxChallengeRate, "ratio", "Review endpoint-specific step-up thresholds and accessibility impact before any canary.")
 	}
-	if report.Outcomes.ChallengeResults >= config.MinChallengeResults && report.Outcomes.ChallengeFailureRate > config.MaxChallengeFailure {
-		add("REDUCE_CHALLENGE_FRICTION", "high", "required", "challenge_failure_rate", report.Outcomes.ChallengeFailureRate, config.MaxChallengeFailure, "ratio", "Challenge failure or abandonment is above the review budget; improve fallback and accessibility first.")
+	if matureChallenges >= config.MinChallengeResults && challengeFriction > config.MaxChallengeFailure {
+		add("REDUCE_CHALLENGE_FRICTION", "high", "required", "linked_challenge_friction_rate", challengeFriction, config.MaxChallengeFailure, "ratio", "Linked mature challenge failure, abandonment, unresolved or ambiguous outcomes are above the review budget; improve fallback, instrumentation and accessibility first.")
 	}
 
 	readiness := Readiness{AutomaticEnforcement: false, ReasonCodes: reasons}
@@ -225,11 +236,11 @@ func recommend(report Report, config Config) ([]Recommendation, Readiness) {
 	case report.Decisions.Total < config.MinDecisions:
 		readiness.State = "collecting"
 		readiness.OperatorAction = "remain_shadow"
-	case report.Outcomes.Coverage < config.MinOutcomeCoverage || report.Outcomes.HumanConfirmed < config.MinConfirmedHumans || report.Outcomes.OperatorConfirmedAbuse < config.MinConfirmedAbuse:
+	case report.Linkage.ConfirmedLabelCoverage.Rate < config.MinOutcomeCoverage || linkedHumans < config.MinConfirmedHumans || linkedAbuse < config.MinConfirmedAbuse:
 		readiness.State = "needs_labels"
 		readiness.OperatorAction = "remain_shadow"
 	case report.Decisions.ComputedChallengeRate > config.MaxChallengeRate ||
-		(report.Outcomes.ChallengeResults >= config.MinChallengeResults && report.Outcomes.ChallengeFailureRate > config.MaxChallengeFailure):
+		(matureChallenges >= config.MinChallengeResults && challengeFriction > config.MaxChallengeFailure):
 		readiness.State = "needs_tuning"
 		readiness.OperatorAction = "remain_shadow"
 	default:
@@ -247,6 +258,24 @@ func recommend(report Report, config Config) ([]Recommendation, Readiness) {
 		})
 	}
 	return recommendations, readiness
+}
+
+func linkedLabelCounts(endpoints []EndpointSummary) (humans, abuse uint64) {
+	for _, endpoint := range endpoints {
+		humans += endpoint.LinkedEvaluation.Confusion.FalsePositive + endpoint.LinkedEvaluation.Confusion.TrueNegative
+		abuse += endpoint.LinkedEvaluation.Confusion.TruePositive + endpoint.LinkedEvaluation.Confusion.FalseNegative
+	}
+	return humans, abuse
+}
+
+func linkedChallengeFriction(endpoints []EndpointSummary) (mature uint64, rate float64) {
+	var friction uint64
+	for _, endpoint := range endpoints {
+		evaluation := endpoint.LinkedEvaluation
+		mature += evaluation.MatureChallenges
+		friction += evaluation.ChallengeFailed + evaluation.ChallengeAbandoned + evaluation.UnresolvedMatureChallenges + evaluation.AmbiguousChallengeOutcomes
+	}
+	return mature, ratio(friction, mature)
 }
 
 func normalizeConfig(config Config) (Config, error) {
@@ -277,9 +306,12 @@ func normalizeConfig(config Config) (Config, error) {
 	if config.TopReasonCodes == 0 {
 		config.TopReasonCodes = DefaultTopReasonCodes
 	}
+	if config.MaxDecisionLinks == 0 {
+		config.MaxDecisionLinks = DefaultMaxDecisionLinks
+	}
 	if config.MinOutcomeCoverage <= 0 || config.MinOutcomeCoverage > 1 || config.MaxChallengeRate <= 0 || config.MaxChallengeRate > 1 ||
 		config.MaxChallengeFailure <= 0 || config.MaxChallengeFailure > 1 || config.MaxDistinctMetadata < 16 || config.MaxDistinctMetadata > 4096 ||
-		config.TopReasonCodes < 1 || config.TopReasonCodes > config.MaxDistinctMetadata {
+		config.TopReasonCodes < 1 || config.TopReasonCodes > config.MaxDistinctMetadata || config.MaxDecisionLinks < 1 || config.MaxDecisionLinks > MaximumDecisionLinks {
 		return Config{}, errors.New("shadow analysis thresholds are outside supported bounds")
 	}
 	return config, nil

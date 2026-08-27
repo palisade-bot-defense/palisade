@@ -99,6 +99,10 @@ func (s *Sink) RecordDecision(request core.DecisionRequest, decision core.Decisi
 		return err
 	}
 	reasons := make([]string, 0, len(decision.ReasonCodes))
+	evaluationCohort, valid := core.NormalizeEvaluationCohort(request.EvaluationCohort)
+	if !valid {
+		return errors.New("invalid shadow decision evaluation cohort")
+	}
 	for _, reason := range decision.ReasonCodes {
 		if len(reasons) == 32 {
 			break
@@ -113,7 +117,7 @@ func (s *Sink) RecordDecision(request core.DecisionRequest, decision core.Decisi
 		RecordedAt:    now.UTC().Truncate(time.Second).Format(time.RFC3339),
 		SessionKey:    linkedSession,
 		Decision: &DecisionEntry{
-			DecisionID: sanitizeStable(decision.DecisionID), RequestAction: normalizeRequestAction(request.Action), EndpointClass: normalizeEndpoint(request.EndpointClass),
+			DecisionID: sanitizeStable(decision.DecisionID), RequestAction: normalizeRequestAction(request.Action), EndpointClass: normalizeEndpoint(request.EndpointClass), EvaluationCohort: evaluationCohort,
 			Action: decision.Action, ComputedAction: decision.ComputedAction, Mode: decision.Mode, RolloutID: sanitizeOptionalStable(decision.RolloutID), Scores: decision.Scores,
 			ReasonCodes: reasons, PolicyVersion: sanitizeStable(decision.PolicyVersion), ModelVersion: sanitizeStable(decision.ModelVersion),
 		},

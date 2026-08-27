@@ -62,7 +62,7 @@ func TestAdminSurfaceIsSeparateAuthenticatedAndAggregateOnly(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &summary); err != nil {
 		t.Fatal(err)
 	}
-	if summary.SchemaVersion != "palisade.admin-summary.v3" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Challenge != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" {
+	if summary.SchemaVersion != "palisade.admin-summary.v4" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Challenge != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" {
 		t.Fatalf("unexpected aggregate summary: %+v", summary)
 	}
 	for _, forbidden := range []string{"session-12345678", "api-key", "admin-key", "proof_token", "decision_id"} {

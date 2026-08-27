@@ -163,6 +163,16 @@ func TestShadowAnalysisWatchRequiresBoundedIntervalAndOutput(t *testing.T) {
 	}
 }
 
+func TestShadowAnalysisRejectsUnboundedDecisionLinkBudgetBeforeReadingFiles(t *testing.T) {
+	err := analyzeShadowLog([]string{
+		"--dir", "synthetic-logs", "--key-file", "synthetic-key",
+		"--max-decision-links", "5000001",
+	})
+	if err == nil || !strings.Contains(err.Error(), "thresholds are outside supported bounds") {
+		t.Fatalf("unbounded link budget error = %v", err)
+	}
+}
+
 func TestAdminListenerIsLoopbackOnly(t *testing.T) {
 	for _, address := range []string{"0.0.0.0:8081", "[::]:8081", "localhost:8081", "127.0.0.1:0", "invalid"} {
 		if err := validateAdminListen(address); err == nil {

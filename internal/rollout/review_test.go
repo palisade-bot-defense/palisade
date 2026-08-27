@@ -12,20 +12,12 @@ import (
 
 func TestReviewProposalIsDeterministicAndChoosesNarrowestEligibleEndpoint(t *testing.T) {
 	report := candidateReport(2000, 0)
-	report.Endpoints = []shadowanalysis.EndpointSummary{
+	setTestEndpoints(&report, []shadowanalysis.EndpointSummary{
 		testEndpoint("account", 500, 200, 1, 100, 100),
 		testEndpoint("compare_index", 500, 200, 10, 100, 100),
 		testEndpoint("other_public", 500, 200, 20, 100, 100),
 		testEndpoint("public_content", 500, 200, 5, 100, 100),
-	}
-	report.Outcomes.Total = 800
-	report.Outcomes.Coverage = 0.4
-	report.Outcomes.HumanConfirmed = 400
-	report.Outcomes.OperatorConfirmedAbuse = 400
-	report.Source.Outcomes = 800
-	report.Source.Records = report.Source.Decisions + report.Source.Outcomes
-	report.Decisions.Computed.Allow = 1964
-	report.Decisions.Computed.Throttle = 36
+	})
 	reportBytes := encodedReport(t, report)
 	first, err := BuildReviewProposal(report, reportBytes, ReviewOptions{Stage: core.RuntimeModeCanary})
 	if err != nil {
@@ -62,10 +54,10 @@ func TestReviewProposalHoldsWhenNoPublicRiskyEndpointExists(t *testing.T) {
 
 func TestReviewProposalHoldsWithoutBothConfirmedLabelClassesAtEndpoint(t *testing.T) {
 	report := candidateReport(2000, 0)
-	report.Endpoints = []shadowanalysis.EndpointSummary{
+	setTestEndpoints(&report, []shadowanalysis.EndpointSummary{
 		testEndpoint("account", 200, 200, 0, 100, 100),
 		testEndpoint("public_content", 1800, 0, 20, 0, 0),
-	}
+	})
 	reportBytes := encodedReport(t, report)
 	proposal, err := BuildReviewProposal(report, reportBytes, ReviewOptions{Stage: core.RuntimeModeCanary})
 	if err != nil {

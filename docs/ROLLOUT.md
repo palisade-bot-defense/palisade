@@ -48,7 +48,7 @@ palisade prepare-review \
   --stage canary
 ```
 
-The closed `palisade.rollout-review.v2` artifact is deterministic: the same
+The closed `palisade.rollout-review.v3` artifact is deterministic: the same
 validated report bytes and requested stage produce the same proposal. It
 contains the exact report SHA-256, source window, dominant policy/model,
 machine-checkable gates, and a fixed operator checklist. It is not signed,
@@ -57,14 +57,14 @@ cannot be loaded by `serve`, and always carries `automatic_activation: false`.
 A proposal can be produced while evidence is incomplete. In that case its
 state is `hold`, its failed gates explain what is missing and
 `recommended_scope` is `null`. A candidate selects exactly one allowlisted
-public endpoint with observed risky shadow actions plus at least 100 confirmed
-human and 100 operator-confirmed abuse outcomes on that endpoint. The selection
+public endpoint with observed risky shadow actions plus at least 100 uniquely
+linked confirmed-human and 100 operator-confirmed-abuse decisions on that endpoint. The selection
 minimizes the observed risky-action ratio, then prefers the larger sample;
 account, login and checkout endpoints are excluded. A canary proposal is fixed
 at 1%, 24 hours and at most `throttle`.
 
-Before signing, an operator must review the reported endpoint Wilson intervals
-and remember that event-level outcome shares are not false-positive rates. The
+Before signing, an operator must review the linked endpoint/cohort Wilson
+intervals, unresolved mature challenges and ambiguous labels. The
 operator must also confirm the accessible fallback/support path, origin-adapter fail-safe behavior,
 and the rollback owner/command listed in `operator_checklist`. These facts are
 not inferred from aggregate counts.

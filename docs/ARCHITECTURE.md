@@ -70,13 +70,15 @@ with signed rollouts and the authoritative origin decision stream.
 `automation`, `intent` and `continuity` remain separate dimensions. Automation
 alone is not abuse. In `shadow` mode, a computed `throttle`, `challenge` or
 `block` is returned for measurement but the enforced action is only `allow` or
-`observe`. The analysis command reports endpoint-level Wilson 95% intervals and
-aggregate shadow/canary comparisons; it cannot turn enforcement on. Because an
-outcome may omit `decision_id` and several outcomes may describe one decision,
-these event-level shares are not a false-positive rate or a causal experiment.
+`observe`. The analysis command reports linked endpoint/cohort Wilson 95%
+intervals and aggregate shadow/canary comparisons; it cannot turn enforcement
+on. New outcomes require the exact decision ID. False-positive rate, recall and
+precision include only unique decisions with one unambiguous confirmed label;
+legacy unlinked, duplicate, unknown and endpoint-mismatched outcomes remain
+explicit measurement loss. Canary comparisons are not a causal experiment.
 `prepare-review` deterministically selects at most one eligible public endpoint
-that has risky shadow actions and at least 100 outcomes from each confirmed
-label class. It records every
+that has risky shadow actions and at least 100 uniquely linked decisions from
+each confirmed label class. It records every
 machine and operator gate, but its artifact is not accepted by the runtime.
 
 An expiring Ed25519-signed plan binds operator approval to the exact aggregate

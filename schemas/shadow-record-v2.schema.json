@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/shadow-record-v2.schema.json",
+  "title": "PALISADE encrypted shadow log plaintext record v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "recorded_at", "session_key"],
+  "properties": {
+    "schema_version": { "const": "palisade.shadow-record.v2" },
+    "kind": { "enum": ["decision", "outcome"] },
+    "recorded_at": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "session_key": { "type": "string", "pattern": "^[A-Za-z0-9_-]{22}$" },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_id", "request_action", "endpoint_class", "evaluation_cohort", "action", "computed_action", "mode", "scores", "reason_codes", "policy_version", "model_version"],
+      "properties": {
+        "decision_id": { "$ref": "#/$defs/stable" },
+        "request_action": { "$ref": "#/$defs/request_action" },
+        "endpoint_class": { "$ref": "#/$defs/endpoint" },
+        "evaluation_cohort": { "$ref": "#/$defs/cohort" },
+        "action": { "$ref": "#/$defs/action" },
+        "computed_action": { "$ref": "#/$defs/action" },
+        "mode": { "enum": ["shadow", "canary", "enforce"] },
+        "rollout_id": { "$ref": "#/$defs/stable" },
+        "scores": {
+          "type": "object", "additionalProperties": false,
+          "required": ["automation_risk", "abuse_intent_risk", "account_continuity"],
+          "properties": {
+            "automation_risk": { "type": "number", "minimum": 0, "maximum": 1 },
+            "abuse_intent_risk": { "type": "number", "minimum": 0, "maximum": 1 },
+            "account_continuity": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "reason_codes": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/stable" } },
+        "policy_version": { "$ref": "#/$defs/stable" },
+        "model_version": { "$ref": "#/$defs/stable" }
+      }
+    },
+    "outcome": {
+      "type": "object", "additionalProperties": false,
+      "required": ["decision_id", "endpoint_class", "outcome", "provenance", "confidence"],
+      "properties": {
+        "decision_id": { "$ref": "#/$defs/stable" },
+        "endpoint_class": { "$ref": "#/$defs/endpoint" },
+        "outcome": { "enum": ["successful_action", "challenge_passed", "challenge_failed", "challenge_abandoned", "human_confirmed", "operator_confirmed_abuse", "appeal_requested", "fallback_used", "unknown"] },
+        "provenance": { "enum": ["authenticated_account", "operator_review", "server_observed", "user_feedback", "unknown"] },
+        "confidence": { "enum": ["confirmed", "unknown"] }
+      },
+      "oneOf": [
+        { "properties": { "outcome": { "const": "human_confirmed" }, "provenance": { "enum": ["authenticated_account", "operator_review"] }, "confidence": { "const": "confirmed" } } },
+        { "properties": { "outcome": { "const": "operator_confirmed_abuse" }, "provenance": { "const": "operator_review" }, "confidence": { "const": "confirmed" } } },
+        { "properties": { "outcome": { "enum": ["successful_action", "challenge_passed", "challenge_failed", "challenge_abandoned"] }, "provenance": { "const": "server_observed" }, "confidence": { "const": "confirmed" } } },
+        { "properties": { "outcome": { "enum": ["appeal_requested", "fallback_used"] }, "provenance": { "enum": ["server_observed", "user_feedback"] }, "confidence": { "const": "confirmed" } } },
+        { "properties": { "outcome": { "const": "unknown" }, "provenance": { "const": "unknown" }, "confidence": { "const": "unknown" } } }
+      ]
+    }
+  },
+  "oneOf": [
+    { "properties": { "kind": { "const": "decision" } }, "required": ["decision"], "not": { "required": ["outcome"] } },
+    { "properties": { "kind": { "const": "outcome" } }, "required": ["outcome"], "not": { "required": ["decision"] } }
+  ],
+  "$defs": {
+    "stable": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$" },
+    "endpoint": { "enum": ["public_content", "compare_index", "compare_noindex", "challenge_worker", "other_public", "account", "login", "checkout", "other"] },
+    "cohort": { "enum": ["standard", "reduced_motion", "keyboard_only", "fallback_path", "sensor_missing", "unknown"] },
+    "request_action": { "enum": ["read", "write", "create", "update", "delete", "search", "compare", "login", "logout", "register", "checkout", "purchase", "events", "other"] },
+    "action": { "enum": ["allow", "observe", "throttle", "challenge", "block"] }
+  }
+}

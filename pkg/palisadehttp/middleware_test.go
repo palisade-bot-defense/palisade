@@ -157,6 +157,9 @@ func TestMiddlewarePassesClosedSignalsWithoutRawRequestData(t *testing.T) {
 	service := httptest.NewServer(fake)
 	defer service.Close()
 	middleware := newTestMiddleware(t, service.URL, now, FailClosed)
+	middleware.classifier = func(*http.Request) (Classification, error) {
+		return Classification{Action: "read", EndpointClass: "public_content", EvaluationCohort: "reduced_motion"}, nil
+	}
 	var nextCalls atomic.Int32
 	handler := middleware.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		nextCalls.Add(1)
@@ -188,6 +191,9 @@ func TestMiddlewarePassesClosedSignalsWithoutRawRequestData(t *testing.T) {
 	for _, body := range fake.originBodies {
 		if bytes.Contains(body, []byte("must-not-leave")) || bytes.Contains(body, []byte("private")) || bytes.Contains(body, []byte("test-browser")) {
 			t.Fatalf("raw request data left adapter: %s", body)
+		}
+		if !bytes.Contains(body, []byte(`"evaluation_cohort":"reduced_motion"`)) {
+			t.Fatalf("closed evaluation cohort missing: %s", body)
 		}
 	}
 }

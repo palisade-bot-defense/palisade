@@ -1,0 +1,274 @@
+package shadowanalysis
+
+import (
+	"crypto/sha256"
+	"math/bits"
+	"sort"
+	"time"
+
+	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-bot-defense/palisade/internal/shadowlog"
+)
+
+const (
+	outcomeSuccessful uint16 = 1 << iota
+	outcomeChallengePassed
+	outcomeChallengeFailed
+	outcomeChallengeAbandoned
+	outcomeHumanConfirmed
+	outcomeAbuseConfirmed
+	outcomeAppealRequested
+	outcomeFallbackUsed
+	outcomeUnknown
+)
+
+const challengeTerminalMask = outcomeChallengePassed | outcomeChallengeFailed | outcomeChallengeAbandoned | outcomeFallbackUsed
+
+type linkedDecision struct {
+	decisionSeen     bool
+	duplicate        bool
+	endpoint         string
+	cohort           core.EvaluationCohort
+	recordedAt       time.Time
+	predictedRisky   bool
+	challenged       bool
+	outcomeEndpoint  string
+	endpointConflict bool
+	outcomeEvents    uint64
+	outcomeMask      uint16
+}
+
+type evaluationSliceKey struct {
+	endpoint string
+	cohort   core.EvaluationCohort
+}
+
+type linkedAccumulator struct {
+	evaluation LinkedEvaluation
+}
+
+func (a *analyzer) observeLinkedDecision(entry *shadowlog.DecisionEntry, recordedAt string) error {
+	link, err := a.decisionLink(entry.DecisionID)
+	if err != nil {
+		return err
+	}
+	if link.decisionSeen {
+		if !link.duplicate {
+			link.duplicate = true
+			a.report.Linkage.DuplicateDecisionIDs++
+		}
+		a.report.Linkage.DuplicateDecisionRecords++
+		return nil
+	}
+	cohort, valid := core.NormalizeEvaluationCohort(entry.EvaluationCohort)
+	if !valid {
+		return ErrInvalidReport
+	}
+	parsedAt, err := time.Parse(time.RFC3339, recordedAt)
+	if err != nil {
+		return ErrInvalidReport
+	}
+	link.decisionSeen = true
+	link.endpoint = entry.EndpointClass
+	link.cohort = cohort
+	link.recordedAt = parsedAt
+	link.predictedRisky = isRisky(entry.ComputedAction)
+	link.challenged = entry.Action == core.ActionChallenge
+	return nil
+}
+
+func (a *analyzer) observeLinkedOutcome(entry *shadowlog.OutcomeEntry) error {
+	if entry.DecisionID == "" {
+		a.report.Linkage.LegacyOutcomeEventsWithoutID++
+		return nil
+	}
+	a.report.Linkage.OutcomeEventsWithDecisionID++
+	link, err := a.decisionLink(entry.DecisionID)
+	if err != nil {
+		return err
+	}
+	link.outcomeEvents++
+	if link.outcomeEndpoint == "" {
+		link.outcomeEndpoint = entry.EndpointClass
+	} else if link.outcomeEndpoint != entry.EndpointClass {
+		link.endpointConflict = true
+	}
+	mask := outcomeBit(entry.Outcome)
+	if link.outcomeMask&mask != 0 {
+		a.report.Linkage.DuplicateOutcomeEvents++
+	}
+	link.outcomeMask |= mask
+	return nil
+}
+
+func (a *analyzer) decisionLink(decisionID string) (*linkedDecision, error) {
+	key := sha256.Sum256([]byte(decisionID))
+	if existing := a.links[key]; existing != nil {
+		return existing, nil
+	}
+	if len(a.links) >= a.config.MaxDecisionLinks {
+		return nil, ErrLinkBudget
+	}
+	created := &linkedDecision{}
+	a.links[key] = created
+	return created, nil
+}
+
+func (a *analyzer) finishLinkage(source shadowlog.Verification) {
+	lastAt, _ := time.Parse(time.RFC3339, source.LastAt)
+	matureBefore := lastAt.Add(-ChallengeOutcomeMaturity)
+	slices := make(map[evaluationSliceKey]*linkedAccumulator)
+	endpoints := make(map[string]*linkedAccumulator)
+	for _, link := range a.links {
+		if !link.decisionSeen {
+			a.report.Linkage.UnknownDecisionOutcomeEvents += link.outcomeEvents
+			continue
+		}
+		a.report.Linkage.UniqueDecisionIDs++
+		matched := link.outcomeEvents > 0 && !link.endpointConflict && link.outcomeEndpoint == link.endpoint
+		if link.outcomeEvents > 0 {
+			if matched {
+				a.report.Linkage.MatchedOutcomeEvents += link.outcomeEvents
+			} else {
+				a.report.Linkage.EndpointMismatchOutcomeEvents += link.outcomeEvents
+			}
+		}
+		if link.duplicate {
+			continue
+		}
+		sliceKey := evaluationSliceKey{endpoint: link.endpoint, cohort: link.cohort}
+		slice := slices[sliceKey]
+		if slice == nil {
+			slice = &linkedAccumulator{}
+			slices[sliceKey] = slice
+		}
+		endpoint := endpoints[link.endpoint]
+		if endpoint == nil {
+			endpoint = &linkedAccumulator{}
+			endpoints[link.endpoint] = endpoint
+		}
+		slice.observe(link, matched, matureBefore)
+		endpoint.observe(link, matched, matureBefore)
+	}
+	for name, accumulator := range endpoints {
+		if endpoint := a.endpoints[name]; endpoint != nil {
+			evaluation := accumulator.finish()
+			endpoint.LinkedEvaluation = evaluation
+			a.report.Linkage.ConfirmedDecisionLabels += evaluation.ConfirmedLabels
+			a.report.Linkage.AmbiguousGroundTruthDecisions += evaluation.AmbiguousGroundTruth
+			a.report.Linkage.AmbiguousChallengeDecisions += evaluation.AmbiguousChallengeOutcomes
+		}
+	}
+	a.report.Linkage.ConfirmedLabelCoverage = Proportion(a.report.Linkage.ConfirmedDecisionLabels, source.Decisions)
+	a.report.EvaluationSlices = sortedEvaluationSlices(slices)
+}
+
+func (a *linkedAccumulator) observe(link *linkedDecision, outcomesMatched bool, matureBefore time.Time) {
+	a.evaluation.Decisions++
+	if outcomesMatched {
+		groundTruth := link.outcomeMask & (outcomeHumanConfirmed | outcomeAbuseConfirmed)
+		switch groundTruth {
+		case outcomeHumanConfirmed:
+			a.evaluation.ConfirmedLabels++
+			if link.predictedRisky {
+				a.evaluation.Confusion.FalsePositive++
+			} else {
+				a.evaluation.Confusion.TrueNegative++
+			}
+		case outcomeAbuseConfirmed:
+			a.evaluation.ConfirmedLabels++
+			if link.predictedRisky {
+				a.evaluation.Confusion.TruePositive++
+			} else {
+				a.evaluation.Confusion.FalseNegative++
+			}
+		case outcomeHumanConfirmed | outcomeAbuseConfirmed:
+			a.evaluation.AmbiguousGroundTruth++
+		}
+	}
+	if !link.challenged || link.recordedAt.After(matureBefore) {
+		return
+	}
+	a.evaluation.MatureChallenges++
+	terminal := uint(link.outcomeMask & challengeTerminalMask)
+	if !outcomesMatched || terminal == 0 {
+		a.evaluation.UnresolvedMatureChallenges++
+		return
+	}
+	if bits.OnesCount(terminal) != 1 {
+		a.evaluation.AmbiguousChallengeOutcomes++
+		return
+	}
+	switch uint16(terminal) {
+	case outcomeChallengePassed:
+		a.evaluation.ChallengePassed++
+	case outcomeChallengeFailed:
+		a.evaluation.ChallengeFailed++
+	case outcomeChallengeAbandoned:
+		a.evaluation.ChallengeAbandoned++
+	case outcomeFallbackUsed:
+		a.evaluation.FallbackUsed++
+	}
+}
+
+func (a *linkedAccumulator) finish() LinkedEvaluation {
+	return finalizeLinkedEvaluation(a.evaluation)
+}
+
+func finalizeLinkedEvaluation(result LinkedEvaluation) LinkedEvaluation {
+	confusion := result.Confusion
+	result.FalsePositiveRate = Proportion(confusion.FalsePositive, confusion.FalsePositive+confusion.TrueNegative)
+	result.AbuseRecall = Proportion(confusion.TruePositive, confusion.TruePositive+confusion.FalseNegative)
+	result.AbusePrecision = Proportion(confusion.TruePositive, confusion.TruePositive+confusion.FalsePositive)
+	result.ChallengePassRate = Proportion(result.ChallengePassed, result.MatureChallenges)
+	result.ChallengeFailureRate = Proportion(result.ChallengeFailed, result.MatureChallenges)
+	result.ChallengeAbandonmentRate = Proportion(result.ChallengeAbandoned, result.MatureChallenges)
+	result.FallbackRate = Proportion(result.FallbackUsed, result.MatureChallenges)
+	return result
+}
+
+func sortedEvaluationSlices(values map[evaluationSliceKey]*linkedAccumulator) []EvaluationSlice {
+	keys := make([]evaluationSliceKey, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(left, right int) bool {
+		if keys[left].endpoint == keys[right].endpoint {
+			return keys[left].cohort < keys[right].cohort
+		}
+		return keys[left].endpoint < keys[right].endpoint
+	})
+	result := make([]EvaluationSlice, 0, len(keys))
+	for _, key := range keys {
+		result = append(result, EvaluationSlice{EndpointClass: key.endpoint, EvaluationCohort: key.cohort, Evaluation: values[key].finish()})
+	}
+	if result == nil {
+		return []EvaluationSlice{}
+	}
+	return result
+}
+
+func outcomeBit(value string) uint16 {
+	switch value {
+	case "successful_action":
+		return outcomeSuccessful
+	case "challenge_passed":
+		return outcomeChallengePassed
+	case "challenge_failed":
+		return outcomeChallengeFailed
+	case "challenge_abandoned":
+		return outcomeChallengeAbandoned
+	case "human_confirmed":
+		return outcomeHumanConfirmed
+	case "operator_confirmed_abuse":
+		return outcomeAbuseConfirmed
+	case "appeal_requested":
+		return outcomeAppealRequested
+	case "fallback_used":
+		return outcomeFallbackUsed
+	case "unknown":
+		return outcomeUnknown
+	default:
+		return 0
+	}
+}

@@ -91,7 +91,7 @@ func TestTamperAndWrongKeyAreRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := sink.RecordOutcome(OutcomeRequest{
-		SessionID: "session-12345678", EndpointClass: "account", Outcome: "successful_action",
+		SessionID: "session-12345678", DecisionID: "decision-tamper", EndpointClass: "account", Outcome: "successful_action",
 		Provenance: "server_observed", Confidence: "confirmed",
 	}, time.Now()); err != nil {
 		t.Fatal(err)
@@ -178,7 +178,7 @@ func TestRestartCreatesNewFileWithoutMutatingRetainedFile(t *testing.T) {
 			t.Fatal(err)
 		}
 		if err := sink.RecordOutcome(OutcomeRequest{
-			SessionID: "session-12345678", EndpointClass: "account", Outcome: "successful_action",
+			SessionID: "session-12345678", DecisionID: "decision-restart", EndpointClass: "account", Outcome: "successful_action",
 			Provenance: "server_observed", Confidence: "confirmed",
 		}, time.Now()); err != nil {
 			t.Fatal(err)
@@ -224,7 +224,7 @@ func TestAgeRotationAndBoundedQueue(t *testing.T) {
 		SchemaVersion: SchemaVersion, Kind: "outcome", RecordedAt: now.Format(time.RFC3339),
 		SessionKey: "AAAAAAAAAAAAAAAAAAAAAA",
 		Outcome: &OutcomeEntry{
-			EndpointClass: "account", Outcome: "successful_action",
+			DecisionID: "decision-rotation", EndpointClass: "account", Outcome: "successful_action",
 			Provenance: "server_observed", Confidence: "confirmed",
 		},
 	}
@@ -275,7 +275,7 @@ func TestOutcomeProvenanceContract(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			err := (OutcomeRequest{
-				SessionID: "session-12345678", EndpointClass: "account", Outcome: test.outcome,
+				SessionID: "session-12345678", DecisionID: "decision-provenance", EndpointClass: "account", Outcome: test.outcome,
 				Provenance: test.provenance, Confidence: test.confidence,
 			}).Validate()
 			if (err == nil) != test.valid {
@@ -297,7 +297,7 @@ func TestDirectoryRejectsRetainedLogsFromAnotherKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := sink.RecordOutcome(OutcomeRequest{
-		SessionID: "session-12345678", EndpointClass: "account", Outcome: "successful_action",
+		SessionID: "session-12345678", DecisionID: "decision-key", EndpointClass: "account", Outcome: "successful_action",
 		Provenance: "server_observed", Confidence: "confirmed",
 	}, time.Now()); err != nil {
 		t.Fatal(err)
@@ -336,6 +336,9 @@ func TestUnsafePathsAndOutcomesFailClosed(t *testing.T) {
 	}
 	if err := (OutcomeRequest{SessionID: "session-12345678", EndpointClass: "other", Outcome: "human_likely"}).Validate(); !errors.Is(err, ErrInvalidOutcome) {
 		t.Fatalf("unsupported outcome error = %v", err)
+	}
+	if err := (OutcomeRequest{SessionID: "session-12345678", EndpointClass: "account", Outcome: "unknown", Provenance: "unknown", Confidence: "unknown"}).Validate(); !errors.Is(err, ErrInvalidOutcome) {
+		t.Fatalf("outcome without decision ID error = %v", err)
 	}
 	if got := normalizeRequestAction("account-123456"); got != "other" {
 		t.Fatalf("dynamic request action was retained as %q", got)

@@ -221,12 +221,13 @@ func (m *Middleware) issueProof(ctx context.Context, cookie http.Cookie, action 
 
 func (m *Middleware) checkOrigin(ctx context.Context, cookie http.Cookie, classification Classification, signals Signals, sequence uint64, proof string) (originResult, error) {
 	payload := struct {
-		Action        string  `json:"action"`
-		EndpointClass string  `json:"endpoint_class"`
-		Sequence      uint64  `json:"sequence"`
-		ProofToken    string  `json:"proof_token"`
-		Observations  Signals `json:"observations"`
-	}{Action: classification.Action, EndpointClass: classification.EndpointClass, Sequence: sequence, ProofToken: proof, Observations: signals}
+		Action           string  `json:"action"`
+		EndpointClass    string  `json:"endpoint_class"`
+		EvaluationCohort string  `json:"evaluation_cohort,omitempty"`
+		Sequence         uint64  `json:"sequence"`
+		ProofToken       string  `json:"proof_token"`
+		Observations     Signals `json:"observations"`
+	}{Action: classification.Action, EndpointClass: classification.EndpointClass, EvaluationCohort: classification.EvaluationCohort, Sequence: sequence, ProofToken: proof, Observations: signals}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return originResult{}, err

@@ -38,13 +38,41 @@ type Observations struct {
 	ServerSessionVerified bool    `json:"-"`
 }
 
+// EvaluationCohort is a coarse, deployment-supplied measurement slice. It is
+// never detector evidence and must not encode a browser fingerprint, medical
+// condition, account identity or other free-form client attribute.
+type EvaluationCohort string
+
+const (
+	EvaluationCohortStandard      EvaluationCohort = "standard"
+	EvaluationCohortReducedMotion EvaluationCohort = "reduced_motion"
+	EvaluationCohortKeyboardOnly  EvaluationCohort = "keyboard_only"
+	EvaluationCohortFallbackPath  EvaluationCohort = "fallback_path"
+	EvaluationCohortSensorMissing EvaluationCohort = "sensor_missing"
+	EvaluationCohortUnknown       EvaluationCohort = "unknown"
+)
+
+func NormalizeEvaluationCohort(value EvaluationCohort) (EvaluationCohort, bool) {
+	if value == "" {
+		return EvaluationCohortUnknown, true
+	}
+	switch value {
+	case EvaluationCohortStandard, EvaluationCohortReducedMotion, EvaluationCohortKeyboardOnly,
+		EvaluationCohortFallbackPath, EvaluationCohortSensorMissing, EvaluationCohortUnknown:
+		return value, true
+	default:
+		return "", false
+	}
+}
+
 type DecisionRequest struct {
-	SessionID     string       `json:"session_id"`
-	Action        string       `json:"action"`
-	EndpointClass string       `json:"endpoint_class"`
-	Sequence      uint64       `json:"sequence"`
-	ProofToken    string       `json:"proof_token,omitempty"`
-	Observations  Observations `json:"observations"`
+	SessionID        string           `json:"session_id"`
+	Action           string           `json:"action"`
+	EndpointClass    string           `json:"endpoint_class"`
+	EvaluationCohort EvaluationCohort `json:"evaluation_cohort,omitempty"`
+	Sequence         uint64           `json:"sequence"`
+	ProofToken       string           `json:"proof_token,omitempty"`
+	Observations     Observations     `json:"observations"`
 }
 
 type SessionSnapshot struct {

@@ -100,20 +100,30 @@ func validReport(decisions uint64) shadowanalysis.Report {
 			Evaluation: shadowanalysis.EndpointEvaluation{
 				ComputedRiskyRate: shadowanalysis.Proportion(0, decisions),
 			},
+			LinkedEvaluation: shadowanalysis.LinkedEvaluation{Decisions: decisions},
+		}}
+		report.Linkage = shadowanalysis.LinkageSummary{
+			UniqueDecisionIDs: decisions, ConfirmedLabelCoverage: shadowanalysis.Proportion(0, decisions),
+		}
+		report.EvaluationSlices = []shadowanalysis.EvaluationSlice{{
+			EndpointClass: "public_content", EvaluationCohort: "unknown", Evaluation: shadowanalysis.LinkedEvaluation{Decisions: decisions},
 		}}
 		report.PolicyVersions = []shadowanalysis.CountedValue{{Value: "default-v3", Count: decisions}}
 		report.ModelVersions = []shadowanalysis.CountedValue{{Value: "transparent-baseline-v6", Count: decisions}}
 	}
 	report.CanaryComparisons = []shadowanalysis.CanaryComparison{}
+	if report.EvaluationSlices == nil {
+		report.EvaluationSlices = []shadowanalysis.EvaluationSlice{}
+	}
 	report.Readiness = shadowanalysis.Readiness{
 		State: "collecting", OperatorAction: "remain_shadow", AutomaticEnforcement: false,
 		ReasonCodes: []string{"COLLECT_MORE_DECISIONS", "IMPROVE_OUTCOME_COVERAGE", "EXPAND_CONFIRMED_HUMANS", "EXPAND_CONFIRMED_ABUSE"},
 	}
 	report.Recommendations = []shadowanalysis.Recommendation{
 		{Code: "COLLECT_MORE_DECISIONS", Priority: "high", Disposition: "required", Metric: "decisions", Observed: float64(decisions), Threshold: 1000, Unit: "count", Message: "Collect a larger local shadow sample across a complete traffic cycle."},
-		{Code: "IMPROVE_OUTCOME_COVERAGE", Priority: "high", Disposition: "required", Metric: "outcome_coverage", Observed: 0, Threshold: 0.1, Unit: "ratio", Message: "Increase normalized delayed-outcome coverage before estimating operational harm."},
-		{Code: "EXPAND_CONFIRMED_HUMANS", Priority: "high", Disposition: "required", Metric: "human_confirmed", Observed: 0, Threshold: 100, Unit: "count", Message: "Add authenticated or operator-reviewed human outcomes; challenge completion is not a human label."},
-		{Code: "EXPAND_CONFIRMED_ABUSE", Priority: "medium", Disposition: "required", Metric: "operator_confirmed_abuse", Observed: 0, Threshold: 100, Unit: "count", Message: "Add operator-confirmed abuse outcomes to measure precision without treating automation as abuse."},
+		{Code: "IMPROVE_OUTCOME_COVERAGE", Priority: "high", Disposition: "required", Metric: "linked_label_coverage", Observed: 0, Threshold: 0.1, Unit: "ratio", Message: "Increase uniquely linked confirmed-label coverage before estimating false positives or abuse recall."},
+		{Code: "EXPAND_CONFIRMED_HUMANS", Priority: "high", Disposition: "required", Metric: "linked_human_confirmed", Observed: 0, Threshold: 100, Unit: "count", Message: "Add authenticated or operator-reviewed human outcomes linked to their exact decision; challenge completion is not a human label."},
+		{Code: "EXPAND_CONFIRMED_ABUSE", Priority: "medium", Disposition: "required", Metric: "linked_operator_confirmed_abuse", Observed: 0, Threshold: 100, Unit: "count", Message: "Add operator-confirmed abuse outcomes linked to their exact decision to measure precision without treating automation as abuse."},
 		{Code: "KEEP_SHADOW_MODE", Priority: "high", Disposition: "hold", Metric: "automatic_enforcement", Observed: 0, Threshold: 0, Unit: "boolean", Message: "Keep enforcement disabled until the listed evidence and safety gaps are resolved and reviewed by an operator."},
 	}
 	return report

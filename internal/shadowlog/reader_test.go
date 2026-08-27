@@ -19,7 +19,7 @@ func TestScanDirectoryStreamsRecordsAndEnforcesBudgets(t *testing.T) {
 	}
 	for index := 0; index < 2; index++ {
 		if err := sink.RecordOutcome(OutcomeRequest{
-			SessionID: "session-12345678", EndpointClass: "account", Outcome: "successful_action",
+			SessionID: "session-12345678", DecisionID: "decision-reader-" + string(rune('a'+index)), EndpointClass: "account", Outcome: "successful_action",
 			Provenance: "server_observed", Confidence: "confirmed",
 		}, time.Date(2026, 8, 27, 12, 0, index, 0, time.UTC)); err != nil {
 			t.Fatal(err)
@@ -47,5 +47,27 @@ func TestScanDirectoryStreamsRecordsAndEnforcesBudgets(t *testing.T) {
 	}
 	if _, err := ScanDirectory(directory, keyFile, ScanLimits{MaxEncryptedBytes: headerSize}, nil); !errors.Is(err, ErrScanByteLimit) {
 		t.Fatalf("byte budget error = %v", err)
+	}
+}
+
+func TestDecodeRecordKeepsV1ReadableButRequiresV2Linkage(t *testing.T) {
+	legacy := `{"schema_version":"palisade.shadow-record.v1","kind":"outcome","recorded_at":"2026-08-27T12:00:00Z","session_key":"AAAAAAAAAAAAAAAAAAAAAA","outcome":{"endpoint_class":"account","outcome":"successful_action","provenance":"server_observed","confidence":"confirmed"}}`
+	if record, err := decodeRecord([]byte(legacy)); err != nil || record.Outcome.DecisionID != "" {
+		t.Fatalf("legacy record = %+v, %v", record, err)
+	}
+	v2 := strings.Replace(legacy, LegacySchemaVersion, SchemaVersion, 1)
+	if _, err := decodeRecord([]byte(v2)); err == nil {
+		t.Fatal("v2 outcome without decision_id was accepted")
+	}
+}
+
+func TestDecodeRecordRequiresCanonicalV2Cohort(t *testing.T) {
+	valid := `{"schema_version":"palisade.shadow-record.v2","kind":"decision","recorded_at":"2026-08-27T12:00:00Z","session_key":"AAAAAAAAAAAAAAAAAAAAAA","decision":{"decision_id":"decision-1","request_action":"read","endpoint_class":"account","evaluation_cohort":"unknown","action":"observe","computed_action":"allow","mode":"shadow","scores":{"automation_risk":0,"abuse_intent_risk":0,"account_continuity":0},"reason_codes":[],"policy_version":"default-v3","model_version":"transparent-baseline-v6"}}`
+	if _, err := decodeRecord([]byte(valid)); err != nil {
+		t.Fatal(err)
+	}
+	missing := strings.Replace(valid, `,"evaluation_cohort":"unknown"`, "", 1)
+	if _, err := decodeRecord([]byte(missing)); err == nil {
+		t.Fatal("v2 decision without evaluation_cohort was accepted")
 	}
 }
