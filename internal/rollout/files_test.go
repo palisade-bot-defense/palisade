@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
+	"github.com/palisade-bot-defense/palisade/internal/core"
 	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
 )
 
@@ -70,6 +72,46 @@ func TestAnalysisReportFileIsOwnerOnlyAndCannotBeOverwritten(t *testing.T) {
 	}
 	if err := WriteAnalysisReport(path, report); err == nil {
 		t.Fatal("existing report was overwritten")
+	}
+}
+
+func TestReviewProposalFileIsOwnerOnlyClosedAndCannotBeOverwritten(t *testing.T) {
+	directory, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	report := candidateReport(2000, 0)
+	reportBytes := encodedReport(t, report)
+	proposal, err := BuildReviewProposal(report, reportBytes, ReviewOptions{Stage: core.RuntimeModeCanary})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "review.json")
+	if err := WriteReviewProposal(path, proposal); err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := ReadReviewProposal(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(decoded, proposal) {
+		t.Fatalf("proposal round trip differs: decoded=%+v proposal=%+v", decoded, proposal)
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("proposal permissions: info=%v err=%v", info, err)
+	}
+	if err := WriteReviewProposal(path, proposal); err == nil {
+		t.Fatal("existing review proposal was overwritten")
+	}
+	if err := os.WriteFile(path, append([]byte(`{"unknown":true}`), '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadReviewProposal(path); err == nil {
+		t.Fatal("unknown review proposal fields were accepted")
 	}
 }
 

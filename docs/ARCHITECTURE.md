@@ -19,6 +19,7 @@ It is not a packet sniffer, a general log warehouse or a raw-vendor-event bus.
 | Runtime state | Bounded in-memory stores | Five-minute event/session windows for the current single-process baseline |
 | Challenge state | Bounded in-memory capability store | Short-lived session/action/endpoint binding and atomic one-time redemption |
 | Local measurement | AES-256-GCM files | Optional append-only decision/outcome stream with rotation and retention |
+| Rollout review | Deterministic closed JSON | Report-hash binding, machine gates, narrow recommended scope and explicit operator checklist; never executable |
 | Rollout approval | Ed25519 signed JSON | Expiring endpoint/action/cohort scope reviewed by an operator |
 
 The initial deployment is a modular monolith. A database, message broker or
@@ -49,7 +50,8 @@ encrypted records ───────── analyze-shadow-log ─> aggregate 
                                   periodic worker ─> atomic owner-only report
                                                         │
 loopback console ─────────── validated report feed <─────┘
-aggregate report ────────── operator signature ─> bounded canary/enforce plan
+aggregate report ───────── prepare-review ─────> non-executable hash-bound proposal
+review proposal ────────── operator signature ─> bounded canary/enforce plan
 origin middleware ───────── POST /v1/origin-check ─> 204 / 429 / 403
                                                       │ challenge
                                                       v
@@ -69,11 +71,15 @@ with signed rollouts and the authoritative origin decision stream.
 alone is not abuse. In `shadow` mode, a computed `throttle`, `challenge` or
 `block` is returned for measurement but the enforced action is only `allow` or
 `observe`. The analysis command can recommend operator review or a reversible
-canary; it cannot turn enforcement on.
+canary; it cannot turn enforcement on. `prepare-review` deterministically
+selects at most one eligible public endpoint and records every machine and
+operator gate, but its artifact is not accepted by the runtime.
 
-An expiring Ed25519-signed plan binds operator approval to the aggregate report
-hash, runtime policy/model, endpoint classes, stable canary cohort and maximum
-action. Full enforcement must reference the exact measured predecessor canary.
+An expiring Ed25519-signed plan binds operator approval to the exact aggregate
+report hash and reproducible review proposal, including runtime policy/model,
+endpoint class, stable canary cohort and maximum action. The signing CLI has no
+scope-widening flags. Full enforcement review must reference the exact measured
+predecessor canary.
 
 ## Trust and persistence boundaries
 

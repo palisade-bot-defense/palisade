@@ -94,18 +94,9 @@ type Controller struct {
 	cohortKey []byte
 }
 
-func Prepare(report shadowanalysis.Report, reportBytes []byte, options PrepareOptions, privateKey ed25519.PrivateKey) (SignedPlan, error) {
-	var encodedReport shadowanalysis.Report
-	decoder := json.NewDecoder(bytes.NewReader(reportBytes))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&encodedReport); err != nil || !reflect.DeepEqual(encodedReport, report) {
-		return SignedPlan{}, fmt.Errorf("%w: report bytes do not match parsed aggregate", ErrAnalysisNotReady)
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return SignedPlan{}, fmt.Errorf("%w: report contains multiple JSON values", ErrAnalysisNotReady)
-	}
-	if err := shadowanalysis.ValidateForRollout(report); err != nil {
-		return SignedPlan{}, fmt.Errorf("%w: %v", ErrAnalysisNotReady, err)
+func prepareSignedPlan(report shadowanalysis.Report, reportBytes []byte, options PrepareOptions, privateKey ed25519.PrivateKey) (SignedPlan, error) {
+	if err := validateReportBytes(report, reportBytes, true); err != nil {
+		return SignedPlan{}, err
 	}
 	if report.SchemaVersion != shadowanalysis.SchemaVersion || report.Readiness.State != "operator_review_candidate" ||
 		report.Readiness.OperatorAction != "review_reversible_canary" || report.Readiness.AutomaticEnforcement {
@@ -149,6 +140,26 @@ func Prepare(report shadowanalysis.Report, reportBytes []byte, options PrepareOp
 		return SignedPlan{}, err
 	}
 	return Sign(plan, privateKey)
+}
+
+func validateReportBytes(report shadowanalysis.Report, reportBytes []byte, requireRolloutWindow bool) error {
+	var encodedReport shadowanalysis.Report
+	decoder := json.NewDecoder(bytes.NewReader(reportBytes))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&encodedReport); err != nil || !reflect.DeepEqual(encodedReport, report) {
+		return fmt.Errorf("%w: report bytes do not match parsed aggregate", ErrAnalysisNotReady)
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return fmt.Errorf("%w: report contains multiple JSON values", ErrAnalysisNotReady)
+	}
+	validator := shadowanalysis.ValidateReport
+	if requireRolloutWindow {
+		validator = shadowanalysis.ValidateForRollout
+	}
+	if err := validator(report); err != nil {
+		return fmt.Errorf("%w: %v", ErrAnalysisNotReady, err)
+	}
+	return nil
 }
 
 func Sign(plan Plan, privateKey ed25519.PrivateKey) (SignedPlan, error) {
@@ -325,7 +336,7 @@ func directive(action core.Action, now time.Time, plan Plan) core.EnforcementDir
 }
 
 func dominantVersion(values []shadowanalysis.CountedValue, decisions uint64) (string, error) {
-	if decisions == 0 || len(values) == 0 || values[0].Count*10 < decisions*9 || !stableID.MatchString(values[0].Value) {
+	if decisions == 0 || len(values) == 0 || values[0].Count < decisions-decisions/10 || !stableID.MatchString(values[0].Value) {
 		return "", fmt.Errorf("%w: policy/model version is not at least 90%% of decisions", ErrAnalysisNotReady)
 	}
 	return values[0].Value, nil

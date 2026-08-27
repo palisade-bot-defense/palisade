@@ -57,6 +57,12 @@ report visible with an `invalid_update` warning. Reports shorter than the
 rollout observation window may be displayed honestly as collection state, but
 they remain ineligible for signing a rollout.
 
+When the report shows `operator_review_candidate`, generate the private,
+non-executable proposal with `palisade prepare-review`; the console deliberately
+has no button or API that writes, signs or activates a rollout. The proposal
+binds the exact report hash to a narrow scope and lists the remaining operator
+checks. Follow the [signed review and rollout guide](ROLLOUT.md).
+
 The baseline listener is intentionally local. Remote or multi-user access,
 reverse-proxy publication, browser sessions and role-based access control are
 not part of this release and must not be simulated by binding the admin surface

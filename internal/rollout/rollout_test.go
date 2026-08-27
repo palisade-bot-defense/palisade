@@ -21,11 +21,12 @@ func TestPrepareVerifyAndTamper(t *testing.T) {
 	}
 	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
 	report := candidateReport(2000, 0)
-	signed, err := Prepare(report, encodedReport(t, report), PrepareOptions{
-		RolloutID: "canary-20260827", ApprovalID: "review-123", Stage: core.RuntimeModeCanary,
-		EndpointClasses: []string{"public_content"}, MaxAction: core.ActionChallenge, CanaryBasisPoints: 500,
-		CreatedAt: now, ExpiresAt: now.Add(24 * time.Hour),
-	}, privateKey)
+	reportBytes := encodedReport(t, report)
+	proposal, err := BuildReviewProposal(report, reportBytes, ReviewOptions{Stage: core.RuntimeModeCanary})
+	if err != nil {
+		t.Fatal(err)
+	}
+	signed, err := PrepareFromReview(report, reportBytes, proposal, "canary-20260827", "review-123", now, privateKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,36 +39,40 @@ func TestPrepareVerifyAndTamper(t *testing.T) {
 	}
 }
 
-func TestPrepareRejectsForgedOrMismatchedAnalysis(t *testing.T) {
+func TestReviewAndSigningRejectForgedMismatchedOrTamperedInputs(t *testing.T) {
 	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
-	options := PrepareOptions{
-		RolloutID: "canary-20260827", ApprovalID: "review-123", Stage: core.RuntimeModeCanary,
-		EndpointClasses: []string{"public_content"}, MaxAction: core.ActionThrottle, CanaryBasisPoints: 100,
-		CreatedAt: now, ExpiresAt: now.Add(time.Hour),
-	}
 	original := candidateReport(2000, 0)
 	forged := original
 	forged.Decisions.Enforced.Allow--
-	if _, err := Prepare(forged, encodedReport(t, forged), options, privateKey); !errors.Is(err, ErrAnalysisNotReady) {
+	if _, err := BuildReviewProposal(forged, encodedReport(t, forged), ReviewOptions{Stage: core.RuntimeModeCanary}); !errors.Is(err, ErrAnalysisNotReady) {
 		t.Fatalf("forged aggregate error=%v", err)
 	}
-	if _, err := Prepare(original, encodedReport(t, forged), options, privateKey); !errors.Is(err, ErrAnalysisNotReady) {
+	if _, err := BuildReviewProposal(original, encodedReport(t, forged), ReviewOptions{Stage: core.RuntimeModeCanary}); !errors.Is(err, ErrAnalysisNotReady) {
 		t.Fatalf("mismatched report bytes error=%v", err)
+	}
+	reportBytes := encodedReport(t, original)
+	proposal, err := BuildReviewProposal(original, reportBytes, ReviewOptions{Stage: core.RuntimeModeCanary})
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal.RecommendedScope.CanaryBasisPoints++
+	if _, err := PrepareFromReview(original, reportBytes, proposal, "canary-20260827", "review-123", now, privateKey); !errors.Is(err, ErrInvalidReview) {
+		t.Fatalf("tampered proposal error=%v", err)
 	}
 }
 
 func TestCanaryIsDeterministicScopedAndCapped(t *testing.T) {
 	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
-	controller := testController(t, now, core.RuntimeModeCanary, core.ActionChallenge, 500, 0)
+	controller := testController(t, now, core.RuntimeModeCanary, 0)
 	selected := ""
 	excluded := ""
 	for index := 0; index < 10000 && (selected == "" || excluded == ""); index++ {
 		sessionID := fmt.Sprintf("session-%08d", index)
-		if controller.bucket(sessionID) < 500 {
+		if controller.bucket(sessionID) < DefaultCanaryBasisPoints {
 			selected = sessionID
 		} else {
 			excluded = sessionID
@@ -77,7 +82,7 @@ func TestCanaryIsDeterministicScopedAndCapped(t *testing.T) {
 		t.Fatal("could not find deterministic canary cohorts")
 	}
 	included := controller.Apply(selected, "public_content", core.ActionBlock, now)
-	if included.Mode != core.RuntimeModeCanary || included.Action != core.ActionChallenge || included.Directive.Handling != "challenge" || !contains(included.Reasons, "ROLLOUT_ACTION_CAPPED") {
+	if included.Mode != core.RuntimeModeCanary || included.Action != core.ActionThrottle || included.Directive.Handling != "throttle" || !contains(included.Reasons, "ROLLOUT_ACTION_CAPPED") {
 		t.Fatalf("included result=%+v", included)
 	}
 	second := controller.Apply(selected, "public_content", core.ActionBlock, now)
@@ -101,27 +106,28 @@ func TestEnforceRequiresMeasuredCanary(t *testing.T) {
 	}
 	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
 	underMeasured := candidateReport(2000, MinimumCanaryDecisions-1)
-	_, err = Prepare(underMeasured, encodedReport(t, underMeasured), PrepareOptions{
-		RolloutID: "enforce-20260827", ApprovalID: "review-456", PredecessorRolloutID: "canary-source", Stage: core.RuntimeModeEnforce,
-		EndpointClasses: []string{"public_content"}, MaxAction: core.ActionBlock, CanaryBasisPoints: FullRolloutBasisPoints,
-		CreatedAt: now, ExpiresAt: now.Add(time.Hour),
-	}, privateKey)
-	if !errors.Is(err, ErrAnalysisNotReady) {
-		t.Fatalf("under-measured enforce error=%v", err)
+	underBytes := encodedReport(t, underMeasured)
+	underProposal, err := BuildReviewProposal(underMeasured, underBytes, ReviewOptions{Stage: core.RuntimeModeEnforce, PredecessorRolloutID: "canary-source"})
+	if err != nil || underProposal.State != ReviewStateHold {
+		t.Fatalf("under-measured enforce proposal=%+v error=%v", underProposal, err)
+	}
+	if _, err := PrepareFromReview(underMeasured, underBytes, underProposal, "enforce-20260827", "review-456", now, privateKey); !errors.Is(err, ErrInvalidReview) {
+		t.Fatalf("under-measured enforce signing error=%v", err)
 	}
 	measured := candidateReport(2000, MinimumCanaryDecisions)
-	if _, err := Prepare(measured, encodedReport(t, measured), PrepareOptions{
-		RolloutID: "enforce-20260827", ApprovalID: "review-456", PredecessorRolloutID: "canary-source", Stage: core.RuntimeModeEnforce,
-		EndpointClasses: []string{"public_content"}, MaxAction: core.ActionBlock, CanaryBasisPoints: FullRolloutBasisPoints,
-		CreatedAt: now, ExpiresAt: now.Add(time.Hour),
-	}, privateKey); err != nil {
+	measuredBytes := encodedReport(t, measured)
+	proposal, err := BuildReviewProposal(measured, measuredBytes, ReviewOptions{Stage: core.RuntimeModeEnforce, PredecessorRolloutID: "canary-source"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PrepareFromReview(measured, measuredBytes, proposal, "enforce-20260827", "review-456", now, privateKey); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestExpiredControllerFailsClosed(t *testing.T) {
 	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
-	controller := testController(t, now, core.RuntimeModeCanary, core.ActionChallenge, 1000, 0)
+	controller := testController(t, now, core.RuntimeModeCanary, 0)
 	result := controller.Apply("session-12345678", "public_content", core.ActionBlock, now.Add(25*time.Hour))
 	if result.Mode != core.RuntimeModeShadow || result.Action != core.ActionObserve || !contains(result.Reasons, "ROLLOUT_EXPIRED") {
 		t.Fatalf("expired result=%+v", result)
@@ -130,15 +136,15 @@ func TestExpiredControllerFailsClosed(t *testing.T) {
 
 func TestDirectiveCannotOutliveSignedPlan(t *testing.T) {
 	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
-	controller := testController(t, now, core.RuntimeModeEnforce, core.ActionBlock, FullRolloutBasisPoints, MinimumCanaryDecisions)
-	decisionAt := now.Add(24*time.Hour - 5*time.Second)
+	controller := testController(t, now, core.RuntimeModeEnforce, MinimumCanaryDecisions)
+	decisionAt := now.Add(DefaultEnforcementDuration - 5*time.Second)
 	result := controller.Apply("session-12345678", "public_content", core.ActionBlock, decisionAt)
-	if !result.Directive.ExpiresAt.Equal(now.Add(24*time.Hour)) || result.Directive.RetryAfterSeconds != 5 {
+	if !result.Directive.ExpiresAt.Equal(now.Add(DefaultEnforcementDuration)) || result.Directive.RetryAfterSeconds != 0 {
 		t.Fatalf("directive outlived plan: %+v", result.Directive)
 	}
 }
 
-func testController(t *testing.T, now time.Time, stage core.RuntimeMode, maxAction core.Action, canaryBasisPoints uint32, canaryDecisions uint64) *Controller {
+func testController(t *testing.T, now time.Time, stage core.RuntimeMode, canaryDecisions uint64) *Controller {
 	t.Helper()
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -149,12 +155,12 @@ func testController(t *testing.T, now time.Time, stage core.RuntimeMode, maxActi
 		predecessor = "canary-source"
 	}
 	report := candidateReport(2000, canaryDecisions)
-	signed, err := Prepare(report, encodedReport(t, report), PrepareOptions{
-		RolloutID: "rollout-20260827", ApprovalID: "review-123", Stage: stage,
-		PredecessorRolloutID: predecessor,
-		EndpointClasses:      []string{"public_content"}, MaxAction: maxAction, CanaryBasisPoints: canaryBasisPoints,
-		CreatedAt: now, ExpiresAt: now.Add(24 * time.Hour),
-	}, privateKey)
+	reportBytes := encodedReport(t, report)
+	proposal, err := BuildReviewProposal(report, reportBytes, ReviewOptions{Stage: stage, PredecessorRolloutID: predecessor})
+	if err != nil {
+		t.Fatal(err)
+	}
+	signed, err := PrepareFromReview(report, reportBytes, proposal, "rollout-20260827", "review-123", now, privateKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,11 +177,11 @@ func candidateReport(decisions, canary uint64) shadowanalysis.Report {
 		Source:        shadowlog.Verification{Files: 1, Records: decisions + 200, Decisions: decisions, Outcomes: 200, EncryptedBytes: 4096, FirstAt: "2026-08-26T00:00:00Z", LastAt: "2026-08-27T00:00:00Z"},
 		Readiness:     shadowanalysis.Readiness{State: "operator_review_candidate", OperatorAction: "review_reversible_canary", AutomaticEnforcement: false, ReasonCodes: []string{}},
 		Decisions: shadowanalysis.DecisionSummary{
-			Total: decisions, Enforced: shadowanalysis.ActionCounts{Allow: decisions}, Computed: shadowanalysis.ActionCounts{Allow: decisions},
+			Total: decisions, Enforced: shadowanalysis.ActionCounts{Allow: decisions}, Computed: shadowanalysis.ActionCounts{Allow: decisions - 20, Throttle: 20},
 			Modes: shadowanalysis.ModeCounts{Shadow: decisions - canary, Canary: canary},
 		},
 		Outcomes:       shadowanalysis.OutcomeSummary{Total: 200, Coverage: minimumForTest(1, float64(200)/float64(decisions)), HumanConfirmed: 100, OperatorConfirmedAbuse: 100},
-		Endpoints:      []shadowanalysis.EndpointSummary{{EndpointClass: "public_content", Decisions: decisions, Outcomes: 200, HumanConfirmed: 100, OperatorConfirmedAbuse: 100}},
+		Endpoints:      []shadowanalysis.EndpointSummary{{EndpointClass: "public_content", Decisions: decisions, Outcomes: 200, ComputedRiskyActions: 20, HumanConfirmed: 100, OperatorConfirmedAbuse: 100}},
 		PolicyVersions: []shadowanalysis.CountedValue{{Value: "default-v3", Count: decisions}},
 		ModelVersions:  []shadowanalysis.CountedValue{{Value: "transparent-baseline-v6", Count: decisions}},
 		Recommendations: []shadowanalysis.Recommendation{{

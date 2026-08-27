@@ -18,6 +18,7 @@ import (
 
 const (
 	maximumPlanBytes           = 64 << 10
+	maximumReviewBytes         = 64 << 10
 	maximumAnalysisReportBytes = 1 << 20
 )
 
@@ -90,6 +91,45 @@ func WriteSignedPlan(path string, signed SignedPlan) error {
 		return err
 	}
 	encoded = append(encoded, '\n')
+	return writeExclusive(resolved, encoded, 0o600)
+}
+
+func ReadReviewProposal(path string) (ReviewProposal, error) {
+	var proposal ReviewProposal
+	data, err := readRegular(path, maximumReviewBytes, true)
+	if err != nil {
+		return proposal, err
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(data)))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&proposal); err != nil {
+		return ReviewProposal{}, errors.New("invalid rollout review proposal JSON")
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return ReviewProposal{}, errors.New("multiple rollout review proposal JSON values")
+	}
+	if err := proposal.Validate(); err != nil {
+		return ReviewProposal{}, err
+	}
+	return proposal, nil
+}
+
+func WriteReviewProposal(path string, proposal ReviewProposal) error {
+	if err := proposal.Validate(); err != nil {
+		return err
+	}
+	resolved, err := safeNewPath(path)
+	if err != nil {
+		return err
+	}
+	encoded, err := json.MarshalIndent(proposal, "", "  ")
+	if err != nil {
+		return err
+	}
+	encoded = append(encoded, '\n')
+	if len(encoded) > maximumReviewBytes {
+		return errors.New("rollout review proposal exceeds its size limit")
+	}
 	return writeExclusive(resolved, encoded, 0o600)
 }
 
