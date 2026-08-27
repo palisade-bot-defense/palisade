@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/palisade-bot-defense/palisade/internal/analysisfeed"
 	"github.com/palisade-bot-defense/palisade/internal/challenge"
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	"github.com/palisade-bot-defense/palisade/internal/detector"
@@ -84,15 +86,29 @@ func analyzeShadowLog(args []string) error {
 	maxRecords := flags.Uint64("max-records", shadowlog.DefaultScanMaxRecords, "hard decrypted-record scan budget")
 	maxEncryptedBytes := flags.Int64("max-encrypted-bytes", shadowlog.DefaultScanMaxEncryptedBytes, "hard encrypted input byte budget")
 	outputPath := flags.String("output", "", "new owner-only aggregate report outside every Git worktree; defaults to stdout")
+	watchInterval := flags.Duration("watch-interval", 0, "repeat local analysis and atomically replace --output at this interval")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 || *directory == "" || *keyFile == "" {
 		return errors.New("analyze-shadow-log requires --dir and --key-file and accepts no positional arguments")
 	}
-	report, err := shadowanalysis.AnalyzeDirectory(*directory, *keyFile, shadowanalysis.Config{ScanLimits: shadowlog.ScanLimits{
+	config := shadowanalysis.Config{ScanLimits: shadowlog.ScanLimits{
 		MaxFiles: *maxFiles, MaxRecords: *maxRecords, MaxEncryptedBytes: *maxEncryptedBytes,
-	}})
+	}}
+	if *watchInterval != 0 {
+		if *outputPath == "" || *watchInterval < 10*time.Second || *watchInterval > 24*time.Hour {
+			return errors.New("--watch-interval requires --output and must be between 10s and 24h")
+		}
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return runShadowAnalysisWatch(ctx, *watchInterval, func() (shadowanalysis.Report, error) {
+			return shadowanalysis.AnalyzeDirectory(*directory, *keyFile, config)
+		}, func(report shadowanalysis.Report) error {
+			return rollout.ReplaceAnalysisReport(*outputPath, report)
+		}, os.Stdout, os.Stderr)
+	}
+	report, err := shadowanalysis.AnalyzeDirectory(*directory, *keyFile, config)
 	if err != nil {
 		return err
 	}
@@ -106,6 +122,35 @@ func analyzeShadowLog(args []string) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(report)
+}
+
+func runShadowAnalysisWatch(ctx context.Context, interval time.Duration, analyze func() (shadowanalysis.Report, error), publish func(shadowanalysis.Report) error, stdout, stderr io.Writer) error {
+	update := func() error {
+		report, err := analyze()
+		if err != nil {
+			return err
+		}
+		if err := publish(report); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(stdout, "shadow analysis updated: decisions=%d outcomes=%d readiness=%s\n", report.Decisions.Total, report.Outcomes.Total, report.Readiness.State)
+		return err
+	}
+	if err := update(); err != nil {
+		return err
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			if err := update(); err != nil {
+				_, _ = fmt.Fprintln(stderr, "shadow analysis update failed; last valid aggregate report retained")
+			}
+		}
+	}
 }
 
 func verifyShadowLog(args []string) error {
@@ -180,6 +225,7 @@ func serve(args []string) error {
 	listen := flags.String("listen", "127.0.0.1:8080", "public decision API listen address")
 	adminListen := flags.String("admin-listen", "127.0.0.1:8081", "loopback-only operator console listen address")
 	adminAnalysisReport := flags.String("admin-analysis-report", "", "owner-only aggregate analysis report outside every Git worktree")
+	adminAnalysisRefresh := flags.Duration("admin-analysis-refresh", 30*time.Second, "poll interval for an atomically replaced aggregate analysis report")
 	dev := flags.Bool("dev", false, "allow ephemeral local secrets and proof-free decisions")
 	modeName := flags.String("mode", string(core.RuntimeModeShadow), "runtime mode: serve requires shadow; signed plans enable canary/enforce")
 	rolloutPlanPath := flags.String("rollout-plan", "", "owner-only signed rollout plan outside every Git worktree")
@@ -201,17 +247,6 @@ func serve(args []string) error {
 	}
 	if err := validateAdminListen(*adminListen); err != nil {
 		return err
-	}
-	var analysisReport *shadowanalysis.Report
-	if *adminAnalysisReport != "" {
-		_, report, err := rollout.ReadAnalysisReport(*adminAnalysisReport)
-		if err != nil {
-			return err
-		}
-		if err := shadowanalysis.ValidateReport(report); err != nil {
-			return errors.New("admin analysis report failed aggregate validation")
-		}
-		analysisReport = &report
 	}
 	mode, err := parseRuntimeMode(*modeName)
 	if err != nil {
@@ -295,6 +330,13 @@ func serve(args []string) error {
 		}
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	var analysisFeed *analysisfeed.Feed
+	if *adminAnalysisReport != "" {
+		analysisFeed, err = analysisfeed.New(*adminAnalysisReport, *adminAnalysisRefresh, logger)
+		if err != nil {
+			return err
+		}
+	}
 	eventStore := events.NewStore(5 * time.Minute)
 	api := httpapi.New(engine, tokenService, apiKey, logger).
 		WithEventStore(eventStore).
@@ -314,7 +356,7 @@ func serve(args []string) error {
 	api.WithAdmin(httpapi.AdminConfig{
 		Key: adminKey, StartedAt: time.Now().UTC(), Mode: mode, RolloutID: rolloutID,
 		PolicyVersion: policy.DefaultVersion, ModelVersion: decisionengine.ModelVersion,
-		ShadowLogEnabled: shadowSink != nil, EventShadowEnabled: eventShadowEnabled, Analysis: analysisReport,
+		ShadowLogEnabled: shadowSink != nil, EventShadowEnabled: eventShadowEnabled, AnalysisFeed: analysisFeed,
 	})
 	server := &http.Server{
 		Addr:              *listen,
@@ -341,6 +383,15 @@ func serve(args []string) error {
 		defer close(challengeSweeperDone)
 		challengeService.RunSweeper(ctx, time.Minute)
 	}()
+	analysisFeedDone := make(chan struct{})
+	if analysisFeed == nil {
+		close(analysisFeedDone)
+	} else {
+		go func() {
+			defer close(analysisFeedDone)
+			analysisFeed.Run(ctx)
+		}()
+	}
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -348,7 +399,7 @@ func serve(args []string) error {
 		_ = server.Shutdown(shutdownCtx)
 		_ = adminServer.Shutdown(shutdownCtx)
 	}()
-	logger.Info("PALISADE starting", "version", version, "listen", *listen, "admin_listen", *adminListen, "dev", *dev, "mode", mode, "rollout_id", rolloutID, "require_session_cookie", *requireSessionCookie, "shadow_log", shadowSink != nil, "event_shadow_evaluation", eventShadowEnabled, "analysis_report", analysisReport != nil)
+	logger.Info("PALISADE starting", "version", version, "listen", *listen, "admin_listen", *adminListen, "dev", *dev, "mode", mode, "rollout_id", rolloutID, "require_session_cookie", *requireSessionCookie, "shadow_log", shadowSink != nil, "event_shadow_evaluation", eventShadowEnabled, "analysis_report", analysisFeed != nil)
 	if *dev {
 		logger.Warn("development mode active; proof tokens are not required")
 	}
@@ -359,6 +410,7 @@ func serve(args []string) error {
 	stop()
 	secondServerErr := <-serverErrors
 	<-challengeSweeperDone
+	<-analysisFeedDone
 	var shadowCloseErr error
 	if shadowSink != nil {
 		shadowCloseErr = shadowSink.Close()

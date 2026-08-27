@@ -16,7 +16,10 @@ import (
 	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
 )
 
-const maximumPlanBytes = 64 << 10
+const (
+	maximumPlanBytes           = 64 << 10
+	maximumAnalysisReportBytes = 1 << 20
+)
 
 func GenerateKeyPair(privatePath, publicPath string) error {
 	if privatePath == "" || publicPath == "" || privatePath == publicPath {
@@ -91,7 +94,7 @@ func WriteSignedPlan(path string, signed SignedPlan) error {
 }
 
 func ReadAnalysisReport(path string) (shadowReportBytes []byte, report shadowanalysis.Report, err error) {
-	data, err := readRegular(path, 1<<20, true)
+	data, err := readRegular(path, maximumAnalysisReportBytes, true)
 	if err != nil {
 		return nil, report, err
 	}
@@ -117,6 +120,69 @@ func WriteAnalysisReport(path string, report shadowanalysis.Report) error {
 	}
 	encoded = append(encoded, '\n')
 	return writeExclusive(resolved, encoded, 0o600)
+}
+
+// ReplaceAnalysisReport publishes a validated aggregate report atomically in
+// an owner-controlled directory. It is intentionally separate from the
+// exclusive writer used for signed rollout inputs.
+func ReplaceAnalysisReport(path string, report shadowanalysis.Report) (returnErr error) {
+	if err := shadowanalysis.ValidateReport(report); err != nil {
+		return errors.New("refusing to publish invalid shadow analysis report")
+	}
+	target, previous, err := safeReplacePath(path)
+	if err != nil {
+		return err
+	}
+	encoded, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return err
+	}
+	encoded = append(encoded, '\n')
+	if len(encoded) > maximumAnalysisReportBytes {
+		return errors.New("shadow analysis report exceeds its size limit")
+	}
+	parent := filepath.Dir(target)
+	temporary, err := os.CreateTemp(parent, ".palisade-analysis-*.tmp")
+	if err != nil {
+		return err
+	}
+	temporaryPath := temporary.Name()
+	defer func() {
+		if returnErr != nil {
+			_ = temporary.Close()
+			_ = os.Remove(temporaryPath)
+		}
+	}()
+	if err := temporary.Chmod(0o600); err != nil {
+		return err
+	}
+	if written, err := temporary.Write(encoded); err != nil || written != len(encoded) {
+		if err == nil {
+			err = io.ErrShortWrite
+		}
+		return err
+	}
+	if err := temporary.Sync(); err != nil {
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	current, err := os.Lstat(target)
+	if previous == nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return errors.New("analysis report target changed before publication")
+		}
+	} else if err != nil || !os.SameFile(previous, current) || current.Mode() != previous.Mode() || current.Size() != previous.Size() || !current.ModTime().Equal(previous.ModTime()) {
+		return errors.New("analysis report target changed before publication")
+	}
+	if err := os.Rename(temporaryPath, target); err != nil {
+		return err
+	}
+	if err := syncDirectory(parent); err != nil {
+		return err
+	}
+	return nil
 }
 
 func readKeyFile(path string, expectedBytes int) ([]byte, error) {
@@ -190,6 +256,37 @@ func safeNewPath(path string) (string, error) {
 	return resolved, nil
 }
 
+func safeReplacePath(path string) (string, os.FileInfo, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", nil, err
+	}
+	parent, err := filepath.EvalSymlinks(filepath.Dir(absolute))
+	if err != nil || parent != filepath.Clean(filepath.Dir(absolute)) {
+		return "", nil, errors.New("analysis report parent must be canonical and contain no symlinks")
+	}
+	parentInfo, err := os.Stat(parent)
+	if err != nil || !parentInfo.IsDir() || parentInfo.Mode().Perm()&0o077 != 0 {
+		return "", nil, errors.New("analysis report parent must be an owner-only directory")
+	}
+	target := filepath.Join(parent, filepath.Base(absolute))
+	if insideWorktree(target) {
+		return "", nil, errors.New("analysis report must remain outside every Git worktree")
+	}
+	info, err := os.Lstat(target)
+	if errors.Is(err, os.ErrNotExist) {
+		return target, nil, nil
+	}
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 {
+		return "", nil, errors.New("existing analysis report must be a 0600 regular file")
+	}
+	resolved, err := filepath.EvalSymlinks(target)
+	if err != nil || resolved != target {
+		return "", nil, errors.New("analysis report target must be canonical and contain no symlinks")
+	}
+	return target, info, nil
+}
+
 func writeExclusive(path string, data []byte, mode os.FileMode) (returnErr error) {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 	if err != nil {
@@ -211,6 +308,15 @@ func writeExclusive(path string, data []byte, mode os.FileMode) (returnErr error
 		return err
 	}
 	return file.Close()
+}
+
+func syncDirectory(path string) error {
+	directory, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	err = directory.Sync()
+	return errors.Join(err, directory.Close())
 }
 
 func insideWorktree(path string) bool {

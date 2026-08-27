@@ -25,7 +25,7 @@ uses a constant-time bearer comparison and sends `Cache-Control: no-store`.
 - computed and enforced action counters;
 - successful encrypted decision/outcome writes and explicit drop counters;
 - whether the encrypted sink and event-triggered shadow evaluation are active;
-- an optional, immutable aggregate analysis report loaded at startup.
+- an optional aggregate analysis report reloaded from an atomic local feed.
 
 The endpoint does not return session or decision identifiers, individual reason
 trails, request fields, proofs, keys, file paths or decrypted records. Counters
@@ -41,17 +41,21 @@ the owner-only file:
 palisade analyze-shadow-log \
   --dir /private/local/palisade-shadow/logs \
   --key-file /private/local/palisade-shadow/shadow.key \
-  --output /private/local/palisade-shadow/analysis.json
+  --output /private/local/palisade-shadow/analysis.json \
+  --watch-interval 5m
 
 palisade serve \
   --admin-analysis-report /private/local/palisade-shadow/analysis.json
 ```
 
-PALISADE reads the report once with the same canonical-path, owner-only,
-outside-Git and size checks used for rollout inputs. It rejects unknown JSON
-fields and validates all aggregate arithmetic and default recommendations.
-Reports shorter than the rollout observation window may be displayed honestly
-as collection state, but they remain ineligible for signing a rollout.
+PALISADE reads the report at startup and polls it every 30 seconds by default;
+`--admin-analysis-refresh` changes that bounded interval. The server uses the
+same canonical-path, owner-only, outside-Git and size checks used for rollout
+inputs. It rejects unknown JSON fields and validates all aggregate arithmetic
+and default recommendations. A rejected replacement leaves the last valid
+report visible with an `invalid_update` warning. Reports shorter than the
+rollout observation window may be displayed honestly as collection state, but
+they remain ineligible for signing a rollout.
 
 The baseline listener is intentionally local. Remote or multi-user access,
 reverse-proxy publication, browser sessions and role-based access control are

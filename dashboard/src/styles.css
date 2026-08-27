@@ -67,6 +67,7 @@ h1 em { color: var(--cobalt); font-style: normal; }
 .recommendation > span.critical, .recommendation > span.high { color: #a83545; background: #ffe6e6; }
 .recommendation code { color: #4c4b72; font-size: 11px; font-weight: 750; }
 .recommendation p { margin: 5px 0 0; color: var(--copy); font-size: 12px; line-height: 1.45; }
+.feed-warning { margin: 18px 28px 0; padding: 12px 14px; border: 1px solid #ffb0b0; border-radius: 10px; color: #a83545; background: #fff8f8; font-size: 12px; font-weight: 700; }
 .safety-note { margin: 8px 28px 24px; padding: 12px 14px; border-radius: 10px; color: var(--copy); background: var(--surface); font-size: 12px; }
 .empty-state { min-height: 340px; padding: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .empty-state > div { color: var(--cobalt); font-size: 38px; }

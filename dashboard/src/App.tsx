@@ -19,6 +19,7 @@ type Summary = {
   capabilities: { shadow_log: boolean; event_shadow: boolean; analysis_report: boolean };
   traffic: { accepted_event_batches: number; accepted_events: number; decisions: number; origin_checks: number; enforced: ActionCounts; computed: ActionCounts };
   recording: { decisions: number; outcomes: number; dropped: number; event_shadow_dropped: number };
+  analysis_status: { state: "not_configured" | "ready" | "invalid_update"; loaded_at: string | null; last_attempt_at: string | null };
   analysis: Analysis | null;
 };
 
@@ -142,13 +143,14 @@ export function App() {
               <div className="panel-title"><div><p className="eyebrow">LOCAL ANALYSIS</p><h2>Readiness</h2></div>{summary.analysis && <span className={`readiness ${summary.analysis.readiness.state}`}>{summary.analysis.readiness.state.replaceAll("_", " ")}</span>}</div>
               {summary.analysis ? (
                 <>
+                  {summary.analysis_status.state === "invalid_update" && <p className="feed-warning" role="status">A report update was rejected. Showing the last valid aggregate report.</p>}
                   <div className="analysis-stats">
                     <div><strong>{formatNumber(summary.analysis.decisions.total)}</strong><span>analyzed decisions</span></div>
                     <div><strong>{formatPercent(summary.analysis.outcomes.coverage)}</strong><span>outcome coverage</span></div>
                     <div><strong>{formatPercent(summary.analysis.decisions.computed_challenge_rate)}</strong><span>challenge candidate rate</span></div>
                   </div>
                   <div className="recommendations"><h3>Next recommended work</h3>{summary.analysis.recommendations.slice(0, 4).map((item) => <div className="recommendation" key={item.code}><span className={item.priority}>{item.priority}</span><div><code>{item.code}</code><p>{item.message}</p></div></div>)}</div>
-                  <p className="safety-note">Automatic enforcement: <b>{summary.analysis.readiness.automatic_enforcement ? "enabled" : "disabled"}</b> · Operator action: <code>{summary.analysis.readiness.operator_action}</code></p>
+                  <p className="safety-note">Source through: <b>{summary.analysis.source.last_at || "no records yet"}</b><br />Automatic enforcement: <b>{summary.analysis.readiness.automatic_enforcement ? "enabled" : "disabled"}</b> · Operator action: <code>{summary.analysis.readiness.operator_action}</code></p>
                 </>
               ) : (
                 <div className="empty-state"><div aria-hidden="true">◎</div><h3>No aggregate report loaded</h3><p>Live counters are available, but PALISADE will not invent readiness or false-positive claims. Generate a private report and restart with <code>--admin-analysis-report</code>.</p></div>

@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	"github.com/palisade-bot-defense/palisade/internal/replay"
+	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
 )
 
 func TestReplayEngineOutputIsDeterministic(t *testing.T) {
@@ -109,6 +111,55 @@ func TestServeRequiresBothShadowLogPaths(t *testing.T) {
 	err := serve([]string{"--dev", "--shadow-log-dir", "synthetic-shadow-dir"})
 	if err == nil || !strings.Contains(err.Error(), "configured together") {
 		t.Fatalf("partial shadow log configuration error = %v", err)
+	}
+}
+
+func TestShadowAnalysisWatchPublishesImmediatelyAndStopsCleanly(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var stdout, stderr bytes.Buffer
+	published := 0
+	err := runShadowAnalysisWatch(ctx, time.Millisecond, func() (shadowanalysis.Report, error) {
+		return shadowanalysis.Report{Decisions: shadowanalysis.DecisionSummary{Total: 7}, Outcomes: shadowanalysis.OutcomeSummary{Total: 2}, Readiness: shadowanalysis.Readiness{State: "collecting"}}, nil
+	}, func(shadowanalysis.Report) error {
+		published++
+		return nil
+	}, &stdout, &stderr)
+	if err != nil || published != 1 || !strings.Contains(stdout.String(), "decisions=7 outcomes=2 readiness=collecting") || stderr.Len() != 0 {
+		t.Fatalf("watch result err=%v published=%d stdout=%q stderr=%q", err, published, stdout.String(), stderr.String())
+	}
+}
+
+func TestShadowAnalysisWatchRetainsLastReportAndSanitizesRecurringErrors(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Millisecond)
+	defer cancel()
+	var stdout, stderr bytes.Buffer
+	calls := 0
+	published := 0
+	err := runShadowAnalysisWatch(ctx, 2*time.Millisecond, func() (shadowanalysis.Report, error) {
+		calls++
+		if calls > 1 {
+			return shadowanalysis.Report{}, errors.New("sensitive-local-path")
+		}
+		return shadowanalysis.Report{Readiness: shadowanalysis.Readiness{State: "collecting"}}, nil
+	}, func(shadowanalysis.Report) error {
+		published++
+		return nil
+	}, &stdout, &stderr)
+	if err != nil || published != 1 || !strings.Contains(stderr.String(), "last valid aggregate report retained") || strings.Contains(stderr.String(), "sensitive-local-path") {
+		t.Fatalf("watch retry err=%v published=%d stderr=%q", err, published, stderr.String())
+	}
+}
+
+func TestShadowAnalysisWatchRequiresBoundedIntervalAndOutput(t *testing.T) {
+	for _, args := range [][]string{
+		{"--dir", "logs", "--key-file", "key", "--watch-interval", "1m"},
+		{"--dir", "logs", "--key-file", "key", "--watch-interval", "1s", "--output", "report"},
+		{"--dir", "logs", "--key-file", "key", "--watch-interval", "25h", "--output", "report"},
+	} {
+		if err := analyzeShadowLog(args); err == nil || !strings.Contains(err.Error(), "watch-interval") {
+			t.Fatalf("invalid watch arguments %v returned %v", args, err)
+		}
 	}
 }
 
