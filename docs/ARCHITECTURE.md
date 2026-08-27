@@ -51,6 +51,8 @@ origin middleware ───────── POST /v1/origin-check ─> 204 / 4
                                                       │ challenge
                                                       v
 signed browser session ──── /v1/challenge/* ────────> one-time bound redemption
+
+loopback admin listener ─── /v1/admin/summary ──────> counters + validated aggregate report
 ```
 
 In a sensor-only shadow deployment, an optional server-trusted profile turns
@@ -88,6 +90,9 @@ action. Full enforcement must reference the exact measured predecessor canary.
   preserves the same bindings.
 - Decision and outcome persistence is optional and local. It is enabled only
   with `--shadow-log-dir` and `--shadow-log-key-file`.
+- Administrative assets and summaries are absent from the public listener. A
+  separate loopback-only listener requires a distinct admin bearer credential,
+  exposes no row-level data and does not read the encrypted log at request time.
 
 See [reference origin adapter](ORIGIN_ADAPTER.md), [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
-[native challenge](CHALLENGE.md), [shadow logging](SHADOW_LOG.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).
+[native challenge](CHALLENGE.md), [shadow logging](SHADOW_LOG.md), [Operator Console](OPERATOR_CONSOLE.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).

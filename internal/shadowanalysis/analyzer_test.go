@@ -34,6 +34,22 @@ func TestSparseEvidenceKeepsShadowAndExplainsGaps(t *testing.T) {
 	}
 }
 
+func TestAggregateValidationAllowsCollectionReportButRolloutRequiresFullWindow(t *testing.T) {
+	analysis := newAnalyzer(normalizedTestConfig(t, Config{}))
+	if err := analysis.observe(decisionRecord("decision-1", core.ActionAllow, core.ActionAllow, "BASELINE")); err != nil {
+		t.Fatal(err)
+	}
+	report := analysis.finish(shadowlog.Verification{
+		Files: 1, Records: 1, Decisions: 1, FirstAt: "2026-08-27T12:00:00Z", LastAt: "2026-08-27T12:01:00Z",
+	})
+	if err := ValidateReport(report); err != nil {
+		t.Fatalf("valid collection report was rejected: %v", err)
+	}
+	if !errors.Is(ValidateForRollout(report), ErrInvalidReport) {
+		t.Fatal("short observation window was accepted for rollout")
+	}
+}
+
 func TestPopulatedEvidenceOnlyBecomesOperatorReviewCandidate(t *testing.T) {
 	config := normalizedTestConfig(t, Config{
 		MinDecisions: 2, MinOutcomeCoverage: 0.5, MinConfirmedHumans: 1, MinConfirmedAbuse: 1,

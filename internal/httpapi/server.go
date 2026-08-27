@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/adminui"
 	"github.com/palisade-bot-defense/palisade/internal/challenge"
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	decisionengine "github.com/palisade-bot-defense/palisade/internal/engine"
@@ -48,6 +47,8 @@ type Server struct {
 	shadowDrops       atomic.Uint64
 	eventShadow       *EventShadowProfile
 	eventShadowDrops  atomic.Uint64
+	admin             AdminConfig
+	counters          runtimeCounters
 }
 
 func New(engine DecisionEngine, tokens *token.Service, apiKey string, logger *slog.Logger) *Server {
@@ -106,7 +107,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/challenge/verify", s.handleChallengeVerify)
 	mux.HandleFunc("POST /v1/challenge/redeem", s.handleChallengeRedeem)
 	mux.HandleFunc("POST /v1/challenge/fallback", s.handleChallengeFallback)
-	mux.Handle("GET /", adminui.Handler())
 	return s.recover(s.securityHeaders(mux))
 }
 
@@ -142,6 +142,8 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_event_batch")
 		return
 	}
+	s.counters.eventBatches.Add(1)
+	s.counters.events.Add(uint64(len(batch.Events)))
 	if s.eventShadow != nil {
 		if err := s.recordEventShadowDecision(r.Context(), batch, verifiedSession, r.UserAgent() != "", now); err != nil {
 			s.recordEventShadowDrop(err)
@@ -247,6 +249,7 @@ func (s *Server) handleOriginCheck(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "invalid_enforcement_directive")
 		return
 	}
+	s.counters.originChecks.Add(1)
 	challengeID := ""
 	if decision.Directive.Handling == "challenge" {
 		if s.challenges == nil {
@@ -406,7 +409,9 @@ func (s *Server) recordChallengeOutcome(outcome challenge.Outcome) {
 	}
 	if err := s.shadowRecorder.RecordOutcome(request, time.Now().UTC()); err != nil {
 		s.recordShadowDrop()
+		return
 	}
+	s.counters.recordedOutcomes.Add(1)
 }
 
 func (s *Server) recordShadowDrop() {
@@ -450,6 +455,7 @@ func (s *Server) evaluateDecision(w http.ResponseWriter, r *http.Request) (core.
 		}
 		return core.DecisionRequest{}, core.Decision{}, false
 	}
+	s.recordRuntimeDecision(decision)
 	return request, decision, true
 }
 
@@ -457,7 +463,9 @@ func (s *Server) recordDecision(request core.DecisionRequest, decision core.Deci
 	if s.shadowRecorder != nil {
 		if err := s.shadowRecorder.RecordDecision(request, decision, time.Now().UTC()); err != nil {
 			s.recordShadowDrop()
+			return
 		}
+		s.counters.recordedDecisions.Add(1)
 	}
 }
 
@@ -520,6 +528,7 @@ func (s *Server) handleOutcome(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "shadow_log_unavailable")
 		return
 	}
+	s.counters.recordedOutcomes.Add(1)
 	w.WriteHeader(http.StatusAccepted)
 }
 

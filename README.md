@@ -32,13 +32,15 @@ go test ./...
 go run ./cmd/palisade serve --dev
 ```
 
-Open `http://127.0.0.1:8080`. Run the deterministic sample:
+Open the local Operator Console at `http://127.0.0.1:8081` and enter
+`development-only-admin`. The decision API remains separate on
+`http://127.0.0.1:8080`. Run the deterministic sample:
 
 ```sh
 go run ./cmd/palisade replay --file examples/replay/synthetic.jsonl
 ```
 
-The server always starts from `--mode shadow`. In shadow mode, risky computed actions remain visible as `computed_action`, while the enforced `action` is limited to `allow` or `observe`. Canary/enforcement requires a valid, expiring operator-signed rollout plan; `serve --mode enforce` is rejected. Production refuses to start without `PALISADE_HMAC_KEY` and `PALISADE_API_KEY`; development mode intentionally disables proof enforcement, rejects rollout plans and must never face public traffic. `--require-session-cookie` is a separate integration gate: enable it only after the origin adapter forwards the backend-issued `__Host-palisade_session` cookie on token, event and decision requests.
+The server always starts from `--mode shadow`. In shadow mode, risky computed actions remain visible as `computed_action`, while the enforced `action` is limited to `allow` or `observe`. Canary/enforcement requires a valid, expiring operator-signed rollout plan; `serve --mode enforce` is rejected. Production refuses to start without `PALISADE_HMAC_KEY`, `PALISADE_API_KEY` and a distinct `PALISADE_ADMIN_KEY` of at least 32 bytes. The Operator Console is served only from the separate loopback-only `--admin-listen` address and its key remains in browser memory; the public decision listener never serves admin assets or summaries. Development mode intentionally disables proof enforcement, rejects rollout plans and must never face public traffic. `--require-session-cookie` is a separate integration gate: enable it only after the origin adapter forwards the backend-issued `__Host-palisade_session` cookie on token, event and decision requests.
 
 For a sensor-only shadow deployment, `--event-shadow-action` and `--event-shadow-endpoint-class` turn every accepted event flush into one server-classified shadow decision. This closes the measurement loop without adding latency to page delivery or returning scores to the browser. It requires the encrypted sink and signed session cookie, is unavailable with a signed rollout, and must be disabled once origin middleware becomes the authoritative decision stream.
 
@@ -58,6 +60,12 @@ For a sensor-only shadow deployment, `--event-shadow-action` and `--event-shadow
 | `POST /v1/challenge/redeem` | Consume that capability exactly once for its bound action and endpoint class |
 | `POST /v1/challenge/fallback` | Close the challenge and record use of the deployment fallback |
 | `POST /v1/outcome` | Backend-authenticated, normalized delayed outcome for the encrypted local shadow sink |
+
+The separate administrative listener exposes `GET /v1/admin/summary` plus the
+embedded Operator Console. Its response contains only process counters,
+configuration versions and an optional validated aggregate report. It never
+contains decisions, sessions, tokens, source paths or raw shadow-log records.
+See the [Operator Console guide](docs/OPERATOR_CONSOLE.md).
 
 The signed cookie prevents clients from inventing a trusted session identifier, but does not prove that a person, account or unique device is present; starting fresh sessions remains possible. A valid cookie contributes only continuity evidence. The browser sensor never sends keystrokes, form values, DOM text or exact pointer coordinates. See [privacy boundaries](docs/privacy/DATA_BOUNDARIES.md).
 The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contracts live under [`api/proto`](api/proto). The [signal-source guide](docs/SIGNAL_SOURCES.md) contains trust boundaries, request examples and the checked detector extension procedure. The [native challenge guide](docs/CHALLENGE.md) documents the origin handshake, accessibility contract, exact one-time binding and single-instance limit.
@@ -84,6 +92,11 @@ go run ./cmd/palisade analyze-shadow-log \
   --dir /private/local/palisade-shadow/logs \
   --key-file /private/local/palisade-shadow/shadow.key \
   --output /private/local/palisade-shadow/analysis.json
+
+go run ./cmd/palisade serve \
+  --admin-analysis-report /private/local/palisade-shadow/analysis.json \
+  --shadow-log-dir /private/local/palisade-shadow/logs \
+  --shadow-log-key-file /private/local/palisade-shadow/shadow.key
 ```
 
 The default rotation limits are 64 MiB or one hour; default retention is seven days. `POST /v1/outcome` requires the backend bearer credential and accepts only closed labels with explicit provenance and confidence. `analyze-shadow-log` authenticates and decrypts the retained files locally, emits aggregate counts, score ranges, endpoint summaries and deterministic recommendations, and never prints records or session links. Its recommendations can hold the deployment in shadow mode or nominate a reversible canary for operator review; they never activate enforcement. The [signed rollout guide](docs/ROLLOUT.md) explains operator approval, exact-canary promotion, origin handling and rollback. See the [shadow-log operations, analysis gates and threat model](docs/SHADOW_LOG.md) before enabling it.

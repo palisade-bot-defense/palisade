@@ -58,9 +58,11 @@ func (s *Server) recordEventShadowDecision(ctx context.Context, batch events.Bat
 	// implementations, even though the built-in encrypted sink ignores them.
 	request.ProofToken = ""
 	decision = forceShadowDecision(decision, now)
+	s.recordRuntimeDecision(decision)
 	if err := s.shadowRecorder.RecordDecision(request, decision, now); err != nil {
 		return fmt.Errorf("record accepted event batch decision: %w", err)
 	}
+	s.counters.recordedDecisions.Add(1)
 	return nil
 }
 

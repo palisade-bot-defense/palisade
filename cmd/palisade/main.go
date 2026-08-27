@@ -3,16 +3,19 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -174,7 +177,9 @@ func runOfflineImport(args []string) error {
 
 func serve(args []string) error {
 	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
-	listen := flags.String("listen", "127.0.0.1:8080", "HTTP listen address")
+	listen := flags.String("listen", "127.0.0.1:8080", "public decision API listen address")
+	adminListen := flags.String("admin-listen", "127.0.0.1:8081", "loopback-only operator console listen address")
+	adminAnalysisReport := flags.String("admin-analysis-report", "", "owner-only aggregate analysis report outside every Git worktree")
 	dev := flags.Bool("dev", false, "allow ephemeral local secrets and proof-free decisions")
 	modeName := flags.String("mode", string(core.RuntimeModeShadow), "runtime mode: serve requires shadow; signed plans enable canary/enforce")
 	rolloutPlanPath := flags.String("rollout-plan", "", "owner-only signed rollout plan outside every Git worktree")
@@ -190,6 +195,23 @@ func serve(args []string) error {
 	eventShadowEndpoint := flags.String("event-shadow-endpoint-class", "", "server-trusted endpoint class for event-triggered shadow decisions")
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("serve does not accept positional arguments")
+	}
+	if err := validateAdminListen(*adminListen); err != nil {
+		return err
+	}
+	var analysisReport *shadowanalysis.Report
+	if *adminAnalysisReport != "" {
+		_, report, err := rollout.ReadAnalysisReport(*adminAnalysisReport)
+		if err != nil {
+			return err
+		}
+		if err := shadowanalysis.ValidateReport(report); err != nil {
+			return errors.New("admin analysis report failed aggregate validation")
+		}
+		analysisReport = &report
 	}
 	mode, err := parseRuntimeMode(*modeName)
 	if err != nil {
@@ -237,6 +259,10 @@ func serve(args []string) error {
 	if err != nil {
 		return err
 	}
+	adminKey, err := adminSecret(*dev, apiKey)
+	if err != nil {
+		return err
+	}
 	rolloutController, err := loadRollout(*rolloutPlanPath, *rolloutPublicKeyPath, secret, time.Now().UTC())
 	if err != nil {
 		return err
@@ -281,9 +307,27 @@ func serve(args []string) error {
 	if eventShadowEnabled {
 		api.WithEventShadowEvaluation(eventShadowProfile)
 	}
+	rolloutID := ""
+	if rolloutController != nil {
+		rolloutID = rolloutController.Plan().RolloutID
+	}
+	api.WithAdmin(httpapi.AdminConfig{
+		Key: adminKey, StartedAt: time.Now().UTC(), Mode: mode, RolloutID: rolloutID,
+		PolicyVersion: policy.DefaultVersion, ModelVersion: decisionengine.ModelVersion,
+		ShadowLogEnabled: shadowSink != nil, EventShadowEnabled: eventShadowEnabled, Analysis: analysisReport,
+	})
 	server := &http.Server{
 		Addr:              *listen,
 		Handler:           api.Handler(),
+		ReadHeaderTimeout: 3 * time.Second,
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    32 << 10,
+	}
+	adminServer := &http.Server{
+		Addr:              *adminListen,
+		Handler:           api.AdminHandler(),
 		ReadHeaderTimeout: 3 * time.Second,
 		ReadTimeout:       5 * time.Second,
 		WriteTimeout:      5 * time.Second,
@@ -302,33 +346,38 @@ func serve(args []string) error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = server.Shutdown(shutdownCtx)
+		_ = adminServer.Shutdown(shutdownCtx)
 	}()
-	rolloutID := ""
-	if rolloutController != nil {
-		rolloutID = rolloutController.Plan().RolloutID
-	}
-	logger.Info("PALISADE starting", "version", version, "listen", *listen, "dev", *dev, "mode", mode, "rollout_id", rolloutID, "require_session_cookie", *requireSessionCookie, "shadow_log", shadowSink != nil, "event_shadow_evaluation", eventShadowEnabled)
+	logger.Info("PALISADE starting", "version", version, "listen", *listen, "admin_listen", *adminListen, "dev", *dev, "mode", mode, "rollout_id", rolloutID, "require_session_cookie", *requireSessionCookie, "shadow_log", shadowSink != nil, "event_shadow_evaluation", eventShadowEnabled, "analysis_report", analysisReport != nil)
 	if *dev {
 		logger.Warn("development mode active; proof tokens are not required")
 	}
-	err = server.ListenAndServe()
+	serverErrors := make(chan error, 2)
+	go func() { serverErrors <- server.ListenAndServe() }()
+	go func() { serverErrors <- adminServer.ListenAndServe() }()
+	err = <-serverErrors
 	stop()
+	secondServerErr := <-serverErrors
 	<-challengeSweeperDone
 	var shadowCloseErr error
 	if shadowSink != nil {
 		shadowCloseErr = shadowSink.Close()
 	}
 	if errors.Is(err, http.ErrServerClosed) {
-		return shadowCloseErr
+		err = nil
 	}
-	return errors.Join(err, shadowCloseErr)
+	if errors.Is(secondServerErr, http.ErrServerClosed) {
+		secondServerErr = nil
+	}
+	return errors.Join(err, secondServerErr, shadowCloseErr)
 }
 
 func doctor() error {
 	_, keyPresent := os.LookupEnv("PALISADE_HMAC_KEY")
 	_, apiKeyPresent := os.LookupEnv("PALISADE_API_KEY")
-	fmt.Printf("PALISADE doctor\nversion: %s\ngo: %s\nhmac_key: %t\napi_key: %t\n", version, runtime.Version(), keyPresent, apiKeyPresent)
-	if !keyPresent || !apiKeyPresent {
+	_, adminKeyPresent := os.LookupEnv("PALISADE_ADMIN_KEY")
+	fmt.Printf("PALISADE doctor\nversion: %s\ngo: %s\nhmac_key: %t\napi_key: %t\nadmin_key: %t\n", version, runtime.Version(), keyPresent, apiKeyPresent, adminKeyPresent)
+	if !keyPresent || !apiKeyPresent || !adminKeyPresent {
 		return errors.New("production secrets are missing; use serve --dev only for local development")
 	}
 	return nil
@@ -420,4 +469,31 @@ func secrets(dev bool) ([]byte, string, error) {
 		return nil, "", err
 	}
 	return secret, "development-only", nil
+}
+
+func adminSecret(dev bool, apiKey string) (string, error) {
+	adminKey := os.Getenv("PALISADE_ADMIN_KEY")
+	if adminKey == "" && dev {
+		return "development-only-admin", nil
+	}
+	if len(adminKey) < 32 {
+		return "", errors.New("PALISADE_ADMIN_KEY must contain at least 32 bytes when configured")
+	}
+	if len(adminKey) == len(apiKey) && subtle.ConstantTimeCompare([]byte(adminKey), []byte(apiKey)) == 1 {
+		return "", errors.New("PALISADE_ADMIN_KEY must be distinct from PALISADE_API_KEY")
+	}
+	return adminKey, nil
+}
+
+func validateAdminListen(address string) error {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return errors.New("--admin-listen must be a loopback IP and port")
+	}
+	ip := net.ParseIP(host)
+	portNumber, err := strconv.Atoi(port)
+	if ip == nil || !ip.IsLoopback() || err != nil || portNumber < 1 || portNumber > 65535 {
+		return errors.New("--admin-listen must be a loopback IP and port")
+	}
+	return nil
 }

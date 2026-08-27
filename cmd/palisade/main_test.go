@@ -112,6 +112,38 @@ func TestServeRequiresBothShadowLogPaths(t *testing.T) {
 	}
 }
 
+func TestAdminListenerIsLoopbackOnly(t *testing.T) {
+	for _, address := range []string{"0.0.0.0:8081", "[::]:8081", "localhost:8081", "127.0.0.1:0", "invalid"} {
+		if err := validateAdminListen(address); err == nil {
+			t.Fatalf("unsafe admin listener %q was accepted", address)
+		}
+	}
+	for _, address := range []string{"127.0.0.1:8081", "[::1]:8081"} {
+		if err := validateAdminListen(address); err != nil {
+			t.Fatalf("loopback admin listener %q was rejected: %v", address, err)
+		}
+	}
+}
+
+func TestAdminSecretIsRequiredAndDistinct(t *testing.T) {
+	t.Setenv("PALISADE_ADMIN_KEY", "")
+	if key, err := adminSecret(true, "development-only"); err != nil || key != "development-only-admin" {
+		t.Fatalf("development admin key = %q, %v", key, err)
+	}
+	if _, err := adminSecret(false, "api-key"); err == nil {
+		t.Fatal("production accepted missing admin key")
+	}
+	const shared = "0123456789abcdef0123456789abcdef"
+	t.Setenv("PALISADE_ADMIN_KEY", shared)
+	if _, err := adminSecret(false, shared); err == nil {
+		t.Fatal("production accepted shared API and admin credential")
+	}
+	t.Setenv("PALISADE_ADMIN_KEY", "abcdef0123456789abcdef0123456789")
+	if _, err := adminSecret(false, shared); err != nil {
+		t.Fatalf("distinct production admin key was rejected: %v", err)
+	}
+}
+
 func TestServeEventShadowEvaluationRequiresCompleteSafeConfiguration(t *testing.T) {
 	tests := []struct {
 		name string
