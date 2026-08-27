@@ -81,6 +81,7 @@ type DecisionSummary struct {
 type ActionCounts struct {
 	Allow     uint64 `json:"allow"`
 	Observe   uint64 `json:"observe"`
+	Delay     uint64 `json:"delay,omitempty"`
 	Throttle  uint64 `json:"throttle"`
 	Challenge uint64 `json:"challenge"`
 	Block     uint64 `json:"block"`

@@ -87,7 +87,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		case http.StatusTooManyRequests:
 			w.Header().Set("Retry-After", integerString(result.retryAfter))
-			w.Header().Set("X-Palisade-Action", "throttle")
+			w.Header().Set("X-Palisade-Action", result.action)
 			w.WriteHeader(http.StatusTooManyRequests)
 		case http.StatusForbidden:
 			if result.handling == "block" {

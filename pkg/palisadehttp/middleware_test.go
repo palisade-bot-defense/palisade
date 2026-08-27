@@ -92,6 +92,24 @@ func (f *fakePalisade) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
+		if f.handling == "delay" {
+			w.Header().Set("X-Palisade-Mode", "canary")
+			w.Header().Set("X-Palisade-Rollout-ID", "test-canary")
+			w.Header().Set("X-Palisade-Action", "delay")
+			w.Header().Set("X-Palisade-Handling", "delay")
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		if f.handling == "invalid_delay" {
+			w.Header().Set("X-Palisade-Mode", "canary")
+			w.Header().Set("X-Palisade-Rollout-ID", "test-canary")
+			w.Header().Set("X-Palisade-Action", "delay")
+			w.Header().Set("X-Palisade-Handling", "delay")
+			w.Header().Set("Retry-After", "2")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
 		if f.handling == "throttle" {
 			w.Header().Set("X-Palisade-Mode", "canary")
 			w.Header().Set("X-Palisade-Rollout-ID", "test-canary")
@@ -324,13 +342,14 @@ func TestFailureModeIsExplicitAndEnforced(t *testing.T) {
 	}
 }
 
-func TestMiddlewareAppliesThrottleAndBlock(t *testing.T) {
+func TestMiddlewareAppliesProgressiveDelayThrottleAndBlock(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0).UTC()
 	for _, test := range []struct {
 		handling   string
 		wantStatus int
 		wantRetry  string
 	}{
+		{handling: "delay", wantStatus: http.StatusTooManyRequests, wantRetry: "1"},
 		{handling: "throttle", wantStatus: http.StatusTooManyRequests, wantRetry: "5"},
 		{handling: "block", wantStatus: http.StatusForbidden, wantRetry: "300"},
 	} {
@@ -349,6 +368,21 @@ func TestMiddlewareAppliesThrottleAndBlock(t *testing.T) {
 				t.Fatalf("response = %d headers=%v next=%d", response.Code, response.Header(), nextCalls.Load())
 			}
 		})
+	}
+}
+
+func TestMiddlewareRejectsMalformedDelayContract(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	fake := &fakePalisade{t: t, now: now, handling: "invalid_delay"}
+	service := httptest.NewServer(fake)
+	defer service.Close()
+	guard := newTestMiddleware(t, service.URL, now, FailClosed)
+	response := httptest.NewRecorder()
+	guard.Handler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("malformed delay reached the protected application")
+	})).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "https://origin.example/protected", nil))
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("malformed delay response = %d", response.Code)
 	}
 }
 

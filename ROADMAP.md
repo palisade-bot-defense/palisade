@@ -45,6 +45,10 @@ Exit gate: improvements hold on a time-separated test set and unseen attack fami
 ## 3. Progressive response
 
 - Observe → delay → throttle → accessible step-up → temporary block.
+- Current hardening: `delay` is an explicit policy/action/directive contract.
+  It returns a bounded one-second retry response instead of sleeping in the Go
+  hot path, remains `observe` in shadow mode and requires a signed rollout for
+  live application.
 - Keep canary assignment deterministic, bind full enforcement to the exact measured predecessor canary and preserve one-command rollback.
 - Bind challenges to short-lived server state, action, session and nonce. The
   native single-instance lifecycle and one-time redemption are implemented;

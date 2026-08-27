@@ -13,6 +13,7 @@ enum Action {
   ACTION_THROTTLE = 3;
   ACTION_CHALLENGE = 4;
   ACTION_BLOCK = 5;
+  ACTION_DELAY = 6;
 }
 
 enum RuntimeMode {

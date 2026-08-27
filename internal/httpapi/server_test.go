@@ -371,6 +371,7 @@ func TestOriginCheckAppliesOnlyValidatedDirectiveStatus(t *testing.T) {
 		retry     string
 	}{
 		{name: "shadow pass", action: core.ActionObserve, directive: core.EnforcementDirective{Handling: "pass", HTTPStatus: 200, ExpiresAt: now}, status: http.StatusNoContent},
+		{name: "delay", action: core.ActionDelay, directive: core.EnforcementDirective{Handling: "delay", HTTPStatus: 429, RetryAfterSeconds: 1, ExpiresAt: now}, status: http.StatusTooManyRequests, retry: "1"},
 		{name: "throttle", action: core.ActionThrottle, directive: core.EnforcementDirective{Handling: "throttle", HTTPStatus: 429, RetryAfterSeconds: 5, ExpiresAt: now}, status: http.StatusTooManyRequests, retry: "5"},
 		{name: "challenge", action: core.ActionChallenge, directive: core.EnforcementDirective{Handling: "challenge", HTTPStatus: 403, ExpiresAt: now}, status: http.StatusForbidden},
 		{name: "block", action: core.ActionBlock, directive: core.EnforcementDirective{Handling: "block", HTTPStatus: 403, RetryAfterSeconds: 300, ExpiresAt: now}, status: http.StatusForbidden, retry: "300"},
@@ -556,6 +557,25 @@ func TestOriginCheckRejectsInconsistentDirective(t *testing.T) {
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusServiceUnavailable || !strings.Contains(response.Body.String(), "invalid_enforcement_directive") {
 		t.Fatalf("unexpected invalid-directive response: %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestOriginStatusRejectsMalformedDelay(t *testing.T) {
+	now := time.Now().UTC()
+	base := core.Decision{
+		DecisionID: "delay-contract", Action: core.ActionDelay, ComputedAction: core.ActionDelay,
+		Mode: core.RuntimeModeCanary, RolloutID: "delay-canary",
+	}
+	for _, directive := range []core.EnforcementDirective{
+		{Handling: "delay", HTTPStatus: 429, RetryAfterSeconds: 2, ExpiresAt: now.Add(time.Minute)},
+		{Handling: "throttle", HTTPStatus: 429, RetryAfterSeconds: 1, ExpiresAt: now.Add(time.Minute)},
+		{Handling: "delay", HTTPStatus: 200, RetryAfterSeconds: 1, ExpiresAt: now.Add(time.Minute)},
+	} {
+		decision := base
+		decision.Directive = directive
+		if status, ok := originStatus(decision, now); ok {
+			t.Fatalf("malformed delay accepted: status=%d directive=%+v", status, directive)
+		}
 	}
 }
 

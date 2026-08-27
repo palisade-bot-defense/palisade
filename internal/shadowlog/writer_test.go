@@ -26,7 +26,7 @@ func TestEncryptedAppendRotationAndVerification(t *testing.T) {
 	}
 	request := core.DecisionRequest{SessionID: "session-12345678", Action: "read", EndpointClass: "compare_noindex"}
 	decision := core.Decision{
-		DecisionID: "decision-0001", Action: core.ActionObserve, ComputedAction: core.ActionChallenge,
+		DecisionID: "decision-0001", Action: core.ActionObserve, ComputedAction: core.ActionDelay,
 		Mode: core.RuntimeModeShadow, Scores: core.Scores{AutomationRisk: .5, AbuseIntentRisk: .7, AccountContinuity: .6},
 		ReasonCodes: []string{"STEP_UP_REQUIRED", "COMPARE_NOINDEX_CAMPAIGN_SURFACE"}, PolicyVersion: "default-v3", ModelVersion: "transparent-baseline-v6",
 	}

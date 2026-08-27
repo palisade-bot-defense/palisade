@@ -135,7 +135,7 @@ from application route rewriting, authentication redirects and caches.
 2. Enable the encrypted local shadow sink and collect normalized outcomes linked to the exact decision IDs.
 3. Review linked `analyze-shadow-log` endpoint/cohort aggregates and select explicit false-positive,
    availability and accessibility budgets.
-4. Sign a small reversible canary and test pass, throttle, challenge, fallback,
+4. Sign a small reversible canary and test pass, delay, throttle, challenge, fallback,
    block and PALISADE-outage paths.
 5. Promote only the exact measured canary under the signed-rollout gates.
 

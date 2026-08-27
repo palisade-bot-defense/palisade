@@ -32,7 +32,7 @@ func TestShadowModeOverridesRiskyComputedAction(t *testing.T) {
 	if !hasReason(decision.ReasonCodes, core.ReasonShadowActionOverridden) {
 		t.Fatalf("missing %s in %v", core.ReasonShadowActionOverridden, decision.ReasonCodes)
 	}
-	if decision.PolicyVersion != "default-v3" || decision.ModelVersion != "transparent-baseline-v8" {
+	if decision.PolicyVersion != "default-v4" || decision.ModelVersion != "transparent-baseline-v8" {
 		t.Fatalf("unexpected versions: policy=%s model=%s", decision.PolicyVersion, decision.ModelVersion)
 	}
 }
@@ -65,7 +65,7 @@ func TestSignedRolloutProducesOriginDirective(t *testing.T) {
 		SchemaVersion: rollout.SchemaVersion, RolloutID: "enforce-test", ApprovalID: "review-test", PredecessorRolloutID: "canary-test",
 		CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(time.Hour).Format(time.RFC3339),
 		SourceReportSHA256: strings.Repeat("a", 64), SourceReadinessState: "operator_review_candidate",
-		PolicyVersion: "default-v3", ModelVersion: "transparent-baseline-v8", Stage: core.RuntimeModeEnforce,
+		PolicyVersion: "default-v4", ModelVersion: "transparent-baseline-v8", Stage: core.RuntimeModeEnforce,
 		EndpointClasses: []string{"public_content"}, MaxAction: core.ActionBlock, CanaryBasisPoints: rollout.FullRolloutBasisPoints,
 		ThrottleSeconds: 5, ChallengeTTLSeconds: 300, BlockSeconds: 300,
 	}
@@ -73,7 +73,7 @@ func TestSignedRolloutProducesOriginDirective(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	controller, err := rollout.NewController(signed, publicKey, []byte("0123456789abcdef0123456789abcdef"), "default-v3", "transparent-baseline-v8", now)
+	controller, err := rollout.NewController(signed, publicKey, []byte("0123456789abcdef0123456789abcdef"), "default-v4", "transparent-baseline-v8", now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestDataBoundVelocityRemainsProgressiveInShadow(t *testing.T) {
 		expectedEvidence []string
 	}{
 		{name: "legacy count is low risk", requests: 41, duration: 30 * time.Second, computedAction: core.ActionAllow},
-		{name: "slow volume is observed", requests: 100, duration: 2 * time.Minute, computedAction: core.ActionObserve, expectedEvidence: []string{"SESSION_VOLUME_HIGH"}},
+		{name: "slow volume computes delay", requests: 100, duration: 2 * time.Minute, computedAction: core.ActionDelay, expectedEvidence: []string{"SESSION_VOLUME_HIGH"}},
 		{name: "fast high volume requests step up", requests: 100, duration: 30 * time.Second, computedAction: core.ActionChallenge, expectedEvidence: []string{"SESSION_VOLUME_HIGH", "SESSION_BURST_FAST"}},
 	}
 	for _, test := range tests {

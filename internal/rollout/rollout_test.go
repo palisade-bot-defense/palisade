@@ -150,6 +150,31 @@ func TestDirectiveCannotOutliveSignedPlan(t *testing.T) {
 	}
 }
 
+func TestDelayIsBoundedAndRemainsShadowWithoutRollout(t *testing.T) {
+	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
+	controller := testController(t, now, core.RuntimeModeCanary, 0)
+	selected := ""
+	for index := 0; index < 10_000; index++ {
+		candidate := fmt.Sprintf("delay-session-%08d", index)
+		if controller.bucket(candidate) < DefaultCanaryBasisPoints {
+			selected = candidate
+			break
+		}
+	}
+	if selected == "" {
+		t.Fatal("could not find deterministic delay canary session")
+	}
+	result := controller.Apply(selected, "public_content", core.ActionDelay, now)
+	if result.Action != core.ActionDelay || result.Directive.Handling != "delay" || result.Directive.HTTPStatus != 429 ||
+		result.Directive.RetryAfterSeconds != DefaultDelaySeconds || !result.Directive.ExpiresAt.Equal(now.Add(time.Second)) {
+		t.Fatalf("delay result = %+v", result)
+	}
+	shadow := shadowResult(core.ActionDelay, now, "TEST_SHADOW")
+	if shadow.Action != core.ActionObserve || shadow.Mode != core.RuntimeModeShadow || shadow.Directive.Handling != "pass" {
+		t.Fatalf("shadow delay result = %+v", shadow)
+	}
+}
+
 func testController(t *testing.T, now time.Time, stage core.RuntimeMode, canaryDecisions uint64) *Controller {
 	t.Helper()
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)

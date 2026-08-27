@@ -28,6 +28,7 @@ const (
 	MinimumCanaryDecisions     = uint64(1000)
 	MaximumCanaryDuration      = 7 * 24 * time.Hour
 	MaximumEnforceDuration     = 24 * time.Hour
+	DefaultDelaySeconds        = 1
 	DefaultThrottleSeconds     = 5
 	DefaultChallengeTTLSeconds = 300
 	DefaultBlockSeconds        = 300
@@ -212,12 +213,12 @@ func (p Plan) Validate(now time.Time) error {
 	duration := expiresAt.Sub(createdAt)
 	if p.Stage == core.RuntimeModeCanary {
 		if duration > MaximumCanaryDuration || p.CanaryBasisPoints < 1 || p.CanaryBasisPoints > MaximumCanaryBasisPoints ||
-			(p.MaxAction != core.ActionThrottle && p.MaxAction != core.ActionChallenge) || p.PredecessorRolloutID != "" {
+			(p.MaxAction != core.ActionDelay && p.MaxAction != core.ActionThrottle && p.MaxAction != core.ActionChallenge) || p.PredecessorRolloutID != "" {
 			return ErrInvalidPlan
 		}
 	} else if p.Stage == core.RuntimeModeEnforce {
 		if duration > MaximumEnforceDuration || p.CanaryBasisPoints != FullRolloutBasisPoints ||
-			(p.MaxAction != core.ActionThrottle && p.MaxAction != core.ActionChallenge && p.MaxAction != core.ActionBlock) || !stableID.MatchString(p.PredecessorRolloutID) {
+			(p.MaxAction != core.ActionDelay && p.MaxAction != core.ActionThrottle && p.MaxAction != core.ActionChallenge && p.MaxAction != core.ActionBlock) || !stableID.MatchString(p.PredecessorRolloutID) {
 			return ErrInvalidPlan
 		}
 	} else {
@@ -301,6 +302,8 @@ func shadowResult(computed core.Action, now time.Time, reason string) Result {
 func directive(action core.Action, now time.Time, plan Plan) core.EnforcementDirective {
 	result := core.EnforcementDirective{Handling: "pass", HTTPStatus: 200, ExpiresAt: now.Add(30 * time.Second)}
 	switch action {
+	case core.ActionDelay:
+		result = core.EnforcementDirective{Handling: "delay", HTTPStatus: 429, RetryAfterSeconds: DefaultDelaySeconds, ExpiresAt: now.Add(DefaultDelaySeconds * time.Second)}
 	case core.ActionThrottle:
 		seconds := plan.ThrottleSeconds
 		if seconds == 0 {
@@ -373,19 +376,21 @@ func allowedEndpoint(value string) bool {
 }
 
 func isRisky(action core.Action) bool {
-	return action == core.ActionThrottle || action == core.ActionChallenge || action == core.ActionBlock
+	return action == core.ActionDelay || action == core.ActionThrottle || action == core.ActionChallenge || action == core.ActionBlock
 }
 
 func actionRank(action core.Action) int {
 	switch action {
 	case core.ActionObserve:
 		return 1
-	case core.ActionThrottle:
+	case core.ActionDelay:
 		return 2
-	case core.ActionChallenge:
+	case core.ActionThrottle:
 		return 3
-	case core.ActionBlock:
+	case core.ActionChallenge:
 		return 4
+	case core.ActionBlock:
+		return 5
 	default:
 		return 0
 	}

@@ -118,6 +118,7 @@ type Action string
 const (
 	ActionAllow     Action = "allow"
 	ActionObserve   Action = "observe"
+	ActionDelay     Action = "delay"
 	ActionThrottle  Action = "throttle"
 	ActionChallenge Action = "challenge"
 	ActionBlock     Action = "block"

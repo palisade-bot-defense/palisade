@@ -51,7 +51,7 @@
     },
     "actions": {
       "type": "object", "additionalProperties": false, "required": ["allow", "observe", "throttle", "challenge", "block"],
-      "properties": { "allow": { "$ref": "#/$defs/count" }, "observe": { "$ref": "#/$defs/count" }, "throttle": { "$ref": "#/$defs/count" }, "challenge": { "$ref": "#/$defs/count" }, "block": { "$ref": "#/$defs/count" } }
+      "properties": { "allow": { "$ref": "#/$defs/count" }, "observe": { "$ref": "#/$defs/count" }, "delay": { "$ref": "#/$defs/count" }, "throttle": { "$ref": "#/$defs/count" }, "challenge": { "$ref": "#/$defs/count" }, "block": { "$ref": "#/$defs/count" } }
     },
     "decision_summary": {
       "type": "object", "additionalProperties": false,

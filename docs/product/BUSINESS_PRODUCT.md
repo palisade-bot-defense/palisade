@@ -118,7 +118,7 @@ already granted for published code. Contract language must match `LICENSING.md`.
 1. As a security engineer, I want to observe computed actions without changing
    live traffic so that I can evaluate risk before enforcement.
 2. As a platform engineer, I want a closed origin response contract so that the
-   application can apply pass, throttle, challenge or temporary block safely.
+   application can apply pass, delay, throttle, challenge or temporary block safely.
 3. As a privacy reviewer, I want raw values excluded and local retention bounded
    so that bot defense does not become an uncontrolled identity dataset.
 4. As an operator, I want recommendations separated from activation so that no

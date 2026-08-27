@@ -274,7 +274,9 @@ func (m *Middleware) checkOrigin(ctx context.Context, cookie http.Cookie, classi
 			return originResult{}, ErrInvalidResponse
 		}
 	case http.StatusTooManyRequests:
-		if result.mode == "shadow" || result.rolloutID == "" || result.handling != "throttle" || result.action != "throttle" || result.retryAfter < 1 || result.retryAfter > 60 || result.challengeID != "" || result.location != "" {
+		validDelay := result.handling == "delay" && result.action == "delay" && result.retryAfter == 1
+		validThrottle := result.handling == "throttle" && result.action == "throttle" && result.retryAfter >= 1 && result.retryAfter <= 60
+		if result.mode == "shadow" || result.rolloutID == "" || (!validDelay && !validThrottle) || result.challengeID != "" || result.location != "" {
 			return originResult{}, ErrInvalidResponse
 		}
 	case http.StatusForbidden:
