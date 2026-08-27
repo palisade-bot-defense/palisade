@@ -42,4 +42,6 @@ message DecideResponse {
   // Unmodified result of policy evaluation.
   Action computed_action = 8;
   RuntimeMode mode = 9;
+  string rollout_id = 10;
+  EnforcementDirective directive = 11;
 }

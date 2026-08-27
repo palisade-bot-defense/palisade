@@ -11,7 +11,7 @@
 
 ## What exists today
 
-The first vertical slice is runnable: a Go decision service, short-lived replay-protected proof tokens, an optional server-issued signed continuity cookie, bounded in-memory sessions, detector evidence, three-dimensional score fusion, CEL policy evaluation, deterministic JSONL replay, a privacy-limited browser sensor and an embedded control-room dashboard.
+The first vertical slice is runnable: a Go decision service, short-lived replay-protected proof tokens, an optional server-issued signed continuity cookie, bounded in-memory sessions, detector evidence, three-dimensional score fusion, CEL policy evaluation, deterministic JSONL replay, a privacy-limited browser sensor, an embedded control-room dashboard, encrypted local analysis and signed reversible rollout plans.
 
 PALISADE keeps three questions separate:
 
@@ -38,7 +38,7 @@ Open `http://127.0.0.1:8080`. Run the deterministic sample:
 go run ./cmd/palisade replay --file examples/replay/synthetic.jsonl
 ```
 
-The runtime defaults to `--mode shadow`. In shadow mode, risky computed actions remain visible as `computed_action`, while the enforced `action` is limited to `allow` or `observe`. `--mode enforce` must be selected explicitly and only after the documented promotion gates. Production refuses to start without `PALISADE_HMAC_KEY` and `PALISADE_API_KEY`; development mode intentionally disables proof enforcement and must never face public traffic. `--require-session-cookie` is a separate integration gate: enable it only after the origin adapter forwards the backend-issued `__Host-palisade_session` cookie on token, event and decision requests.
+The server always starts from `--mode shadow`. In shadow mode, risky computed actions remain visible as `computed_action`, while the enforced `action` is limited to `allow` or `observe`. Canary/enforcement requires a valid, expiring operator-signed rollout plan; `serve --mode enforce` is rejected. Production refuses to start without `PALISADE_HMAC_KEY` and `PALISADE_API_KEY`; development mode intentionally disables proof enforcement, rejects rollout plans and must never face public traffic. `--require-session-cookie` is a separate integration gate: enable it only after the origin adapter forwards the backend-issued `__Host-palisade_session` cookie on token, event and decision requests.
 
 ## HTTP surface
 
@@ -50,6 +50,7 @@ The runtime defaults to `--mode shadow`. In shadow mode, risky computed actions 
 | `POST /v1/events` | Same-origin, privacy-limited browser event batches; one-time proof required in production |
 | `POST /v1/token` | Authenticated, short-lived action proof issuance |
 | `POST /v1/decision` | Explainable risk decision |
+| `POST /v1/origin-check` | Score once and return the bounded HTTP enforcement result for origin middleware |
 | `POST /v1/outcome` | Backend-authenticated, normalized delayed outcome for the encrypted local shadow sink |
 
 The signed cookie prevents clients from inventing a trusted session identifier, but does not prove that a person, account or unique device is present; starting fresh sessions remains possible. A valid cookie contributes only continuity evidence. The browser sensor never sends keystrokes, form values, DOM text or exact pointer coordinates. See [privacy boundaries](docs/privacy/DATA_BOUNDARIES.md).
@@ -71,10 +72,10 @@ go run ./cmd/palisade verify-shadow-log \
 go run ./cmd/palisade analyze-shadow-log \
   --dir /private/local/palisade-shadow/logs \
   --key-file /private/local/palisade-shadow/shadow.key \
-  > /private/local/palisade-shadow/analysis.json
+  --output /private/local/palisade-shadow/analysis.json
 ```
 
-The default rotation limits are 64 MiB or one hour; default retention is seven days. `POST /v1/outcome` requires the backend bearer credential and accepts only closed labels with explicit provenance and confidence. `analyze-shadow-log` authenticates and decrypts the retained files locally, emits aggregate counts, score ranges, endpoint summaries and deterministic recommendations, and never prints records or session links. Its recommendations can hold the deployment in shadow mode or nominate a reversible canary for operator review; they never activate enforcement. See the [shadow-log operations, analysis gates and threat model](docs/SHADOW_LOG.md) before enabling it.
+The default rotation limits are 64 MiB or one hour; default retention is seven days. `POST /v1/outcome` requires the backend bearer credential and accepts only closed labels with explicit provenance and confidence. `analyze-shadow-log` authenticates and decrypts the retained files locally, emits aggregate counts, score ranges, endpoint summaries and deterministic recommendations, and never prints records or session links. Its recommendations can hold the deployment in shadow mode or nominate a reversible canary for operator review; they never activate enforcement. The [signed rollout guide](docs/ROLLOUT.md) explains operator approval, exact-canary promotion, origin handling and rollback. See the [shadow-log operations, analysis gates and threat model](docs/SHADOW_LOG.md) before enabling it.
 
 ## Architecture
 
@@ -93,7 +94,7 @@ The first deployment should ingest normalized challenge, external-risk and polic
 
 Authorized historical exports can be normalized with the local-only `palisade import-offline` command. Raw inputs and normalized outputs must stay outside every Git worktree. The importer accepts only `offline_export`, never emits raw rows, and treats upstream policy outcomes as weak labels rather than ground truth. Deployment-local and opt-in community ingestion are future, separate trust boundaries and are not accepted by this command.
 
-See the [architecture and stack](docs/ARCHITECTURE.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
+See the [architecture and stack](docs/ARCHITECTURE.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
 
 ## Project status and license
 

@@ -19,10 +19,11 @@ Automation alone is not abuse. PALISADE combines bounded behavioral and server-s
 
 ## What we are building
 
-- A Go decision hot path with explicit `shadow` and `enforce` boundaries.
+- A Go decision hot path with fail-safe shadow mode and operator-signed, expiring canary/enforcement plans.
 - A privacy-limited browser sensor that excludes content, keystrokes, form values, and exact pointer paths.
 - Deterministic replay and offline evaluation with label provenance and confidence.
 - Local encrypted shadow logging with bounded queues, rotation, retention, and aggregate verification.
+- Closed aggregate analysis, exact-canary promotion gates, origin enforcement directives, and deterministic rollback.
 - Progressive, accessible responses guided by false-positive and abandonment measurements.
 
 ## Project

@@ -126,6 +126,24 @@ if (cd "$shadow_analysis" && "$guard") >/dev/null 2>&1; then
 	exit 1
 fi
 
+rollout_plan="$test_root/rollout-plan"
+new_repo "$rollout_plan"
+printf '%s\n' '{"plan":{"schema_version":"palisade.rollout-plan.v1"},"signature":"synthetic"}' >"$rollout_plan/renamed.txt"
+git -C "$rollout_plan" add renamed.txt
+if (cd "$rollout_plan" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: signed rollout plan was accepted" >&2
+	exit 1
+fi
+
+private_key="$test_root/private-key"
+new_repo "$private_key"
+printf '%s\n' 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' >"$private_key/renamed.txt"
+git -C "$private_key" add renamed.txt
+if (cd "$private_key" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: raw Ed25519 private key was accepted" >&2
+	exit 1
+fi
+
 symlink="$test_root/symlink"
 new_repo "$symlink"
 printf '%s\n' 'synthetic' >"$symlink/target.txt"

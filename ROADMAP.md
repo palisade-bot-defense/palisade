@@ -17,6 +17,7 @@ PALISADE advances through measured gates, not a promise of a universally unsolva
 - Run parallel shadow decisions without changing live responses.
 - Retain only encrypted, bounded local shadow records with explicit rotation, deletion and outcome provenance.
 - Run bounded local aggregate analysis and produce operator-facing, non-enforcing recommendations.
+- Sign expiring endpoint-scoped canary plans and return bounded origin enforcement results.
 - Publish an internal baseline report by endpoint and attacker cohort.
 
 Exit gate: no raw personal data in training/replay artifacts; p95 added decision latency below 10 ms in-process; false-positive estimates and unknown-label rate reported with confidence intervals.
@@ -26,7 +27,7 @@ Exit gate: no raw personal data in training/replay artifacts; p95 added decision
 - Add protocol/TLS normalization at the trusted proxy boundary.
 - Add burst, navigation-graph, token-replay and decoy interaction detectors.
 - Calibrate automation, intent and continuity separately by endpoint class.
-- Add signed model/policy bundles and offline evaluation reports.
+- Add independently replaceable signed model/policy bundles; rollout plans and aggregate evaluation reports are gated today.
 - Test poisoning, missing-signal and forged-sensor scenarios.
 
 Exit gate: improvements hold on a time-separated test set and unseen attack families, not only random train/test splits.
@@ -34,6 +35,7 @@ Exit gate: improvements hold on a time-separated test set and unseen attack fami
 ## 3. Progressive response
 
 - Observe → delay → throttle → accessible step-up → temporary block.
+- Keep canary assignment deterministic, bind full enforcement to the exact measured predecessor canary and preserve one-command rollback.
 - Bind challenges to short-lived server state, action, session and nonce.
 - Offer WebAuthn/account re-authentication where identity assurance matters.
 - Rotate decoy endpoints and challenge families without relying on secrecy alone.

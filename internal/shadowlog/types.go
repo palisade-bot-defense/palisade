@@ -65,6 +65,7 @@ type DecisionEntry struct {
 	Action         core.Action      `json:"action"`
 	ComputedAction core.Action      `json:"computed_action"`
 	Mode           core.RuntimeMode `json:"mode"`
+	RolloutID      string           `json:"rollout_id,omitempty"`
 	Scores         core.Scores      `json:"scores"`
 	ReasonCodes    []string         `json:"reason_codes"`
 	PolicyVersion  string           `json:"policy_version"`

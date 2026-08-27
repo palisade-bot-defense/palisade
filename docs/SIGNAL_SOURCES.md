@@ -56,6 +56,11 @@ The response separates what PALISADE recommends from what it actually applies:
   "action": "observe",
   "computed_action": "challenge",
   "mode": "shadow",
+  "directive": {
+    "handling": "pass",
+    "http_status": 200,
+    "expires_at": "2026-08-27T12:00:30Z"
+  },
   "scores": {
     "automation_risk": 0.71,
     "abuse_intent_risk": 0.55,
@@ -132,3 +137,9 @@ full queue drops the record without delaying the request and increments only an
 aggregate drop counter. Delayed outcomes are appended through `/v1/outcome`.
 `analyze-shadow-log` then produces aggregate coverage, cohort and recommendation
 gates without printing individual records or session links.
+
+For an enforcing integration, call `POST /v1/origin-check` instead of
+`/v1/decision`. It evaluates and records the same closed request exactly once,
+then returns only `204 pass`, `429 throttle`, or `403 challenge/block` with
+bounded `X-Palisade-*` headers. Risky results are possible only under a valid
+operator-signed rollout. See [signed rollout and rollback](ROLLOUT.md).

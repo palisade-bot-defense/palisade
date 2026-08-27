@@ -114,7 +114,7 @@ func (s *Sink) RecordDecision(request core.DecisionRequest, decision core.Decisi
 		SessionKey:    linkedSession,
 		Decision: &DecisionEntry{
 			DecisionID: sanitizeStable(decision.DecisionID), RequestAction: normalizeRequestAction(request.Action), EndpointClass: normalizeEndpoint(request.EndpointClass),
-			Action: decision.Action, ComputedAction: decision.ComputedAction, Mode: decision.Mode, Scores: decision.Scores,
+			Action: decision.Action, ComputedAction: decision.ComputedAction, Mode: decision.Mode, RolloutID: sanitizeOptionalStable(decision.RolloutID), Scores: decision.Scores,
 			ReasonCodes: reasons, PolicyVersion: sanitizeStable(decision.PolicyVersion), ModelVersion: sanitizeStable(decision.ModelVersion),
 		},
 	}
@@ -354,6 +354,13 @@ func sanitizeStable(value string) string {
 		return value
 	}
 	return "unknown"
+}
+
+func sanitizeOptionalStable(value string) string {
+	if value == "" {
+		return ""
+	}
+	return sanitizeStable(value)
 }
 
 func normalizeConfig(config Config) (Config, error) {
