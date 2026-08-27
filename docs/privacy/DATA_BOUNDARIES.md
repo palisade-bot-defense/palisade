@@ -33,4 +33,10 @@ expiries and only a hash of the one-time redemption capability. It never stores
 the original URL, query, request body, IP address, user agent, cookie or sensor
 events. Only closed challenge outcomes may enter the encrypted shadow sink.
 
+The reference Go origin adapter additionally holds bounded, expiring sequence,
+pending-challenge and one-time retry maps. It binds the retry to method, escaped
+path and raw query with a process-random HMAC. Only the digest is retained; the
+application URL, query, body, user-agent value and PALISADE tokens are never
+stored in this map or sent as observations.
+
 Scores are decision support, not identity claims. Operators need an appeal/fallback path for challenged people and must measure false positives by endpoint and client cohort.

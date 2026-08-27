@@ -10,6 +10,7 @@ It is not a packet sniffer, a general log warehouse or a raw-vendor-event bus.
 | Layer | Technology | Responsibility |
 |---|---|---|
 | Request hot path | Go 1.27 | HTTP API, session state, detectors, score fusion, policy, replay and encrypted shadow records |
+| Reference origin adapter | Go `net/http` | Closed request classification, proof/session exchange, result application and same-origin challenge relay |
 | Policy | CEL via `cel-go` | Ordered, deterministic rules over three scores and closed contextual fields |
 | Browser sensor | TypeScript, Node.js 24, pnpm 11.24 | Same-origin, bucketed interaction events without text, form values or exact pointer paths |
 | Dashboard | React and TypeScript | Embedded operational view; it is not a raw-data explorer |
@@ -70,6 +71,9 @@ action. Full enforcement must reference the exact measured predecessor canary.
   client-controlled header without an authenticated proxy boundary.
 - The public API accepts only closed normalized fields. Raw upstream payloads,
   IP addresses, cookies, tokens and request bodies are not detector inputs.
+- The reference middleware never forwards the application URL, query, body or
+  user-agent value. A process-random HMAC of method and request target binds a
+  completed challenge to one local retry without persisting that target.
 - Live session/event state is currently process-local and expires in memory.
 - Challenge state is process-local, bounded to 100,000 entries and expires in
   at most 15 minutes. Restart invalidates outstanding capabilities; replicas
@@ -78,5 +82,5 @@ action. Full enforcement must reference the exact measured predecessor canary.
 - Decision and outcome persistence is optional and local. It is enabled only
   with `--shadow-log-dir` and `--shadow-log-key-file`.
 
-See [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
+See [reference origin adapter](ORIGIN_ADAPTER.md), [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
 [native challenge](CHALLENGE.md), [shadow logging](SHADOW_LOG.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).

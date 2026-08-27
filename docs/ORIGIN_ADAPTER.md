@@ -1,0 +1,113 @@
+# Go reference origin adapter
+
+`pkg/palisadehttp` is the deployable reference integration for Go `net/http`
+applications. It owns the browser-facing session, calls PALISADE exactly once
+per protected request, validates the bounded origin result and applies pass,
+throttle, challenge or block behavior. It does not parse raw vendor payloads.
+
+## Minimal integration
+
+```go
+guard, err := palisadehttp.New(palisadehttp.Config{
+    BaseURL: "http://127.0.0.1:8080",
+    APIKey: os.Getenv("PALISADE_API_KEY"),
+    FailureMode: palisadehttp.FailClosed,
+    FallbackPath: "/support/verification",
+    Classifier: func(r *http.Request) (palisadehttp.Classification, error) {
+        if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/articles/") {
+            return palisadehttp.Classification{Action: "read", EndpointClass: "public_content"}, nil
+        }
+        return palisadehttp.Classification{Action: "other", EndpointClass: "other"}, nil
+    },
+})
+if err != nil { log.Fatal(err) }
+
+http.ListenAndServeTLS(":443", "cert.pem", "key.pem", guard.Handler(application))
+```
+
+`FailureMode` is mandatory. Choose `fail_open` only when availability is more
+important than protection during a PALISADE outage; bypassed requests receive
+`X-Palisade-Adapter: bypass_unavailable`. Choose `fail_closed` for sensitive
+routes that must return `503` if evaluation is unavailable. Classification or
+signal-provider errors always fail closed because they are local integration
+bugs, not dependency outages.
+
+## Request and trust boundary
+
+The classifier maps local routes to the closed action and endpoint enums. The
+optional signal provider may read only already authenticated, normalized facts
+from trusted application context. Do not trust client headers for proxy,
+verified-bot, policy-alert or external-score values.
+
+Without a signal provider the adapter submits only whether a User-Agent header
+is present. It never sends the User-Agent value, application method/path/query,
+request or response body, IP address, Referer, application cookies or arbitrary
+headers. PALISADE session and proof credentials are exchanged only with the
+configured PALISADE base URL. Redirect following is disabled and response
+bodies are bounded to 64 KiB. A supplied HTTP client's cookie jar is disabled
+on the adapter's private clone so browser sessions cannot mix through shared
+client state; cookies are forwarded explicitly per request.
+
+The backend URL must use HTTPS. Plain HTTP is accepted only for `localhost` or
+a loopback IP so the bearer credential cannot be configured over a remote
+cleartext connection.
+
+The adapter accepts these normalized signals: browser event count, honeypot
+hits, closed challenge verdict, 0..1 external risk score, policy alert and
+verified beneficial-bot status. Values outside their documented bounds are
+rejected locally.
+
+## Challenge behavior
+
+Applied challenges on `GET` requests render an accessible same-origin page
+below `/__palisade`. The page uses a restrictive content-security policy,
+same-origin credentialed fetches, keyboard controls and an ARIA live status.
+It relays metadata, verification, redemption and fallback calls without
+exposing the backend credential.
+
+The initial request creates an HttpOnly, Secure, SameSite=Strict pending cookie
+and bounded in-memory entry. After successful backend redemption the adapter
+issues a second HttpOnly one-time cookie. It authorizes only the original
+method, escaped path, raw query, action and endpoint class. Those request-target
+values are represented in state only by a process-random HMAC digest. A changed
+query or path does not pass and does not consume the valid grant. The browser
+then reloads its current location; no return URL is put into HTML, JavaScript,
+cookies or PALISADE requests.
+
+Non-`GET` challenges return `403`, the challenge ID and same-origin `Location`
+metadata. The middleware never buffers or automatically replays an unsafe
+request body. The application must design an explicit idempotent continuation
+flow if it wants step-up protection for writes.
+
+## State and deployment limits
+
+The defaults bound session counters, pending retries and granted retries to
+100,000 entries each. Session sequence state expires after 10 minutes, pending mappings after
+15 minutes and retry grants after 30 seconds. All state is process-local; a
+restart invalidates it. Keep a challenged session on one replica. Do not spread
+traffic across multiple replicas until an atomic shared-state implementation
+preserves the same expiry and consume-once semantics.
+
+The browser-facing baseline uses one pending and one redemption cookie name.
+Concurrent challenge completions in several tabs can therefore supersede one
+another and require a fresh challenge; they fail closed rather than authorizing
+the wrong request.
+
+The adapter requires HTTPS at the browser-facing origin because all continuity
+and challenge cookies are `Secure` and use the `__Host-` prefix. Keep the
+PALISADE API key only in server-side secret management. Exclude `/__palisade`
+from application route rewriting, authentication redirects and caches.
+
+## Rollout order
+
+1. Start PALISADE and the adapter in shadow mode with no signed rollout.
+2. Enable the encrypted local shadow sink and collect normalized outcomes.
+3. Review `analyze-shadow-log` aggregates and select explicit false-positive,
+   availability and accessibility budgets.
+4. Sign a small reversible canary and test pass, throttle, challenge, fallback,
+   block and PALISADE-outage paths.
+5. Promote only the exact measured canary under the signed-rollout gates.
+
+The adapter never promotes a recommendation or changes runtime mode. See
+[ROLLOUT.md](ROLLOUT.md), [CHALLENGE.md](CHALLENGE.md) and the authoritative
+[OpenAPI contract](../api/openapi.yaml).

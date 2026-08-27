@@ -60,6 +60,8 @@ The server always starts from `--mode shadow`. In shadow mode, risky computed ac
 The signed cookie prevents clients from inventing a trusted session identifier, but does not prove that a person, account or unique device is present; starting fresh sessions remains possible. A valid cookie contributes only continuity evidence. The browser sensor never sends keystrokes, form values, DOM text or exact pointer coordinates. See [privacy boundaries](docs/privacy/DATA_BOUNDARIES.md).
 The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contracts live under [`api/proto`](api/proto). The [signal-source guide](docs/SIGNAL_SOURCES.md) contains trust boundaries, request examples and the checked detector extension procedure. The [native challenge guide](docs/CHALLENGE.md) documents the origin handshake, accessibility contract, exact one-time binding and single-instance limit.
 
+Applications built with Go `net/http` can use the included [`pkg/palisadehttp`](pkg/palisadehttp) reference middleware. It creates signed continuity sessions, submits only normalized signals, applies pass/throttle/challenge/block results, renders the same-origin accessible challenge and grants exactly one retry for the original method and request target. Its availability policy is an explicit deployment choice. See the [origin-adapter guide](docs/ORIGIN_ADAPTER.md).
+
 ## Local encrypted shadow logging
 
 Shadow decisions and explicitly submitted outcomes can be recorded to an optional local sink. The sink writes authenticated AES-GCM records to new append-only files, rotates by encrypted size or age, deletes only exactly named managed files after the configured retention period, and never stores the raw session ID. Both the key and log directory must be owner-only and outside every Git worktree.
@@ -98,7 +100,7 @@ The first deployment should ingest normalized challenge, external-risk and polic
 
 Authorized historical exports can be normalized with the local-only `palisade import-offline` command. Raw inputs and normalized outputs must stay outside every Git worktree. The importer accepts only `offline_export`, never emits raw rows, and treats upstream policy outcomes as weak labels rather than ground truth. Deployment-local and opt-in community ingestion are future, separate trust boundaries and are not accepted by this command.
 
-See the [architecture and stack](docs/ARCHITECTURE.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
+See the [architecture and stack](docs/ARCHITECTURE.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
 
 ## Project status and license
 

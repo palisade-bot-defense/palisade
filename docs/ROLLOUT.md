@@ -104,6 +104,11 @@ An origin or reverse-proxy adapter sends the same closed `DecisionRequest` to
 `POST /v1/origin-check` instead of `/v1/decision`. Do not call both routes for
 one request because the production proof is one-time.
 
+For Go `net/http` origins, use the included reference middleware and follow its
+[deployment guide](ORIGIN_ADAPTER.md). It validates the complete bounded header
+contract before applying a result; risky status codes in shadow mode or without
+a rollout ID fail as invalid service responses.
+
 | Status | Header result | Required origin behavior |
 |---|---|---|
 | `204` | `X-Palisade-Handling: pass` | Continue the original request |
@@ -155,6 +160,7 @@ scope. It does not make a report trustworthy if the host or approval process is
 already compromised. PALISADE now issues a native in-memory, signed-session-
 bound challenge capability for applied challenge directives. The deployment
 adapter still owns accessible rendering and the mapping to one pending origin
-request; follow [the challenge protocol](CHALLENGE.md). Process restart
+request; the included Go adapter is the reference implementation. Follow
+[the challenge protocol](CHALLENGE.md). Process restart
 invalidates outstanding challenges, and this baseline is not a multi-replica
 shared-state implementation.
