@@ -30,6 +30,7 @@ message Observations {
 message DecideRequest {
   string session_id = 1;
   string action = 2;
+  // Closed deployment classification; raw paths and URLs are forbidden.
   string endpoint_class = 3;
   uint64 sequence = 4;
   string proof_token = 5;

@@ -24,7 +24,7 @@ var (
 	ErrExplicitTimeWithProof = errors.New("explicit decision time is unavailable with proof enforcement")
 )
 
-const ModelVersion = "transparent-baseline-v7"
+const ModelVersion = "transparent-baseline-v8"
 
 type Engine struct {
 	sessions      *session.MemoryStore
@@ -107,7 +107,7 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 			return core.Decision{}, fmt.Errorf("verify proof: %w", err)
 		}
 	}
-	snapshot := e.sessions.Observe(request.SessionID, request.Sequence, now)
+	snapshot := e.sessions.Observe(request.SessionID, request.Sequence, request.EndpointClass, now)
 	evidence, err := e.detectors.Evaluate(ctx, core.DetectorInput{Request: request, Session: snapshot})
 	if err != nil {
 		return core.Decision{}, fmt.Errorf("evaluate detectors: %w", err)
@@ -163,7 +163,7 @@ func validateRequest(request core.DecisionRequest) error {
 	if len(request.SessionID) < 8 || len(request.SessionID) > 128 || len(request.Action) < 1 || len(request.Action) > 80 {
 		return ErrInvalidRequest
 	}
-	if len(request.EndpointClass) < 1 || len(request.EndpointClass) > 64 || request.Sequence == 0 {
+	if !core.ValidEndpointClass(request.EndpointClass) || request.Sequence == 0 {
 		return ErrInvalidRequest
 	}
 	if strings.ContainsAny(request.SessionID+request.Action+request.EndpointClass, "\r\n\x00") {

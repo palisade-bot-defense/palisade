@@ -542,7 +542,9 @@ components:
           maxLength: 128
           description: Optional when a valid PALISADE session cookie is supplied; if both are present they must match.
         action: { type: string, minLength: 1, maxLength: 80 }
-        endpoint_class: { type: string, minLength: 1, maxLength: 64 }
+        endpoint_class:
+          type: string
+          enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]
         sequence: { type: integer, minimum: 1 }
         proof_token: { type: string }
         observations: { $ref: "#/components/schemas/Observations" }

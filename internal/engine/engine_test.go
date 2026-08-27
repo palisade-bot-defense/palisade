@@ -32,7 +32,7 @@ func TestShadowModeOverridesRiskyComputedAction(t *testing.T) {
 	if !hasReason(decision.ReasonCodes, core.ReasonShadowActionOverridden) {
 		t.Fatalf("missing %s in %v", core.ReasonShadowActionOverridden, decision.ReasonCodes)
 	}
-	if decision.PolicyVersion != "default-v3" || decision.ModelVersion != "transparent-baseline-v7" {
+	if decision.PolicyVersion != "default-v3" || decision.ModelVersion != "transparent-baseline-v8" {
 		t.Fatalf("unexpected versions: policy=%s model=%s", decision.PolicyVersion, decision.ModelVersion)
 	}
 }
@@ -65,7 +65,7 @@ func TestSignedRolloutProducesOriginDirective(t *testing.T) {
 		SchemaVersion: rollout.SchemaVersion, RolloutID: "enforce-test", ApprovalID: "review-test", PredecessorRolloutID: "canary-test",
 		CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(time.Hour).Format(time.RFC3339),
 		SourceReportSHA256: strings.Repeat("a", 64), SourceReadinessState: "operator_review_candidate",
-		PolicyVersion: "default-v3", ModelVersion: "transparent-baseline-v7", Stage: core.RuntimeModeEnforce,
+		PolicyVersion: "default-v3", ModelVersion: "transparent-baseline-v8", Stage: core.RuntimeModeEnforce,
 		EndpointClasses: []string{"public_content"}, MaxAction: core.ActionBlock, CanaryBasisPoints: rollout.FullRolloutBasisPoints,
 		ThrottleSeconds: 5, ChallengeTTLSeconds: 300, BlockSeconds: 300,
 	}
@@ -73,7 +73,7 @@ func TestSignedRolloutProducesOriginDirective(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	controller, err := rollout.NewController(signed, publicKey, []byte("0123456789abcdef0123456789abcdef"), "default-v3", "transparent-baseline-v7", now)
+	controller, err := rollout.NewController(signed, publicKey, []byte("0123456789abcdef0123456789abcdef"), "default-v3", "transparent-baseline-v8", now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,6 +109,15 @@ func TestDecisionRejectsFreeFormEvaluationCohort(t *testing.T) {
 	request.EvaluationCohort = "browser-fingerprint-value"
 	if _, err := current.Decide(context.Background(), request); !errors.Is(err, ErrInvalidRequest) {
 		t.Fatalf("free-form evaluation cohort error = %v", err)
+	}
+}
+
+func TestDecisionRejectsRawEndpointClass(t *testing.T) {
+	current := newTestEngine(t, core.RuntimeModeShadow)
+	request := highRiskRequest()
+	request.EndpointClass = "/private/account?token=secret"
+	if _, err := current.Decide(context.Background(), request); !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("raw endpoint class error = %v", err)
 	}
 }
 
