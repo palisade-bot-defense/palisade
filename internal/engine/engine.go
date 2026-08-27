@@ -24,7 +24,7 @@ var (
 	ErrExplicitTimeWithProof = errors.New("explicit decision time is unavailable with proof enforcement")
 )
 
-const ModelVersion = "transparent-baseline-v6"
+const ModelVersion = "transparent-baseline-v7"
 
 type Engine struct {
 	sessions      *session.MemoryStore

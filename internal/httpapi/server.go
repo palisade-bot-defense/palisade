@@ -436,9 +436,10 @@ func (s *Server) evaluateDecision(w http.ResponseWriter, r *http.Request) (core.
 	request.SessionID = sessionID
 	request.Observations.ServerSessionVerified = verifiedSession
 	if s.events != nil {
-		if observed := s.events.Count(request.SessionID, now); observed > request.Observations.BrowserEventCount {
-			request.Observations.BrowserEventCount = observed
-		}
+		// The live service owns browser-event provenance. Never let a request
+		// inflate its own count and obtain benign continuity evidence.
+		request.Observations.BrowserEventCount = s.events.Count(request.SessionID, now)
+		request.Observations.BrowserEventsVerified = true
 	}
 	decision, err := s.engine.Decide(r.Context(), request)
 	if err != nil {

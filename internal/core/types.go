@@ -36,6 +36,10 @@ type Observations struct {
 	PolicyAlert           bool    `json:"policy_alert"`
 	VerifiedBot           bool    `json:"verified_bot"`
 	ServerSessionVerified bool    `json:"-"`
+	// BrowserEventsVerified is set only by a trusted in-process boundary after
+	// reading the server-side event store. A caller-supplied count must never
+	// create benign continuity evidence by itself.
+	BrowserEventsVerified bool `json:"-"`
 }
 
 // EvaluationCohort is a coarse, deployment-supplied measurement slice. It is

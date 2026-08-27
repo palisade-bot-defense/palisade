@@ -30,6 +30,11 @@ Exit gate: no raw personal data in training/replay artifacts; p95 added decision
 - Add independently replaceable signed model/policy bundles; rollout plans and aggregate evaluation reports are gated today.
 - Test poisoning, missing-signal and forged-sensor scenarios.
 
+Current hardening: browser-event counts are server-authoritative and create
+benign continuity evidence only when backed by the bounded event store. Missing
+sensor data remains neutral, and forged request counts are covered by regression
+tests. Broader poisoning tests and protocol/TLS normalization remain open.
+
 Exit gate: improvements hold on a time-separated test set and unseen attack families, not only random train/test splits.
 
 ## 3. Progressive response

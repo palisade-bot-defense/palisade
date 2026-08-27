@@ -19,7 +19,7 @@ PALISADE keeps three questions separate:
 - **Abuse intent:** how likely is the current action harmful?
 - **Account continuity:** how consistent is this session with its established behavior?
 
-Every decision response includes the enforced `action`, the unmodified `computed_action`, the runtime `mode`, stable reason codes, policy/model versions and an expiry time. The current reported versions are policy `default-v3` and model `transparent-baseline-v6`. Verified beneficial bots can be allowed independently from abusive automation. Session volume and fast bursts remain conservative evidence because the current offline evaluation has too few confirmed-human clients to calibrate a false-positive rate. Completing a proof-of-work challenge is an outcome, not benign-automation evidence; browser automation may complete the same challenge routinely.
+Every decision response includes the enforced `action`, the unmodified `computed_action`, the runtime `mode`, stable reason codes, policy/model versions and an expiry time. The current reported versions are policy `default-v3` and model `transparent-baseline-v7`. Verified beneficial bots can be allowed independently from abusive automation. Session volume and fast bursts remain conservative evidence because the current offline evaluation has too few confirmed-human clients to calibrate a false-positive rate. Completing a proof-of-work challenge is an outcome, not benign-automation evidence; browser automation may complete the same challenge routinely. Browser-event counts create benign continuity evidence only after PALISADE verifies them against its own bounded event store.
 
 ## Quick start
 

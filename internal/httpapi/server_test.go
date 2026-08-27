@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -203,14 +204,19 @@ func TestSignedCookieCanResolveSessionForTokenAndDecision(t *testing.T) {
 	}
 }
 
-func TestClientCannotClaimServerSessionVerification(t *testing.T) {
+func TestClientCannotClaimInternalTrustMarkers(t *testing.T) {
 	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
 	server := New(fakeEngine{}, tokens, "key", slog.Default())
-	request := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"session_id":"abcdefgh","action":"read","endpoint_class":"public_content","sequence":1,"observations":{"server_session_verified":true}}`))
-	response := httptest.NewRecorder()
-	server.Handler().ServeHTTP(response, request)
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("client-supplied server trust status = %d", response.Code)
+	for _, field := range []string{"server_session_verified", "browser_events_verified"} {
+		t.Run(field, func(t *testing.T) {
+			body := fmt.Sprintf(`{"session_id":"abcdefgh","action":"read","endpoint_class":"public_content","sequence":1,"observations":{"%s":true}}`, field)
+			request := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(body))
+			response := httptest.NewRecorder()
+			server.Handler().ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("client-supplied trust marker = %d", response.Code)
+			}
+		})
 	}
 }
 
@@ -250,11 +256,11 @@ func TestEventProofIsOneTimeAndFeedsDecision(t *testing.T) {
 		t.Fatalf("expected replay rejection, got %d", replayResponse.Code)
 	}
 
-	decision := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"session_id":"session-12345678","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+	decision := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"session_id":"session-12345678","action":"read","endpoint_class":"public_content","sequence":1,"observations":{"browser_event_count":9999}}`))
 	decisionResponse := httptest.NewRecorder()
 	server.Handler().ServeHTTP(decisionResponse, decision)
-	if decisionResponse.Code != http.StatusOK || engine.request.Observations.BrowserEventCount != 1 {
-		t.Fatalf("event count was not attached to decision: status=%d count=%d", decisionResponse.Code, engine.request.Observations.BrowserEventCount)
+	if decisionResponse.Code != http.StatusOK || engine.request.Observations.BrowserEventCount != 1 || !engine.request.Observations.BrowserEventsVerified {
+		t.Fatalf("server event count was not authoritative: status=%d observations=%+v", decisionResponse.Code, engine.request.Observations)
 	}
 }
 
@@ -301,7 +307,7 @@ func TestAcceptedEventBatchRecordsServerClassifiedShadowDecision(t *testing.T) {
 	}
 	if engine.request.SessionID != claims.SessionID || engine.request.Action != "read" || engine.request.EndpointClass != "public_content" ||
 		engine.request.Sequence != 7 || engine.request.ProofToken == "" || !engine.request.Observations.ServerSessionVerified ||
-		!engine.request.Observations.UserAgentPresent || engine.request.Observations.BrowserEventCount != 1 {
+		!engine.request.Observations.UserAgentPresent || engine.request.Observations.BrowserEventCount != 1 || !engine.request.Observations.BrowserEventsVerified {
 		t.Fatalf("internal event decision request = %+v", engine.request)
 	}
 	if _, err := tokens.VerifyAndConsume(engine.request.ProofToken, claims.SessionID, "read", time.Now().UTC()); err != nil {

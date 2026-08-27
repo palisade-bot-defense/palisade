@@ -10,7 +10,7 @@ import (
 
 type ProtocolConsistency struct{}
 
-func (ProtocolConsistency) ID() string { return "protocol_consistency_v1" }
+func (ProtocolConsistency) ID() string { return "protocol_consistency_v2" }
 
 func (d ProtocolConsistency) Evaluate(_ context.Context, input core.DetectorInput) ([]core.Evidence, error) {
 	var result []core.Evidence
@@ -18,10 +18,10 @@ func (d ProtocolConsistency) Evaluate(_ context.Context, input core.DetectorInpu
 	if !obs.UserAgentPresent {
 		result = append(result, evidence("UA_MISSING", d.ID(), core.DimensionAutomation, core.DirectionSuspicious, .52, .72))
 	}
-	if obs.BrowserEventCount > 0 && !obs.UserAgentPresent {
+	if obs.BrowserEventsVerified && obs.BrowserEventCount > 0 && !obs.UserAgentPresent {
 		result = append(result, evidence("BROWSER_PROTOCOL_CONTRADICTION", d.ID(), core.DimensionAutomation, core.DirectionSuspicious, .82, .9))
 	}
-	if obs.BrowserEventCount >= 3 && obs.UserAgentPresent {
+	if obs.BrowserEventsVerified && obs.BrowserEventCount >= 3 && obs.UserAgentPresent {
 		result = append(result, evidence("BROWSER_SEQUENCE_PRESENT", d.ID(), core.DimensionContinuity, core.DirectionBenign, .24, .64))
 	}
 	if obs.ServerSessionVerified {

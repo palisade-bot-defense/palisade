@@ -9,7 +9,7 @@ vendor payloads, headers and free text from silently becoming trusted features.
 
 | Normalized source | API field or route | Trust boundary | Current use |
 |---|---|---|---|
-| Bucketed browser behavior | `POST /v1/events` | Untrusted same-origin client plus one-time proof | Browser-event count and sequence consistency |
+| Bucketed browser behavior | `POST /v1/events` | Untrusted same-origin client plus one-time proof; server-side bounded event store is authoritative | Verified browser-event count and sequence consistency |
 | Server-issued session | `__Host-palisade_session` | PALISADE-signed HttpOnly cookie | Continuity only; never human identity |
 | Protocol presence | `user_agent_present` | Trusted origin observation | Automation consistency |
 | Honeypot interaction | `honeypot_hits` | Trusted origin adapter | Abuse intent |
@@ -29,6 +29,13 @@ The event proof is action-bound to the literal `events`. A token minted for
 The sensor asks its proof callback explicitly for `events`, defaults to and
 enforces a minimum 15-second interval, serializes flushes and keeps at most 256
 events locally.
+
+`browser_event_count` in a decision request is retained for wire compatibility,
+but the live service replaces it with the count in its own bounded event store.
+Only that server-observed count may produce benign continuity evidence. A
+missing or late sensor is neutral rather than suspicious, and a forged count
+cannot lower risk. Offline Go tests may set the internal verification marker to
+exercise deterministic detector behavior; it is not a JSON or protobuf field.
 
 Sensor-only deployments may configure a server-trusted event shadow profile:
 
@@ -97,7 +104,7 @@ The response separates what PALISADE recommends from what it actually applies:
   "reason_codes": ["STEP_UP_REQUIRED", "SHADOW_ACTION_OVERRIDDEN"],
   "evidence": [],
   "policy_version": "default-v3",
-  "model_version": "transparent-baseline-v6",
+  "model_version": "transparent-baseline-v7",
   "expires_at": "2026-08-27T12:00:30Z"
 }
 ```
