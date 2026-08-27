@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/palisade-bot-defense/palisade/internal/challenge"
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	"github.com/palisade-bot-defense/palisade/internal/events"
 	"github.com/palisade-bot-defense/palisade/internal/sessioncookie"
@@ -203,7 +204,7 @@ func TestDecisionJSONDistinguishesEnforcedAndComputedActions(t *testing.T) {
 }
 
 func TestOriginCheckAppliesOnlyValidatedDirectiveStatus(t *testing.T) {
-	now := time.Unix(1_800_000_000, 0).UTC()
+	now := time.Now().UTC().Add(5 * time.Minute)
 	tests := []struct {
 		name      string
 		action    core.Action
@@ -218,13 +219,24 @@ func TestOriginCheckAppliesOnlyValidatedDirectiveStatus(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
+			secret := []byte("0123456789abcdef0123456789abcdef")
+			tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+			cookies, _ := sessioncookie.New(secret, sessioncookie.DefaultTTL)
+			issuedCookie, claims, err := cookies.Issue(time.Now().UTC())
+			if err != nil {
+				t.Fatal(err)
+			}
+			challengeService, err := challenge.New(challenge.Config{Secret: secret, Delay: time.Nanosecond})
+			if err != nil {
+				t.Fatal(err)
+			}
 			decision := core.Decision{
 				DecisionID: "origin-decision", Action: test.action, ComputedAction: test.action, Mode: core.RuntimeModeCanary,
 				RolloutID: "canary-20260827", Directive: test.directive, ExpiresAt: now,
 			}
-			server := New(fixedEngine{decision: decision}, tokens, "key", slog.Default())
-			request := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"session-12345678","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+			server := New(fixedEngine{decision: decision}, tokens, "key", slog.Default()).WithSessionCookies(cookies, true).WithChallenges(challengeService)
+			request := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"`+claims.SessionID+`","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+			request.AddCookie(&issuedCookie)
 			response := httptest.NewRecorder()
 			server.Handler().ServeHTTP(response, request)
 			if response.Code != test.status || response.Body.Len() != 0 {
@@ -234,7 +246,143 @@ func TestOriginCheckAppliesOnlyValidatedDirectiveStatus(t *testing.T) {
 				response.Header().Get("X-Palisade-Mode") != "canary" || response.Header().Get("X-Palisade-Rollout-ID") != "canary-20260827" || response.Header().Get("Retry-After") != test.retry {
 				t.Fatalf("unexpected origin headers: %v", response.Header())
 			}
+			if test.action == core.ActionChallenge && (response.Header().Get("X-Palisade-Challenge-ID") == "" || response.Header().Get("Location") == "") {
+				t.Fatalf("challenge reference missing: %v", response.Header())
+			}
 		})
+	}
+}
+
+func TestNativeChallengeHTTPFlowRecordsOutcomeAndRejectsReplay(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+	cookies, err := sessioncookie.New(secret, sessioncookie.DefaultTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuedCookie, claims, err := cookies.Issue(time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	challengeService, err := challenge.New(challenge.Config{Secret: secret, Delay: time.Nanosecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := &recordingShadow{}
+	decision := core.Decision{
+		DecisionID: "native-challenge", Action: core.ActionChallenge, ComputedAction: core.ActionChallenge,
+		Mode: core.RuntimeModeCanary, RolloutID: "canary-native", ExpiresAt: time.Now().UTC().Add(30 * time.Second),
+		Directive: core.EnforcementDirective{Handling: "challenge", HTTPStatus: http.StatusForbidden, ExpiresAt: time.Now().UTC().Add(5 * time.Minute)},
+	}
+	server := New(fixedEngine{decision: decision}, tokens, "key", slog.Default()).
+		WithSessionCookies(cookies, true).
+		WithShadowRecorder(recorder).
+		WithChallenges(challengeService)
+	handler := server.Handler()
+
+	origin := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"`+claims.SessionID+`","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
+	origin.AddCookie(&issuedCookie)
+	originResponse := httptest.NewRecorder()
+	handler.ServeHTTP(originResponse, origin)
+	challengeID := originResponse.Header().Get("X-Palisade-Challenge-ID")
+	if originResponse.Code != http.StatusForbidden || challengeID == "" || originResponse.Header().Get("Location") != "/v1/challenge/"+challengeID {
+		t.Fatalf("origin challenge = %d %v", originResponse.Code, originResponse.Header())
+	}
+	otherCookie, _, err := cookies.Issue(time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrongSessionView := httptest.NewRequest(http.MethodGet, "/v1/challenge/"+challengeID, nil)
+	wrongSessionView.AddCookie(&otherCookie)
+	wrongSessionResponse := httptest.NewRecorder()
+	handler.ServeHTTP(wrongSessionResponse, wrongSessionView)
+	if wrongSessionResponse.Code != http.StatusNotFound {
+		t.Fatalf("cross-session challenge disclosure = %d", wrongSessionResponse.Code)
+	}
+
+	view := httptest.NewRequest(http.MethodGet, "/v1/challenge/"+challengeID, nil)
+	view.AddCookie(&issuedCookie)
+	viewResponse := httptest.NewRecorder()
+	handler.ServeHTTP(viewResponse, view)
+	var metadata challenge.Metadata
+	if viewResponse.Code != http.StatusOK || json.Unmarshal(viewResponse.Body.Bytes(), &metadata) != nil || metadata.VerificationToken == "" {
+		t.Fatalf("challenge metadata = %d %s", viewResponse.Code, viewResponse.Body.String())
+	}
+
+	verifyBody, _ := json.Marshal(map[string]string{"challenge_id": challengeID, "verification_token": metadata.VerificationToken})
+	verify := httptest.NewRequest(http.MethodPost, "/v1/challenge/verify", bytes.NewReader(verifyBody))
+	verify.AddCookie(&issuedCookie)
+	verifyResponse := httptest.NewRecorder()
+	handler.ServeHTTP(verifyResponse, verify)
+	var verification challenge.Verification
+	if verifyResponse.Code != http.StatusOK || json.Unmarshal(verifyResponse.Body.Bytes(), &verification) != nil || verification.RedemptionToken == "" {
+		t.Fatalf("challenge verification = %d %s", verifyResponse.Code, verifyResponse.Body.String())
+	}
+
+	redeemBody, _ := json.Marshal(map[string]string{
+		"challenge_id": challengeID, "redemption_token": verification.RedemptionToken, "action": "read", "endpoint_class": "public_content",
+	})
+	redeem := httptest.NewRequest(http.MethodPost, "/v1/challenge/redeem", bytes.NewReader(redeemBody))
+	redeem.AddCookie(&issuedCookie)
+	redeemResponse := httptest.NewRecorder()
+	handler.ServeHTTP(redeemResponse, redeem)
+	if redeemResponse.Code != http.StatusNoContent || redeemResponse.Header().Get("X-Palisade-Challenge") != "redeemed" {
+		t.Fatalf("challenge redemption = %d %s", redeemResponse.Code, redeemResponse.Body.String())
+	}
+	if len(recorder.outcomes) != 1 || recorder.outcomes[0].Outcome != "challenge_passed" || recorder.outcomes[0].DecisionID != "native-challenge" || recorder.outcomes[0].Provenance != "server_observed" {
+		t.Fatalf("recorded outcomes = %+v", recorder.outcomes)
+	}
+
+	replay := httptest.NewRequest(http.MethodPost, "/v1/challenge/redeem", bytes.NewReader(redeemBody))
+	replay.AddCookie(&issuedCookie)
+	replayResponse := httptest.NewRecorder()
+	handler.ServeHTTP(replayResponse, replay)
+	if replayResponse.Code != http.StatusConflict || len(recorder.outcomes) != 1 {
+		t.Fatalf("redemption replay = %d outcomes=%+v", replayResponse.Code, recorder.outcomes)
+	}
+}
+
+func TestFailedChallengeIssuanceIsNotRecordedAsApplied(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+	cookies, err := sessioncookie.New(secret, sessioncookie.DefaultTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuedCookie, claims, err := cookies.Issue(time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	challengeService, err := challenge.New(challenge.Config{Secret: secret, MaxEntries: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	directive := core.EnforcementDirective{Handling: "challenge", HTTPStatus: http.StatusForbidden, ExpiresAt: now.Add(5 * time.Minute)}
+	if _, err := challengeService.Issue(core.DecisionRequest{
+		SessionID: claims.SessionID, Action: "read", EndpointClass: "public_content", Sequence: 1,
+		Observations: core.Observations{ServerSessionVerified: true},
+	}, core.Decision{
+		DecisionID: "capacity-holder", Action: core.ActionChallenge, Mode: core.RuntimeModeCanary,
+		RolloutID: "canary-capacity", Directive: directive,
+	}, now); err != nil {
+		t.Fatal(err)
+	}
+	recorder := &recordingShadow{}
+	decision := core.Decision{
+		DecisionID: "capacity-rejected", Action: core.ActionChallenge, ComputedAction: core.ActionChallenge,
+		Mode: core.RuntimeModeCanary, RolloutID: "canary-capacity", Directive: directive, ExpiresAt: now.Add(30 * time.Second),
+	}
+	server := New(fixedEngine{decision: decision}, tokens, "key", slog.Default()).
+		WithSessionCookies(cookies, true).
+		WithShadowRecorder(recorder).
+		WithChallenges(challengeService)
+	request := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"`+claims.SessionID+`","action":"read","endpoint_class":"public_content","sequence":2,"observations":{}}`))
+	request.AddCookie(&issuedCookie)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusServiceUnavailable || recorder.decisions != 0 {
+		t.Fatalf("failed issuance status/recorded = %d/%d", response.Code, recorder.decisions)
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/palisade-bot-defense/palisade/internal/challenge"
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	"github.com/palisade-bot-defense/palisade/internal/detector"
 	decisionengine "github.com/palisade-bot-defense/palisade/internal/engine"
@@ -231,6 +232,10 @@ func serve(args []string) error {
 	if err != nil {
 		return err
 	}
+	challengeService, err := challenge.New(challenge.Config{Secret: secret})
+	if err != nil {
+		return err
+	}
 	var shadowSink *shadowlog.Sink
 	if *shadowLogDir != "" {
 		shadowSink, err = shadowlog.New(shadowlog.Config{
@@ -246,7 +251,8 @@ func serve(args []string) error {
 	api := httpapi.New(engine, tokenService, apiKey, logger).
 		WithEventStore(eventStore).
 		RequireEventProof(!*dev).
-		WithSessionCookies(sessionCookies, *requireSessionCookie)
+		WithSessionCookies(sessionCookies, *requireSessionCookie).
+		WithChallenges(challengeService)
 	if shadowSink != nil {
 		api.WithShadowRecorder(shadowSink)
 	}
@@ -261,6 +267,11 @@ func serve(args []string) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	challengeSweeperDone := make(chan struct{})
+	go func() {
+		defer close(challengeSweeperDone)
+		challengeService.RunSweeper(ctx, time.Minute)
+	}()
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -276,6 +287,8 @@ func serve(args []string) error {
 		logger.Warn("development mode active; proof tokens are not required")
 	}
 	err = server.ListenAndServe()
+	stop()
+	<-challengeSweeperDone
 	var shadowCloseErr error
 	if shadowSink != nil {
 		shadowCloseErr = shadowSink.Close()

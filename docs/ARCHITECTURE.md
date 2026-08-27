@@ -16,6 +16,7 @@ It is not a packet sniffer, a general log warehouse or a raw-vendor-event bus.
 | Contracts | OpenAPI 3.1 and protobuf | HTTP and future typed service contracts |
 | Offline research | Python and Go CLIs | Local-only import, replay, evaluation and aggregate reporting |
 | Runtime state | Bounded in-memory stores | Five-minute event/session windows for the current single-process baseline |
+| Challenge state | Bounded in-memory capability store | Short-lived session/action/endpoint binding and atomic one-time redemption |
 | Local measurement | AES-256-GCM files | Optional append-only decision/outcome stream with rotation and retention |
 | Rollout approval | Ed25519 signed JSON | Expiring endpoint/action/cohort scope reviewed by an operator |
 
@@ -46,6 +47,9 @@ trusted backend ─────────── POST /v1/outcome ─> encrypte
 encrypted records ───────── analyze-shadow-log ─> aggregate recommendations
 aggregate report ────────── operator signature ─> bounded canary/enforce plan
 origin middleware ───────── POST /v1/origin-check ─> 204 / 429 / 403
+                                                      │ challenge
+                                                      v
+signed browser session ──── /v1/challenge/* ────────> one-time bound redemption
 ```
 
 `automation`, `intent` and `continuity` remain separate dimensions. Automation
@@ -67,8 +71,12 @@ action. Full enforcement must reference the exact measured predecessor canary.
 - The public API accepts only closed normalized fields. Raw upstream payloads,
   IP addresses, cookies, tokens and request bodies are not detector inputs.
 - Live session/event state is currently process-local and expires in memory.
+- Challenge state is process-local, bounded to 100,000 entries and expires in
+  at most 15 minutes. Restart invalidates outstanding capabilities; replicas
+  must not share challenge traffic until an atomic shared-state implementation
+  preserves the same bindings.
 - Decision and outcome persistence is optional and local. It is enabled only
   with `--shadow-log-dir` and `--shadow-log-key-file`.
 
 See [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
-[shadow logging](SHADOW_LOG.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).
+[native challenge](CHALLENGE.md), [shadow logging](SHADOW_LOG.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).

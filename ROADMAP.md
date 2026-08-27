@@ -36,7 +36,9 @@ Exit gate: improvements hold on a time-separated test set and unseen attack fami
 
 - Observe → delay → throttle → accessible step-up → temporary block.
 - Keep canary assignment deterministic, bind full enforcement to the exact measured predecessor canary and preserve one-command rollback.
-- Bind challenges to short-lived server state, action, session and nonce.
+- Bind challenges to short-lived server state, action, session and nonce. The
+  native single-instance lifecycle and one-time redemption are implemented;
+  shared multi-replica state and identity-aware families remain future gates.
 - Offer WebAuthn/account re-authentication where identity assurance matters.
 - Rotate decoy endpoints and challenge families without relying on secrecy alone.
 - Measure completion and abandonment by browser/accessibility cohort.
