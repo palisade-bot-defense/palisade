@@ -480,6 +480,9 @@ func originStatus(decision core.Decision, now time.Time) (int, bool) {
 	case "pass":
 		return http.StatusNoContent, decision.Directive.HTTPStatus == http.StatusOK &&
 			(decision.Action == core.ActionAllow || decision.Action == core.ActionObserve) && decision.Directive.RetryAfterSeconds == 0
+	case "delay":
+		return http.StatusTooManyRequests, decision.Directive.HTTPStatus == http.StatusTooManyRequests &&
+			decision.Action == core.ActionDelay && decision.Directive.RetryAfterSeconds == 1
 	case "throttle":
 		return http.StatusTooManyRequests, decision.Directive.HTTPStatus == http.StatusTooManyRequests &&
 			decision.Action == core.ActionThrottle && decision.Directive.RetryAfterSeconds > 0

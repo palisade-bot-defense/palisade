@@ -2,7 +2,7 @@ import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
 
 type Health = "checking" | "ready" | "offline";
 type LoadState = "locked" | "loading" | "ready" | "unauthorized" | "error";
-type ActionCounts = { allow: number; observe: number; throttle: number; challenge: number; block: number };
+type ActionCounts = { allow: number; observe: number; delay: number; throttle: number; challenge: number; block: number };
 type Recommendation = { code: string; priority: string; message: string };
 type Proportion = { count: number; total: number; rate: number; lower_95: number; upper_95: number };
 type LinkedEvaluation = {
@@ -41,7 +41,7 @@ type Summary = {
   analysis: Analysis | null;
 };
 
-const actionNames: (keyof ActionCounts)[] = ["allow", "observe", "throttle", "challenge", "block"];
+const actionNames: (keyof ActionCounts)[] = ["allow", "observe", "delay", "throttle", "challenge", "block"];
 const formatNumber = (value: number) => new Intl.NumberFormat().format(value);
 const formatPercent = (value: number) => new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 1 }).format(value);
 export const formatInterval = (value: Proportion) => value.total === 0 ? "no sample" : `${formatPercent(value.rate)} · 95% ${formatPercent(value.lower_95)}–${formatPercent(value.upper_95)}`;
@@ -50,7 +50,7 @@ const formatDuration = (seconds: number) => seconds < 60 ? `${seconds}s` : secon
 const reasonCopy: Record<string, string> = {
   BASELINE_LOW_RISK: "No configured risk threshold matched.",
   STEP_UP_REQUIRED: "Policy recommends a reversible verification step.",
-  ELEVATED_RISK: "Signals crossed the observation threshold.",
+  ELEVATED_RISK: "Signals crossed the bounded progressive-response threshold.",
   HIGH_RISK: "Multiple or high-confidence signals crossed the high-risk threshold.",
   PUBLIC_CONTENT_HIGH_RISK: "Public-content policy limited the response to progressive friction.",
   MULTI_SOURCE_ABUSE: "Independent policy and decoy signals agreed.",

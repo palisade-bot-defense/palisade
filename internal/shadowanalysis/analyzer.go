@@ -438,6 +438,8 @@ func addAction(counts *ActionCounts, action core.Action) {
 		counts.Allow++
 	case core.ActionObserve:
 		counts.Observe++
+	case core.ActionDelay:
+		counts.Delay++
 	case core.ActionThrottle:
 		counts.Throttle++
 	case core.ActionChallenge:
@@ -448,7 +450,7 @@ func addAction(counts *ActionCounts, action core.Action) {
 }
 
 func isRisky(action core.Action) bool {
-	return action == core.ActionThrottle || action == core.ActionChallenge || action == core.ActionBlock
+	return action == core.ActionDelay || action == core.ActionThrottle || action == core.ActionChallenge || action == core.ActionBlock
 }
 
 func sortedEndpoints(values map[string]*EndpointSummary) []EndpointSummary {

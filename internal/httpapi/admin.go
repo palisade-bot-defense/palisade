@@ -32,6 +32,7 @@ type AdminConfig struct {
 type actionCounters struct {
 	allow     atomic.Uint64
 	observe   atomic.Uint64
+	delay     atomic.Uint64
 	throttle  atomic.Uint64
 	challenge atomic.Uint64
 	block     atomic.Uint64
@@ -87,13 +88,22 @@ type AdminCapabilities struct {
 }
 
 type AdminTraffic struct {
-	AcceptedEventBatches uint64                      `json:"accepted_event_batches"`
-	AcceptedEvents       uint64                      `json:"accepted_events"`
-	Decisions            uint64                      `json:"decisions"`
-	OriginChecks         uint64                      `json:"origin_checks"`
-	Enforced             shadowanalysis.ActionCounts `json:"enforced"`
-	Computed             shadowanalysis.ActionCounts `json:"computed"`
-	Reasons              []CountedReason             `json:"reasons"`
+	AcceptedEventBatches uint64            `json:"accepted_event_batches"`
+	AcceptedEvents       uint64            `json:"accepted_events"`
+	Decisions            uint64            `json:"decisions"`
+	OriginChecks         uint64            `json:"origin_checks"`
+	Enforced             AdminActionCounts `json:"enforced"`
+	Computed             AdminActionCounts `json:"computed"`
+	Reasons              []CountedReason   `json:"reasons"`
+}
+
+type AdminActionCounts struct {
+	Allow     uint64 `json:"allow"`
+	Observe   uint64 `json:"observe"`
+	Delay     uint64 `json:"delay"`
+	Throttle  uint64 `json:"throttle"`
+	Challenge uint64 `json:"challenge"`
+	Block     uint64 `json:"block"`
 }
 
 type AdminRecording struct {
@@ -208,6 +218,8 @@ func (c *actionCounters) increment(action core.Action) {
 		c.allow.Add(1)
 	case core.ActionObserve:
 		c.observe.Add(1)
+	case core.ActionDelay:
+		c.delay.Add(1)
 	case core.ActionThrottle:
 		c.throttle.Add(1)
 	case core.ActionChallenge:
@@ -269,9 +281,9 @@ func validAdminReason(value string) bool {
 	return true
 }
 
-func (c *actionCounters) snapshot() shadowanalysis.ActionCounts {
-	return shadowanalysis.ActionCounts{
-		Allow: c.allow.Load(), Observe: c.observe.Load(), Throttle: c.throttle.Load(),
+func (c *actionCounters) snapshot() AdminActionCounts {
+	return AdminActionCounts{
+		Allow: c.allow.Load(), Observe: c.observe.Load(), Delay: c.delay.Load(), Throttle: c.throttle.Load(),
 		Challenge: c.challenge.Load(), Block: c.block.Load(),
 	}
 }

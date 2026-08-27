@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	SchemaVersion                = "palisade.shadow-record.v2"
+	SchemaVersion                = "palisade.shadow-record.v3"
+	PreviousSchemaVersion        = "palisade.shadow-record.v2"
 	LegacySchemaVersion          = "palisade.shadow-record.v1"
 	DefaultMaxFileBytes          = int64(64 << 20)
 	DefaultMaxFileAge            = time.Hour

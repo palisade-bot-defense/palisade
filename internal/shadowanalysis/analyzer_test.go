@@ -36,6 +36,20 @@ func TestSparseEvidenceKeepsShadowAndExplainsGaps(t *testing.T) {
 	}
 }
 
+func TestDelayIsCountedAsRiskyWithoutChangingChallengeRate(t *testing.T) {
+	analysis := newAnalyzer(normalizedTestConfig(t, Config{}))
+	if err := analysis.observe(decisionRecord("decision-delay", core.ActionObserve, core.ActionDelay, "ELEVATED_RISK")); err != nil {
+		t.Fatal(err)
+	}
+	report := analysis.finish(shadowlog.Verification{Records: 1, Decisions: 1})
+	if report.Decisions.Enforced.Observe != 1 || report.Decisions.Computed.Delay != 1 || report.Decisions.ComputedChallengeRate != 0 {
+		t.Fatalf("delay aggregates = %+v", report.Decisions)
+	}
+	if len(report.Endpoints) != 1 || report.Endpoints[0].Evaluation.ComputedRiskyRate.Count != 1 {
+		t.Fatalf("delay endpoint evaluation = %+v", report.Endpoints)
+	}
+}
+
 func TestAggregateValidationAllowsCollectionReportButRolloutRequiresFullWindow(t *testing.T) {
 	analysis := newAnalyzer(normalizedTestConfig(t, Config{}))
 	if err := analysis.observe(decisionRecord("decision-1", core.ActionAllow, core.ActionAllow, "BASELINE")); err != nil {

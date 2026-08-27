@@ -53,7 +53,7 @@ h1 em { color: var(--cobalt); font-style: normal; }
 .action-row { padding: 12px 0; border-top: 1px solid #eeecfa; }
 .action-row b { width: fit-content; padding: 6px 8px; border-radius: 8px; color: #4c4b72; background: #f2f0ff; font: 750 12px ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
 .action-row b.allow { color: #117457; background: #d9fff1; }
-.action-row b.observe, .action-row b.challenge { color: #8a5a00; background: #fff1c7; }
+.action-row b.observe, .action-row b.delay, .action-row b.challenge { color: #8a5a00; background: #fff1c7; }
 .action-row b.block { color: #a83545; background: #ffe6e6; }
 .panel-footer { display: flex; justify-content: space-between; gap: 12px; padding: 15px 28px; color: var(--copy); background: var(--surface); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .reason-list { padding: 4px 28px 24px; border-top: 1px solid #eeecfa; }

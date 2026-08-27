@@ -203,7 +203,7 @@ func decodeRecord(encoded []byte) (Record, error) {
 }
 
 func validateRecord(record Record) error {
-	if (record.SchemaVersion != SchemaVersion && record.SchemaVersion != LegacySchemaVersion) || (record.Kind != "decision" && record.Kind != "outcome") {
+	if (record.SchemaVersion != SchemaVersion && record.SchemaVersion != PreviousSchemaVersion && record.SchemaVersion != LegacySchemaVersion) || (record.Kind != "decision" && record.Kind != "outcome") {
 		return errors.New("unsupported shadow record")
 	}
 	parsedAt, err := time.Parse(time.RFC3339, record.RecordedAt)
@@ -225,8 +225,8 @@ func validateRecord(record Record) error {
 			cohort = core.EvaluationCohortUnknown
 		}
 		if !stableValue.MatchString(entry.DecisionID) || normalizeRequestAction(entry.RequestAction) != entry.RequestAction || normalizeEndpoint(entry.EndpointClass) != entry.EndpointClass ||
-			!validCohort || (record.SchemaVersion == SchemaVersion && cohort != entry.EvaluationCohort) ||
-			!validAction(entry.Action) || !validAction(entry.ComputedAction) || (entry.Mode != core.RuntimeModeShadow && entry.Mode != core.RuntimeModeCanary && entry.Mode != core.RuntimeModeEnforce) ||
+			!validCohort || (record.SchemaVersion != LegacySchemaVersion && cohort != entry.EvaluationCohort) ||
+			!validAction(entry.Action, record.SchemaVersion == SchemaVersion) || !validAction(entry.ComputedAction, record.SchemaVersion == SchemaVersion) || (entry.Mode != core.RuntimeModeShadow && entry.Mode != core.RuntimeModeCanary && entry.Mode != core.RuntimeModeEnforce) ||
 			entry.Scores.AutomationRisk < 0 || entry.Scores.AutomationRisk > 1 || entry.Scores.AbuseIntentRisk < 0 || entry.Scores.AbuseIntentRisk > 1 || entry.Scores.AccountContinuity < 0 || entry.Scores.AccountContinuity > 1 ||
 			(entry.RolloutID != "" && !stableValue.MatchString(entry.RolloutID)) || !stableValue.MatchString(entry.PolicyVersion) || !stableValue.MatchString(entry.ModelVersion) || len(entry.ReasonCodes) > 32 {
 			return errors.New("invalid decision record")
@@ -249,13 +249,15 @@ func validateRecord(record Record) error {
 		EndpointClass: record.Outcome.EndpointClass, Outcome: record.Outcome.Outcome,
 		Provenance: record.Outcome.Provenance, Confidence: record.Outcome.Confidence,
 	}
-	return validateOutcomeRequest(request, record.SchemaVersion == SchemaVersion)
+	return validateOutcomeRequest(request, record.SchemaVersion != LegacySchemaVersion)
 }
 
-func validAction(action core.Action) bool {
+func validAction(action core.Action, allowDelay bool) bool {
 	switch action {
 	case core.ActionAllow, core.ActionObserve, core.ActionThrottle, core.ActionChallenge, core.ActionBlock:
 		return true
+	case core.ActionDelay:
+		return allowDelay
 	default:
 		return false
 	}

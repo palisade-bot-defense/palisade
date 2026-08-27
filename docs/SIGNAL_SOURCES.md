@@ -104,7 +104,7 @@ The response separates what PALISADE recommends from what it actually applies:
   },
   "reason_codes": ["STEP_UP_REQUIRED", "SHADOW_ACTION_OVERRIDDEN"],
   "evidence": [],
-  "policy_version": "default-v3",
+  "policy_version": "default-v4",
   "model_version": "transparent-baseline-v8",
   "expires_at": "2026-08-27T12:00:30Z"
 }
@@ -183,7 +183,7 @@ gates without printing individual records or session links.
 
 For an enforcing integration, call `POST /v1/origin-check` instead of
 `/v1/decision`. It evaluates and records the same closed request exactly once,
-then returns only `204 pass`, `429 throttle`, or `403 challenge/block` with
+then returns only `204 pass`, `429 delay/throttle`, or `403 challenge/block` with
 bounded `X-Palisade-*` headers. Risky results are possible only under a valid
 operator-signed rollout. Go applications can use the checked reference
 [`palisadehttp`](../pkg/palisadehttp) middleware described in

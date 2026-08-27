@@ -105,7 +105,7 @@ exact deterministic scope; there is no CLI override for a broader action.
 
 One hundred basis points is 1%. The proposal path fixes canaries at 1%, 24
 hours and `throttle`; signed plan validation additionally caps any canary at
-10%, seven days and `throttle` or `challenge`, and canaries cannot block.
+10%, seven days and `delay`, `throttle` or `challenge`, and canaries cannot block.
 Session assignment is a stable
 HMAC cohort derived from the production secret and rollout ID. Endpoint classes
 are allowlisted and account/login/checkout classes cannot currently be placed
@@ -147,6 +147,7 @@ a rollout ID fail as invalid service responses.
 | Status | Header result | Required origin behavior |
 |---|---|---|
 | `204` | `X-Palisade-Handling: pass` | Continue the original request |
+| `429` | `delay` plus `Retry-After: 1` | Return a one-second retry response; do not sleep in the PALISADE hot path |
 | `429` | `throttle` plus `Retry-After` | Return/rate-limit for that bounded duration |
 | `403` | `challenge` plus challenge ID and `Location` | Run the native bound lifecycle described in `CHALLENGE.md` |
 | `403` | `block` plus `Retry-After` | Apply the temporary block |

@@ -75,7 +75,7 @@ func forceShadowDecision(decision core.Decision, now time.Time) core.Decision {
 	} else {
 		decision.Action = core.ActionObserve
 	}
-	if decision.ComputedAction == core.ActionThrottle || decision.ComputedAction == core.ActionChallenge || decision.ComputedAction == core.ActionBlock {
+	if decision.ComputedAction == core.ActionDelay || decision.ComputedAction == core.ActionThrottle || decision.ComputedAction == core.ActionChallenge || decision.ComputedAction == core.ActionBlock {
 		decision.ReasonCodes = appendReasonOnce(decision.ReasonCodes, core.ReasonShadowActionOverridden)
 	}
 	decision.Directive = rollout.DefaultDirective(decision.Action, now)

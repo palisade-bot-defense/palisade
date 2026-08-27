@@ -166,11 +166,11 @@ paths:
               schema: { type: string, pattern: "^/v1/challenge/[A-Za-z0-9_-]{32}$" }
             Retry-After: { schema: { type: integer, minimum: 1, maximum: 3600 } }
         "429":
-          description: Temporarily throttle the request as selected by a valid signed rollout.
+          description: Apply a one-second delay response or a bounded throttle selected by a valid signed rollout. PALISADE returns immediately and never sleeps in the hot path.
           headers:
             X-Palisade-Decision-ID: { schema: { type: string } }
-            X-Palisade-Action: { schema: { type: string, enum: [throttle] } }
-            X-Palisade-Handling: { schema: { type: string, enum: [throttle] } }
+            X-Palisade-Action: { schema: { type: string, enum: [delay, throttle] } }
+            X-Palisade-Handling: { schema: { type: string, enum: [delay, throttle] } }
             X-Palisade-Mode: { schema: { type: string, enum: [canary, enforce] } }
             X-Palisade-Rollout-ID: { schema: { type: string } }
             Retry-After: { schema: { type: integer, minimum: 1, maximum: 60 } }
@@ -322,10 +322,11 @@ components:
     ActionCounts:
       type: object
       additionalProperties: false
-      required: [allow, observe, throttle, challenge, block]
+      required: [allow, observe, delay, throttle, challenge, block]
       properties:
         allow: { type: integer, minimum: 0 }
         observe: { type: integer, minimum: 0 }
+        delay: { type: integer, minimum: 0 }
         throttle: { type: integer, minimum: 0 }
         challenge: { type: integer, minimum: 0 }
         block: { type: integer, minimum: 0 }
@@ -334,7 +335,7 @@ components:
       additionalProperties: false
       required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, analysis_status, analysis]
       properties:
-        schema_version: { type: string, const: palisade.admin-summary.v4 }
+        schema_version: { type: string, const: palisade.admin-summary.v5 }
         generated_at: { type: string, format: date-time }
         uptime_seconds: { type: integer, minimum: 0 }
         runtime:
@@ -357,7 +358,7 @@ components:
         traffic:
           type: object
           additionalProperties: false
-          required: [accepted_event_batches, accepted_events, decisions, origin_checks, enforced, computed]
+          required: [accepted_event_batches, accepted_events, decisions, origin_checks, enforced, computed, reasons]
           properties:
             accepted_event_batches: { type: integer, minimum: 0 }
             accepted_events: { type: integer, minimum: 0 }
@@ -365,6 +366,16 @@ components:
             origin_checks: { type: integer, minimum: 0 }
             enforced: { $ref: "#/components/schemas/ActionCounts" }
             computed: { $ref: "#/components/schemas/ActionCounts" }
+            reasons:
+              type: array
+              maxItems: 64
+              items:
+                type: object
+                additionalProperties: false
+                required: [code, count]
+                properties:
+                  code: { type: string, pattern: "^[A-Z0-9_]{3,64}$" }
+                  count: { type: integer, minimum: 0 }
         recording:
           type: object
           additionalProperties: false
@@ -559,11 +570,11 @@ components:
         decision_id: { type: string }
         action:
           type: string
-          enum: [allow, observe, throttle, challenge, block]
+          enum: [allow, observe, delay, throttle, challenge, block]
           description: Enforced action. In shadow mode this is limited to allow or observe.
         computed_action:
           type: string
-          enum: [allow, observe, throttle, challenge, block]
+          enum: [allow, observe, delay, throttle, challenge, block]
           description: Unmodified result of policy evaluation.
         mode:
           type: string
@@ -592,7 +603,7 @@ components:
       required: [handling, http_status, expires_at]
       description: Machine-readable origin handling. The integrating origin must still apply this directive; PALISADE is not an inline reverse proxy.
       properties:
-        handling: { enum: [pass, throttle, challenge, block] }
+        handling: { enum: [pass, delay, throttle, challenge, block] }
         http_status: { type: integer, enum: [200, 403, 429] }
         retry_after_seconds: { type: integer, minimum: 1, maximum: 3600 }
         expires_at: { type: string, format: date-time }

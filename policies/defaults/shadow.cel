@@ -1,9 +1,9 @@
-// Generated documentation form of the computed default-v3 policy.
+// Generated documentation form of the computed default-v4 policy.
 // internal/policy/engine_test.go rejects drift from the runtime rules.
 policy_alert && honeypot_hits >= 1 ? "block" :
 endpoint_class == 'public_content' && (intent_risk >= 0.90 || (!verified_bot && automation_risk >= 0.88)) ? "throttle" :
 intent_risk >= 0.90 || (!verified_bot && automation_risk >= 0.88) ? "block" :
 policy_alert || honeypot_hits >= 1 || intent_risk >= 0.68 || account_continuity < 0.20 || (!verified_bot && automation_risk >= 0.68) ? "challenge" :
-intent_risk >= 0.52 || (!verified_bot && automation_risk >= 0.52) ? "observe" :
+intent_risk >= 0.52 || (!verified_bot && automation_risk >= 0.52) ? "delay" :
 verified_bot && !policy_alert && honeypot_hits == 0 ? "allow" :
 "allow"

@@ -38,8 +38,22 @@ func TestDefaultPolicyVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if engine.Version() != "default-v3" {
-		t.Fatalf("version = %s, want default-v3", engine.Version())
+	if engine.Version() != "default-v4" {
+		t.Fatalf("version = %s, want default-v4", engine.Version())
+	}
+}
+
+func TestElevatedRiskComputesProgressiveDelay(t *testing.T) {
+	engine, err := NewDefault()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := engine.Evaluate(Input{Scores: core.Scores{AutomationRisk: .55, AbuseIntentRisk: .2, AccountContinuity: .5}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Action != core.ActionDelay || result.Reason != "ELEVATED_RISK" {
+		t.Fatalf("result = %+v, want delay/ELEVATED_RISK", result)
 	}
 }
 

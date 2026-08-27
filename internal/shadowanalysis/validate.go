@@ -26,8 +26,8 @@ func ValidateReport(report Report) error {
 		return ErrInvalidReport
 	}
 	if !validSourceTimes(report.Source.FirstAt, report.Source.LastAt) ||
-		!equalSum(report.Decisions.Total, report.Decisions.Enforced.Allow, report.Decisions.Enforced.Observe, report.Decisions.Enforced.Throttle, report.Decisions.Enforced.Challenge, report.Decisions.Enforced.Block) ||
-		!equalSum(report.Decisions.Total, report.Decisions.Computed.Allow, report.Decisions.Computed.Observe, report.Decisions.Computed.Throttle, report.Decisions.Computed.Challenge, report.Decisions.Computed.Block) ||
+		!equalSum(report.Decisions.Total, report.Decisions.Enforced.Allow, report.Decisions.Enforced.Observe, report.Decisions.Enforced.Delay, report.Decisions.Enforced.Throttle, report.Decisions.Enforced.Challenge, report.Decisions.Enforced.Block) ||
+		!equalSum(report.Decisions.Total, report.Decisions.Computed.Allow, report.Decisions.Computed.Observe, report.Decisions.Computed.Delay, report.Decisions.Computed.Throttle, report.Decisions.Computed.Challenge, report.Decisions.Computed.Block) ||
 		!equalSum(report.Decisions.Total, report.Decisions.Modes.Shadow, report.Decisions.Modes.Canary, report.Decisions.Modes.Enforce) ||
 		report.Decisions.ShadowRiskyEnforcements > report.Decisions.Modes.Shadow {
 		return ErrInvalidReport
@@ -124,7 +124,7 @@ func validEndpoints(report Report) bool {
 		AppealRequested: report.Outcomes.AppealRequested, FallbackUsed: report.Outcomes.FallbackUsed, Unknown: report.Outcomes.Unknown,
 	}
 	var globalRisky uint64
-	return add(&globalRisky, report.Decisions.Computed.Throttle) && add(&globalRisky, report.Decisions.Computed.Challenge) && add(&globalRisky, report.Decisions.Computed.Block) &&
+	return add(&globalRisky, report.Decisions.Computed.Delay) && add(&globalRisky, report.Decisions.Computed.Throttle) && add(&globalRisky, report.Decisions.Computed.Challenge) && add(&globalRisky, report.Decisions.Computed.Block) &&
 		decisions == report.Decisions.Total && outcomes == report.Outcomes.Total && risky == globalRisky && humans == report.Outcomes.HumanConfirmed &&
 		abuse == report.Outcomes.OperatorConfirmedAbuse && outcomeKinds == globalKinds
 }
