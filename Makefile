@@ -1,4 +1,4 @@
-.PHONY: build test check privacy-check license-check offline-eval-test replay dev docker
+.PHONY: build test check coverage-check privacy-check license-check offline-eval-test replay dev docker
 
 build:
 	pnpm build
@@ -9,9 +9,12 @@ test:
 	python3 -m unittest scripts/test_evaluate_offline.py
 	pnpm test
 
-check: privacy-check license-check
+check: coverage-check privacy-check license-check
 	go vet ./...
 	pnpm typecheck
+
+coverage-check:
+	./scripts/check-go-coverage.sh
 
 privacy-check:
 	./scripts/privacy-check.sh

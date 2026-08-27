@@ -117,6 +117,8 @@ policy alerts ─────┘                         └-> deterministic rep
 
 The supported normalized signal classes are browser event counts, server/session continuity, honeypot interactions, challenge verdicts, external risk scores, deployment policy alerts and verified-bot identity. Trusted backend or reverse-proxy adapters submit them through `POST /v1/decision`; browser telemetry uses `POST /v1/events`; delayed ground-truth outcomes use `POST /v1/outcome`. Raw vendor payloads are not accepted by the public decision API.
 
+The required test pyramid, coverage and in-process latency gates are documented in [the testing strategy](docs/TESTING.md). All committed fixtures are synthetic; deployment logs and private analysis reports are excluded from tests and CI.
+
 The first deployment should ingest normalized challenge, external-risk and policy-alert verdicts in **shadow mode**, then tune thresholds on labeled replay data before any automatic blocking. Every replay record must carry an RFC 3339 `observed_at` timestamp that drives session TTLs and decision expiry; records must be globally chronological with equal timestamps allowed. Fixtures can assert `expected_action` and `expected_computed_action` independently.
 
 Authorized historical exports can be normalized with the local-only `palisade import-offline` command. Raw inputs and normalized outputs must stay outside every Git worktree. The importer accepts only `offline_export`, never emits raw rows, and treats upstream policy outcomes as weak labels rather than ground truth. Deployment-local and opt-in community ingestion are future, separate trust boundaries and are not accepted by this command.

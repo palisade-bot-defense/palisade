@@ -35,6 +35,25 @@ func TestRegistryAcceptsValidNormalizedSource(t *testing.T) {
 	}
 }
 
+func TestDefaultRegistryIsValidAndClosed(t *testing.T) {
+	registry := NewDefaultRegistry()
+	if err := registry.Err(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"protocol_consistency_v2", "sequence_velocity_v2", "navigation_graph_v1",
+		"decoy_interaction_v1", "campaign_surface_v1", "external_verdicts_v2",
+	}
+	if len(registry.detectors) != len(want) {
+		t.Fatalf("default detector count = %d, want %d", len(registry.detectors), len(want))
+	}
+	for index, current := range registry.detectors {
+		if current.ID() != want[index] {
+			t.Fatalf("default detector %d = %q, want %q", index, current.ID(), want[index])
+		}
+	}
+}
+
 func TestRegistryRejectsDuplicateIDsAtStartup(t *testing.T) {
 	registry := NewRegistry(testSource{id: "example_source_v1"}, testSource{id: "example_source_v1"})
 	if err := registry.Err(); err == nil || !strings.Contains(err.Error(), "duplicate detector ID") {

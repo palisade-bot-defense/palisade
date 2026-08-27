@@ -39,6 +39,17 @@ func NewRegistry(detectors ...Detector) *Registry {
 	return registry
 }
 
+// NewDefaultRegistry returns the immutable detector set used by both the live
+// decision service and deterministic replay. Performance gates use the same
+// constructor so a production detector cannot silently escape the measured
+// hot path.
+func NewDefaultRegistry() *Registry {
+	return NewRegistry(
+		ProtocolConsistency{}, SequenceVelocity{}, NavigationGraph{},
+		DecoyInteraction{}, CampaignSurface{}, ExternalVerdicts{},
+	)
+}
+
 // Err reports configuration errors detected when the immutable registry was
 // constructed. Call it during startup so invalid source adapters fail before
 // the service begins accepting traffic.

@@ -5,6 +5,7 @@ Describe the defensive problem and the smallest change that addresses it.
 ## Evidence
 
 - [ ] Go race tests pass
+- [ ] Go coverage and in-process latency gates pass
 - [ ] Type checks and browser tests pass
 - [ ] Replay fixture or detector test added where relevant
 - [ ] False-positive impact considered
