@@ -31,6 +31,8 @@ shadow-analysis*.json
 *.rollout.json
 rollout-plan*.json
 !schemas/rollout-plan-v1.schema.json
+rollout-review*.json
+!schemas/rollout-review-v1.schema.json
 
 # Authorized offline exports must never enter a worktree
 access.log.gz

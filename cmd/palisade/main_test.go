@@ -254,13 +254,20 @@ func TestRolloutPathsMustBeConfiguredTogether(t *testing.T) {
 	}
 }
 
-func TestEnforcementPreparationRequiresNamedPredecessorCanary(t *testing.T) {
-	err := prepareRollout([]string{
-		"--analysis", "synthetic-analysis", "--private-key", "synthetic-key", "--output", "synthetic-plan",
-		"--rollout-id", "enforce-test", "--approval-id", "review-test", "--stage", "enforce", "--endpoints", "public_content",
-	})
+func TestEnforcementReviewRequiresNamedPredecessorCanary(t *testing.T) {
+	err := prepareReview([]string{"--analysis", "synthetic-analysis", "--output", "synthetic-review", "--stage", "enforce"})
 	if err == nil || !strings.Contains(err.Error(), "predecessor-rollout-id") {
 		t.Fatalf("missing predecessor error=%v", err)
+	}
+}
+
+func TestRolloutPreparationRequiresReviewArtifact(t *testing.T) {
+	err := prepareRollout([]string{
+		"--analysis", "synthetic-analysis", "--private-key", "synthetic-key", "--output", "synthetic-plan",
+		"--rollout-id", "canary-test", "--approval-id", "review-test",
+	})
+	if err == nil || !strings.Contains(err.Error(), "--review") {
+		t.Fatalf("missing review artifact error=%v", err)
 	}
 }
 

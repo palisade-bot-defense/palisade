@@ -112,6 +112,10 @@ while IFS="$tab" read -r metadata path; do
 		echo "privacy-check: signed deployment rollout plan: $path" >&2
 		failed=1
 	fi
+	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.rollout-review\.v1"' "$blob_file"; then
+		echo "privacy-check: generated rollout review proposal: $path" >&2
+		failed=1
+	fi
 	if grep -I -q -E -- '^[0-9A-Fa-f:.]+ - - \[[0-9]{2}/[A-Za-z]{3}/[0-9]{4}:[0-9]{2}:[0-9]{2}:[0-9]{2} [+-][0-9]{4}\] "[A-Z]+ ' "$blob_file"; then
 		echo "privacy-check: renamed access-log data content: $path" >&2
 		failed=1

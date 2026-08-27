@@ -135,6 +135,15 @@ if (cd "$rollout_plan" && "$guard") >/dev/null 2>&1; then
 	exit 1
 fi
 
+rollout_review="$test_root/rollout-review"
+new_repo "$rollout_review"
+printf '%s\n' '{"schema_version":"palisade.rollout-review.v1","source_report_sha256":"synthetic"}' >"$rollout_review/renamed.txt"
+git -C "$rollout_review" add renamed.txt
+if (cd "$rollout_review" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: generated rollout review proposal was accepted" >&2
+	exit 1
+fi
+
 private_key="$test_root/private-key"
 new_repo "$private_key"
 printf '%s\n' 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' >"$private_key/renamed.txt"

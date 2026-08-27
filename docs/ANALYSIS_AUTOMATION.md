@@ -23,6 +23,22 @@ serve --admin-analysis-report
 loopback Operator Console
 ```
 
+When the report becomes an operator-review candidate, the next boundary is an
+explicit local command, not an automatic worker:
+
+```text
+validated analysis.json
+          │ prepare-review (deterministic; no key)
+          v
+owner-only review.json (non-executable; automatic_activation=false)
+          │ operator checks + offline Ed25519 approval
+          v
+short-lived signed rollout plan
+```
+
+See [signed review and rollout](ROLLOUT.md). The periodic analyzer never creates
+a review proposal, touches the approval key, signs a plan or restarts PALISADE.
+
 Run exactly one writer for a report path:
 
 ```sh
@@ -59,6 +75,8 @@ the prior report and exposes `analysis_status.state = invalid_update`.
   frame, that run fails safely and the next interval retries; the previous
   report remains available.
 - A report update never changes runtime policy, rollout stage or enforcement.
+- A review proposal is generated only on explicit operator invocation and
+  cannot be loaded by the serving process.
 - Process counters continue independently when analysis is unavailable.
 - The source `last_at` timestamp is shown so an operator can judge data
   freshness; PALISADE does not claim that an unchanged report is current.
