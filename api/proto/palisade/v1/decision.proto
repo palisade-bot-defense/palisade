@@ -13,6 +13,8 @@ service DecisionService {
 
 message Observations {
   bool user_agent_present = 1;
+  // The live service replaces this claim with its server-side event-store
+  // count before evaluation. An unverified claim never creates benign evidence.
   uint32 browser_event_count = 2;
   uint32 honeypot_hits = 3;
   string challenge_verdict = 4;

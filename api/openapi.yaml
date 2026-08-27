@@ -504,7 +504,11 @@ components:
       additionalProperties: false
       properties:
         user_agent_present: { type: boolean }
-        browser_event_count: { type: integer, minimum: 0, maximum: 10000 }
+        browser_event_count:
+          type: integer
+          minimum: 0
+          maximum: 10000
+          description: Claimed count for compatibility. The live service replaces it with its bounded server-side event-store count before evaluation; an unverified claim never creates benign continuity evidence.
         honeypot_hits: { type: integer, minimum: 0, maximum: 100 }
         challenge_verdict:
           type: string

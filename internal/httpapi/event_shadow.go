@@ -47,6 +47,7 @@ func (s *Server) recordEventShadowDecision(ctx context.Context, batch events.Bat
 		Observations: core.Observations{
 			UserAgentPresent:      userAgentPresent,
 			BrowserEventCount:     s.events.Count(batch.SessionID, now),
+			BrowserEventsVerified: true,
 			ServerSessionVerified: verifiedSession,
 		},
 	}

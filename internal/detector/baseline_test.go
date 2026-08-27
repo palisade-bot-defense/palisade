@@ -77,6 +77,68 @@ func TestSignedSessionAffectsContinuityOnly(t *testing.T) {
 	}
 }
 
+func TestBrowserSequenceRequiresServerVerifiedEvents(t *testing.T) {
+	tests := []struct {
+		name         string
+		observations core.Observations
+		wantSequence bool
+		wantConflict bool
+	}{
+		{
+			name:         "unverified count cannot look benign",
+			observations: core.Observations{UserAgentPresent: true, BrowserEventCount: 10},
+		},
+		{
+			name: "verified sequence is continuity evidence",
+			observations: core.Observations{
+				UserAgentPresent: true, BrowserEventCount: 10, BrowserEventsVerified: true,
+			},
+			wantSequence: true,
+		},
+		{
+			name: "unverified count cannot manufacture a contradiction",
+			observations: core.Observations{
+				BrowserEventCount: 10,
+			},
+		},
+		{
+			name: "verified count exposes protocol contradiction",
+			observations: core.Observations{
+				BrowserEventCount: 10, BrowserEventsVerified: true,
+			},
+			wantConflict: true,
+		},
+		{
+			name: "missing sensor is neutral when user agent exists",
+			observations: core.Observations{
+				UserAgentPresent: true, BrowserEventsVerified: true,
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			evidence, err := (ProtocolConsistency{}).Evaluate(context.Background(), core.DetectorInput{
+				Request: core.DecisionRequest{Observations: test.observations},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			sequence := false
+			conflict := false
+			for _, item := range evidence {
+				if item.Detector != "protocol_consistency_v2" {
+					t.Fatalf("detector ID = %s, want protocol_consistency_v2", item.Detector)
+				}
+				sequence = sequence || item.Code == "BROWSER_SEQUENCE_PRESENT"
+				conflict = conflict || item.Code == "BROWSER_PROTOCOL_CONTRADICTION"
+			}
+			if sequence != test.wantSequence || conflict != test.wantConflict {
+				t.Fatalf("evidence=%+v sequence=%t conflict=%t", evidence, sequence, conflict)
+			}
+		})
+	}
+}
+
 func TestNoindexCompareIsIntentEvidenceOnly(t *testing.T) {
 	evidence, err := (CampaignSurface{}).Evaluate(context.Background(), core.DetectorInput{
 		Request: core.DecisionRequest{EndpointClass: "compare_noindex"},
