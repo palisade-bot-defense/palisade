@@ -1,6 +1,7 @@
 packages:
   - sensor
   - dashboard
+  - website
 
 onlyBuiltDependencies:
   - esbuild

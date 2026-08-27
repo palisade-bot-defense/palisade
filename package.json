@@ -9,7 +9,7 @@
     "pnpm": ">=11.24.0"
   },
   "scripts": {
-    "build": "pnpm --filter @palisade-bot-defense/sensor build && pnpm --filter @palisade-bot-defense/dashboard build",
+    "build": "pnpm --filter @palisade-bot-defense/sensor build && pnpm --filter @palisade-bot-defense/dashboard build && pnpm --filter @palisade-bot-defense/website build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   }

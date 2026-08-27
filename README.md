@@ -116,6 +116,15 @@ The PALISADE server, dashboard, policies, CLI and documentation are licensed und
 Commercial support, managed hosting and alternative licensing may be offered separately. The published AGPL-3.0-only and Apache-2.0 grants remain valid for their respective code. No software license grants rights to PALISADE names or logos beyond reasonable attribution.
 Bundled dependency notices are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+The commercial product is defined as three honest deployment paths: self-hosted
+**Palisade Core**, a scoped **Palisade Pilot** service and dedicated single-tenant
+**Palisade Managed** early access. The public website lives in [`website/`](website/);
+the availability boundary, buyer, deliverables, success metrics and remaining
+commercial launch gates are documented in the
+[business product specification](docs/product/BUSINESS_PRODUCT.md). The website
+contains no analytics or customer-data collection and accepts a private contact
+URL only through `VITE_CONTACT_URL` at build time.
+
 ## Contributing and security
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change. Please report security vulnerabilities privately as described in [SECURITY.md](SECURITY.md); do not publish bypass techniques against real installations.
