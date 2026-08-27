@@ -46,7 +46,7 @@ browser sensor ─────────── POST /v1/events ───┼─
                             encrypted local shadow decision record
 
 trusted backend ─────────── POST /v1/outcome ─> encrypted outcome record
-encrypted records ───────── analyze-shadow-log ─> aggregate recommendations
+encrypted records ───────── analyze-shadow-log ─> aggregate endpoint intervals
                                   periodic worker ─> atomic owner-only report
                                                         │
 loopback console ─────────── validated report feed <─────┘
@@ -70,16 +70,20 @@ with signed rollouts and the authoritative origin decision stream.
 `automation`, `intent` and `continuity` remain separate dimensions. Automation
 alone is not abuse. In `shadow` mode, a computed `throttle`, `challenge` or
 `block` is returned for measurement but the enforced action is only `allow` or
-`observe`. The analysis command can recommend operator review or a reversible
-canary; it cannot turn enforcement on. `prepare-review` deterministically
-selects at most one eligible public endpoint and records every machine and
-operator gate, but its artifact is not accepted by the runtime.
+`observe`. The analysis command reports endpoint-level Wilson 95% intervals and
+aggregate shadow/canary comparisons; it cannot turn enforcement on. Because an
+outcome may omit `decision_id` and several outcomes may describe one decision,
+these event-level shares are not a false-positive rate or a causal experiment.
+`prepare-review` deterministically selects at most one eligible public endpoint
+that has risky shadow actions and at least 100 outcomes from each confirmed
+label class. It records every
+machine and operator gate, but its artifact is not accepted by the runtime.
 
 An expiring Ed25519-signed plan binds operator approval to the exact aggregate
 report hash and reproducible review proposal, including runtime policy/model,
 endpoint class, stable canary cohort and maximum action. The signing CLI has no
 scope-widening flags. Full enforcement review must reference the exact measured
-predecessor canary.
+predecessor canary on the exact same endpoint.
 
 ## Trust and persistence boundaries
 

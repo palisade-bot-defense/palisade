@@ -13,11 +13,19 @@ import (
 func TestReviewProposalIsDeterministicAndChoosesNarrowestEligibleEndpoint(t *testing.T) {
 	report := candidateReport(2000, 0)
 	report.Endpoints = []shadowanalysis.EndpointSummary{
-		{EndpointClass: "account", Decisions: 500, Outcomes: 50, ComputedRiskyActions: 1, HumanConfirmed: 25, OperatorConfirmedAbuse: 25},
-		{EndpointClass: "compare_index", Decisions: 500, Outcomes: 50, ComputedRiskyActions: 10, HumanConfirmed: 25, OperatorConfirmedAbuse: 25},
-		{EndpointClass: "other_public", Decisions: 500, Outcomes: 50, ComputedRiskyActions: 20, HumanConfirmed: 25, OperatorConfirmedAbuse: 25},
-		{EndpointClass: "public_content", Decisions: 500, Outcomes: 50, ComputedRiskyActions: 5, HumanConfirmed: 25, OperatorConfirmedAbuse: 25},
+		testEndpoint("account", 500, 200, 1, 100, 100),
+		testEndpoint("compare_index", 500, 200, 10, 100, 100),
+		testEndpoint("other_public", 500, 200, 20, 100, 100),
+		testEndpoint("public_content", 500, 200, 5, 100, 100),
 	}
+	report.Outcomes.Total = 800
+	report.Outcomes.Coverage = 0.4
+	report.Outcomes.HumanConfirmed = 400
+	report.Outcomes.OperatorConfirmedAbuse = 400
+	report.Source.Outcomes = 800
+	report.Source.Records = report.Source.Decisions + report.Source.Outcomes
+	report.Decisions.Computed.Allow = 1964
+	report.Decisions.Computed.Throttle = 36
 	reportBytes := encodedReport(t, report)
 	first, err := BuildReviewProposal(report, reportBytes, ReviewOptions{Stage: core.RuntimeModeCanary})
 	if err != nil {
@@ -40,6 +48,7 @@ func TestReviewProposalIsDeterministicAndChoosesNarrowestEligibleEndpoint(t *tes
 func TestReviewProposalHoldsWhenNoPublicRiskyEndpointExists(t *testing.T) {
 	report := candidateReport(2000, 0)
 	report.Endpoints[0].ComputedRiskyActions = 0
+	report.Endpoints[0].Evaluation.ComputedRiskyRate = shadowanalysis.Proportion(0, 2000)
 	report.Decisions.Computed = shadowanalysis.ActionCounts{Allow: 2000}
 	reportBytes := encodedReport(t, report)
 	proposal, err := BuildReviewProposal(report, reportBytes, ReviewOptions{Stage: core.RuntimeModeCanary})
@@ -48,6 +57,22 @@ func TestReviewProposalHoldsWhenNoPublicRiskyEndpointExists(t *testing.T) {
 	}
 	if proposal.State != ReviewStateHold || proposal.RecommendedScope != nil || !hasGate(proposal.Gates, "ELIGIBLE_ENDPOINT_SCOPE", ReviewGateHold) {
 		t.Fatalf("proposal did not hold: %+v", proposal)
+	}
+}
+
+func TestReviewProposalHoldsWithoutBothConfirmedLabelClassesAtEndpoint(t *testing.T) {
+	report := candidateReport(2000, 0)
+	report.Endpoints = []shadowanalysis.EndpointSummary{
+		testEndpoint("account", 200, 200, 0, 100, 100),
+		testEndpoint("public_content", 1800, 0, 20, 0, 0),
+	}
+	reportBytes := encodedReport(t, report)
+	proposal, err := BuildReviewProposal(report, reportBytes, ReviewOptions{Stage: core.RuntimeModeCanary})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proposal.State != ReviewStateHold || proposal.RecommendedScope != nil || !hasGate(proposal.Gates, "ELIGIBLE_ENDPOINT_SCOPE", ReviewGateHold) {
+		t.Fatalf("proposal without both endpoint label classes did not hold: %+v", proposal)
 	}
 }
 

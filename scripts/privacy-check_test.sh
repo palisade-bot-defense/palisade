@@ -126,6 +126,15 @@ if (cd "$shadow_analysis" && "$guard") >/dev/null 2>&1; then
 	exit 1
 fi
 
+shadow_analysis_v2="$test_root/shadow-analysis-v2"
+new_repo "$shadow_analysis_v2"
+printf '%s\n' '{"schema_version":"palisade.shadow-analysis.v2","source":{"records":42}}' >"$shadow_analysis_v2/renamed.txt"
+git -C "$shadow_analysis_v2" add renamed.txt
+if (cd "$shadow_analysis_v2" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: generated v2 shadow analysis report was accepted" >&2
+	exit 1
+fi
+
 rollout_plan="$test_root/rollout-plan"
 new_repo "$rollout_plan"
 printf '%s\n' '{"plan":{"schema_version":"palisade.rollout-plan.v1"},"signature":"synthetic"}' >"$rollout_plan/renamed.txt"
@@ -141,6 +150,15 @@ printf '%s\n' '{"schema_version":"palisade.rollout-review.v1","source_report_sha
 git -C "$rollout_review" add renamed.txt
 if (cd "$rollout_review" && "$guard") >/dev/null 2>&1; then
 	echo "privacy-check test: generated rollout review proposal was accepted" >&2
+	exit 1
+fi
+
+rollout_review_v2="$test_root/rollout-review-v2"
+new_repo "$rollout_review_v2"
+printf '%s\n' '{"schema_version":"palisade.rollout-review.v2","source_report_sha256":"synthetic"}' >"$rollout_review_v2/renamed.txt"
+git -C "$rollout_review_v2" add renamed.txt
+if (cd "$rollout_review_v2" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: generated v2 rollout review proposal was accepted" >&2
 	exit 1
 fi
 

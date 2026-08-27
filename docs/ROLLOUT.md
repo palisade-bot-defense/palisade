@@ -48,7 +48,7 @@ palisade prepare-review \
   --stage canary
 ```
 
-The closed `palisade.rollout-review.v1` artifact is deterministic: the same
+The closed `palisade.rollout-review.v2` artifact is deterministic: the same
 validated report bytes and requested stage produce the same proposal. It
 contains the exact report SHA-256, source window, dominant policy/model,
 machine-checkable gates, and a fixed operator checklist. It is not signed,
@@ -57,13 +57,15 @@ cannot be loaded by `serve`, and always carries `automatic_activation: false`.
 A proposal can be produced while evidence is incomplete. In that case its
 state is `hold`, its failed gates explain what is missing and
 `recommended_scope` is `null`. A candidate selects exactly one allowlisted
-public endpoint with observed risky shadow actions. The selection minimizes
-the observed risky-action ratio, then prefers the larger sample; account,
-login and checkout endpoints are excluded. A canary proposal is fixed at 1%,
-24 hours and at most `throttle`.
+public endpoint with observed risky shadow actions plus at least 100 confirmed
+human and 100 operator-confirmed abuse outcomes on that endpoint. The selection
+minimizes the observed risky-action ratio, then prefers the larger sample;
+account, login and checkout endpoints are excluded. A canary proposal is fixed
+at 1%, 24 hours and at most `throttle`.
 
-Before signing, an operator must independently confirm the endpoint confidence
-intervals, accessible fallback/support path, origin-adapter fail-safe behavior,
+Before signing, an operator must review the reported endpoint Wilson intervals
+and remember that event-level outcome shares are not false-positive rates. The
+operator must also confirm the accessible fallback/support path, origin-adapter fail-safe behavior,
 and the rollback owner/command listed in `operator_checklist`. These facts are
 not inferred from aggregate counts.
 
@@ -180,7 +182,7 @@ palisade prepare-rollout \
 ```
 
 The deterministic enforcement proposal requires at least 1000 decisions from
-the exact named predecessor, recommends one public endpoint, covers 100% for
+the exact named predecessor on the exact same endpoint, recommends one public endpoint, covers 100% for
 12 hours and caps at `challenge`; it never recommends a block. Signed plan
 validation still supports bounded temporary block plans for a future explicit
 review contract, but this CLI workflow cannot create one. Directives can never

@@ -9,14 +9,27 @@ import (
 )
 
 type analyzer struct {
-	config    Config
-	report    Report
-	endpoints map[string]*EndpointSummary
-	reasons   map[string]uint64
-	policies  map[string]uint64
-	models    map[string]uint64
-	canaries  map[string]uint64
-	scores    [3]scoreAccumulator
+	config          Config
+	report          Report
+	endpoints       map[string]*EndpointSummary
+	reasons         map[string]uint64
+	policies        map[string]uint64
+	models          map[string]uint64
+	canaries        map[string]uint64
+	shadowEndpoints map[string]*modeAccumulator
+	canaryEndpoints map[canaryEndpointKey]*modeAccumulator
+	scores          [3]scoreAccumulator
+}
+
+type modeAccumulator struct {
+	decisions     uint64
+	computedRisky uint64
+	enforcedRisky uint64
+}
+
+type canaryEndpointKey struct {
+	rolloutID string
+	endpoint  string
 }
 
 type scoreAccumulator struct {
@@ -41,13 +54,15 @@ func AnalyzeDirectory(directory, keyFile string, config Config) (Report, error) 
 
 func newAnalyzer(config Config) *analyzer {
 	return &analyzer{
-		config:    config,
-		report:    Report{SchemaVersion: SchemaVersion},
-		endpoints: make(map[string]*EndpointSummary),
-		reasons:   make(map[string]uint64),
-		policies:  make(map[string]uint64),
-		models:    make(map[string]uint64),
-		canaries:  make(map[string]uint64),
+		config:          config,
+		report:          Report{SchemaVersion: SchemaVersion},
+		endpoints:       make(map[string]*EndpointSummary),
+		reasons:         make(map[string]uint64),
+		policies:        make(map[string]uint64),
+		models:          make(map[string]uint64),
+		canaries:        make(map[string]uint64),
+		shadowEndpoints: make(map[string]*modeAccumulator),
+		canaryEndpoints: make(map[canaryEndpointKey]*modeAccumulator),
 	}
 }
 
@@ -65,6 +80,7 @@ func (a *analyzer) observeDecision(entry *shadowlog.DecisionEntry) error {
 	addAction(&a.report.Decisions.Computed, entry.ComputedAction)
 	if entry.Mode == core.RuntimeModeShadow {
 		a.report.Decisions.Modes.Shadow++
+		a.observeMode(a.shadowEndpoints, entry.EndpointClass, entry)
 		if isRisky(entry.Action) {
 			a.report.Decisions.ShadowRiskyEnforcements++
 		}
@@ -73,6 +89,16 @@ func (a *analyzer) observeDecision(entry *shadowlog.DecisionEntry) error {
 		if err := incrementBounded(a.canaries, entry.RolloutID, a.config.MaxDistinctMetadata); err != nil {
 			return err
 		}
+		key := canaryEndpointKey{rolloutID: entry.RolloutID, endpoint: entry.EndpointClass}
+		if _, exists := a.canaryEndpoints[key]; !exists && len(a.canaryEndpoints) >= a.config.MaxDistinctMetadata {
+			return ErrDistinctBudget
+		}
+		stats := a.canaryEndpoints[key]
+		if stats == nil {
+			stats = &modeAccumulator{}
+			a.canaryEndpoints[key] = stats
+		}
+		stats.observe(entry)
 	} else {
 		a.report.Decisions.Modes.Enforce++
 	}
@@ -102,24 +128,33 @@ func (a *analyzer) observeOutcome(entry *shadowlog.OutcomeEntry) {
 	switch entry.Outcome {
 	case "successful_action":
 		a.report.Outcomes.SuccessfulAction++
+		endpoint.OutcomeKinds.SuccessfulAction++
 	case "challenge_passed":
 		a.report.Outcomes.ChallengePassed++
+		endpoint.OutcomeKinds.ChallengePassed++
 	case "challenge_failed":
 		a.report.Outcomes.ChallengeFailed++
+		endpoint.OutcomeKinds.ChallengeFailed++
 	case "challenge_abandoned":
 		a.report.Outcomes.ChallengeAbandoned++
+		endpoint.OutcomeKinds.ChallengeAbandoned++
 	case "human_confirmed":
 		a.report.Outcomes.HumanConfirmed++
 		endpoint.HumanConfirmed++
+		endpoint.OutcomeKinds.HumanConfirmed++
 	case "operator_confirmed_abuse":
 		a.report.Outcomes.OperatorConfirmedAbuse++
 		endpoint.OperatorConfirmedAbuse++
+		endpoint.OutcomeKinds.OperatorConfirmedAbuse++
 	case "appeal_requested":
 		a.report.Outcomes.AppealRequested++
+		endpoint.OutcomeKinds.AppealRequested++
 	case "fallback_used":
 		a.report.Outcomes.FallbackUsed++
+		endpoint.OutcomeKinds.FallbackUsed++
 	case "unknown":
 		a.report.Outcomes.Unknown++
+		endpoint.OutcomeKinds.Unknown++
 	}
 }
 
@@ -137,11 +172,15 @@ func (a *analyzer) finish(source shadowlog.Verification) Report {
 	a.report.Scores = ScoreSummaries{
 		AutomationRisk: a.scores[0].summary(), AbuseIntentRisk: a.scores[1].summary(), AccountContinuity: a.scores[2].summary(),
 	}
+	for _, endpoint := range a.endpoints {
+		endpoint.Evaluation = evaluateEndpoint(*endpoint)
+	}
 	a.report.Endpoints = sortedEndpoints(a.endpoints)
 	a.report.TopReasonCodes = sortedCounts(a.reasons, a.config.TopReasonCodes)
 	a.report.PolicyVersions = sortedCounts(a.policies, a.config.MaxDistinctMetadata)
 	a.report.ModelVersions = sortedCounts(a.models, a.config.MaxDistinctMetadata)
 	a.report.CanaryRollouts = sortedCounts(a.canaries, a.config.MaxDistinctMetadata)
+	a.report.CanaryComparisons = a.sortedCanaryComparisons()
 	a.report.Recommendations, a.report.Readiness = recommend(a.report, a.config)
 	return a.report
 }
@@ -255,6 +294,80 @@ func (a *analyzer) endpoint(name string) *EndpointSummary {
 	return created
 }
 
+func (a *analyzer) observeMode(values map[string]*modeAccumulator, endpoint string, entry *shadowlog.DecisionEntry) {
+	stats := values[endpoint]
+	if stats == nil {
+		stats = &modeAccumulator{}
+		values[endpoint] = stats
+	}
+	stats.observe(entry)
+}
+
+func (s *modeAccumulator) observe(entry *shadowlog.DecisionEntry) {
+	s.decisions++
+	if isRisky(entry.ComputedAction) {
+		s.computedRisky++
+	}
+	if isRisky(entry.Action) {
+		s.enforcedRisky++
+	}
+}
+
+func evaluateEndpoint(endpoint EndpointSummary) EndpointEvaluation {
+	challengeResults := endpoint.OutcomeKinds.ChallengePassed + endpoint.OutcomeKinds.ChallengeFailed + endpoint.OutcomeKinds.ChallengeAbandoned
+	confirmedLabels := endpoint.HumanConfirmed + endpoint.OperatorConfirmedAbuse
+	return EndpointEvaluation{
+		ComputedRiskyRate:        Proportion(endpoint.ComputedRiskyActions, endpoint.Decisions),
+		ChallengeFailureRate:     Proportion(endpoint.OutcomeKinds.ChallengeFailed+endpoint.OutcomeKinds.ChallengeAbandoned, challengeResults),
+		ChallengeAbandonmentRate: Proportion(endpoint.OutcomeKinds.ChallengeAbandoned, challengeResults),
+		FallbackOutcomeShare:     Proportion(endpoint.OutcomeKinds.FallbackUsed, endpoint.Outcomes),
+		AppealOutcomeShare:       Proportion(endpoint.OutcomeKinds.AppealRequested, endpoint.Outcomes),
+		UnknownOutcomeShare:      Proportion(endpoint.OutcomeKinds.Unknown, endpoint.Outcomes),
+		ConfirmedLabels:          confirmedLabels,
+		AbuseLabelShare:          Proportion(endpoint.OperatorConfirmedAbuse, confirmedLabels),
+	}
+}
+
+func (a *analyzer) sortedCanaryComparisons() []CanaryComparison {
+	keys := make([]canaryEndpointKey, 0, len(a.canaryEndpoints))
+	for key := range a.canaryEndpoints {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(left, right int) bool {
+		if keys[left].rolloutID == keys[right].rolloutID {
+			return keys[left].endpoint < keys[right].endpoint
+		}
+		return keys[left].rolloutID < keys[right].rolloutID
+	})
+	result := make([]CanaryComparison, 0, len(keys))
+	for _, key := range keys {
+		canary := a.canaryEndpoints[key]
+		shadow := a.shadowEndpoints[key.endpoint]
+		if shadow == nil {
+			shadow = &modeAccumulator{}
+		}
+		shadowRisky := Proportion(shadow.computedRisky, shadow.decisions)
+		canaryRisky := Proportion(canary.computedRisky, canary.decisions)
+		comparable := shadow.decisions > 0 && canary.decisions > 0
+		difference := DifferenceEstimate{}
+		if comparable {
+			difference = ProportionDifference(canaryRisky, shadowRisky)
+		}
+		result = append(result, CanaryComparison{
+			RolloutID: key.rolloutID, EndpointClass: key.endpoint,
+			Comparable:      comparable,
+			ShadowDecisions: shadow.decisions, CanaryDecisions: canary.decisions,
+			ShadowComputedRisky: shadowRisky, CanaryComputedRisky: canaryRisky,
+			CanaryEnforcedRisky:    Proportion(canary.enforcedRisky, canary.decisions),
+			ComputedRiskDifference: difference,
+		})
+	}
+	if result == nil {
+		return []CanaryComparison{}
+	}
+	return result
+}
+
 func (s *scoreAccumulator) add(value float64) {
 	if s.count == 0 || value < s.min {
 		s.min = value
@@ -270,7 +383,13 @@ func (s scoreAccumulator) summary() ScoreSummary {
 	if s.count == 0 {
 		return ScoreSummary{}
 	}
-	return ScoreSummary{Minimum: s.min, Maximum: s.max, Mean: s.sum / float64(s.count)}
+	mean := s.sum / float64(s.count)
+	if mean < s.min {
+		mean = s.min
+	} else if mean > s.max {
+		mean = s.max
+	}
+	return ScoreSummary{Minimum: s.min, Maximum: s.max, Mean: mean}
 }
 
 func incrementBounded(values map[string]uint64, value string, limit int) error {

@@ -92,11 +92,19 @@ func validReport(decisions uint64) shadowanalysis.Report {
 		},
 	}
 	if decisions > 0 {
+		report.Source.FirstAt = "2026-08-27T00:00:00Z"
+		report.Source.LastAt = "2026-08-27T00:00:00Z"
 		report.Scores = shadowanalysis.ScoreSummaries{}
-		report.Endpoints = []shadowanalysis.EndpointSummary{{EndpointClass: "public_content", Decisions: decisions}}
+		report.Endpoints = []shadowanalysis.EndpointSummary{{
+			EndpointClass: "public_content", Decisions: decisions,
+			Evaluation: shadowanalysis.EndpointEvaluation{
+				ComputedRiskyRate: shadowanalysis.Proportion(0, decisions),
+			},
+		}}
 		report.PolicyVersions = []shadowanalysis.CountedValue{{Value: "default-v3", Count: decisions}}
 		report.ModelVersions = []shadowanalysis.CountedValue{{Value: "transparent-baseline-v6", Count: decisions}}
 	}
+	report.CanaryComparisons = []shadowanalysis.CanaryComparison{}
 	report.Readiness = shadowanalysis.Readiness{
 		State: "collecting", OperatorAction: "remain_shadow", AutomaticEnforcement: false,
 		ReasonCodes: []string{"COLLECT_MORE_DECISIONS", "IMPROVE_OUTCOME_COVERAGE", "EXPAND_CONFIRMED_HUMANS", "EXPAND_CONFIRMED_ABUSE"},

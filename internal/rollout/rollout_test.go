@@ -123,6 +123,12 @@ func TestEnforceRequiresMeasuredCanary(t *testing.T) {
 	if _, err := PrepareFromReview(measured, measuredBytes, proposal, "enforce-20260827", "review-456", now, privateKey); err != nil {
 		t.Fatal(err)
 	}
+	measured.CanaryComparisons[0].RolloutID = "other-canary"
+	measured.CanaryRollouts[0].Value = "other-canary"
+	measuredBytes = encodedReport(t, measured)
+	if proposal, err := BuildReviewProposal(measured, measuredBytes, ReviewOptions{Stage: core.RuntimeModeEnforce, PredecessorRolloutID: "canary-source"}); err != nil || proposal.State != ReviewStateHold {
+		t.Fatalf("mismatched endpoint comparison proposal=%+v error=%v", proposal, err)
+	}
 }
 
 func TestExpiredControllerFailsClosed(t *testing.T) {
@@ -181,7 +187,7 @@ func candidateReport(decisions, canary uint64) shadowanalysis.Report {
 			Modes: shadowanalysis.ModeCounts{Shadow: decisions - canary, Canary: canary},
 		},
 		Outcomes:       shadowanalysis.OutcomeSummary{Total: 200, Coverage: minimumForTest(1, float64(200)/float64(decisions)), HumanConfirmed: 100, OperatorConfirmedAbuse: 100},
-		Endpoints:      []shadowanalysis.EndpointSummary{{EndpointClass: "public_content", Decisions: decisions, Outcomes: 200, ComputedRiskyActions: 20, HumanConfirmed: 100, OperatorConfirmedAbuse: 100}},
+		Endpoints:      []shadowanalysis.EndpointSummary{testEndpoint("public_content", decisions, 200, 20, 100, 100)},
 		PolicyVersions: []shadowanalysis.CountedValue{{Value: "default-v3", Count: decisions}},
 		ModelVersions:  []shadowanalysis.CountedValue{{Value: "transparent-baseline-v6", Count: decisions}},
 		Recommendations: []shadowanalysis.Recommendation{{
@@ -191,8 +197,47 @@ func candidateReport(decisions, canary uint64) shadowanalysis.Report {
 	}
 	if canary > 0 {
 		report.CanaryRollouts = []shadowanalysis.CountedValue{{Value: "canary-source", Count: canary}}
+		canaryRisky := minimumUint64(20, canary)
+		shadowRisky := uint64(20) - canaryRisky
+		shadowDecisions := decisions - canary
+		shadowRate := shadowanalysis.Proportion(shadowRisky, shadowDecisions)
+		canaryRate := shadowanalysis.Proportion(canaryRisky, canary)
+		comparable := shadowDecisions > 0 && canary > 0
+		difference := shadowanalysis.DifferenceEstimate{}
+		if comparable {
+			difference = shadowanalysis.ProportionDifference(canaryRate, shadowRate)
+		}
+		report.CanaryComparisons = []shadowanalysis.CanaryComparison{{
+			RolloutID: "canary-source", EndpointClass: "public_content", Comparable: comparable, ShadowDecisions: shadowDecisions, CanaryDecisions: canary,
+			ShadowComputedRisky: shadowRate, CanaryComputedRisky: canaryRate, CanaryEnforcedRisky: canaryRate,
+			ComputedRiskDifference: difference,
+		}}
+	} else {
+		report.CanaryComparisons = []shadowanalysis.CanaryComparison{}
 	}
 	return report
+}
+
+func testEndpoint(name string, decisions, outcomes, risky, humans, abuse uint64) shadowanalysis.EndpointSummary {
+	labels := humans + abuse
+	return shadowanalysis.EndpointSummary{
+		EndpointClass: name, Decisions: decisions, Outcomes: outcomes, ComputedRiskyActions: risky,
+		HumanConfirmed: humans, OperatorConfirmedAbuse: abuse,
+		OutcomeKinds: shadowanalysis.OutcomeKindCounts{HumanConfirmed: humans, OperatorConfirmedAbuse: abuse},
+		Evaluation: shadowanalysis.EndpointEvaluation{
+			ComputedRiskyRate:    shadowanalysis.Proportion(risky, decisions),
+			ChallengeFailureRate: shadowanalysis.Proportion(0, 0), ChallengeAbandonmentRate: shadowanalysis.Proportion(0, 0),
+			FallbackOutcomeShare: shadowanalysis.Proportion(0, outcomes), AppealOutcomeShare: shadowanalysis.Proportion(0, outcomes), UnknownOutcomeShare: shadowanalysis.Proportion(0, outcomes),
+			ConfirmedLabels: labels, AbuseLabelShare: shadowanalysis.Proportion(abuse, labels),
+		},
+	}
+}
+
+func minimumUint64(left, right uint64) uint64 {
+	if left < right {
+		return left
+	}
+	return right
 }
 
 func minimumForTest(left, right float64) float64 {

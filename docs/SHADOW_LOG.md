@@ -86,11 +86,11 @@ palisade analyze-shadow-log \
   --output /private/local/palisade-shadow/analysis.json
 ```
 
-The command streams decrypted records through bounded aggregation and writes only the closed `palisade.shadow-analysis.v1` report. It reports decision/action distributions, shadow/canary/enforce counts, exact canary rollout counts, score minimum/maximum/mean values, outcome coverage, challenge failure/abandonment, endpoint totals, bounded reason-code counts and policy/model versions. It does not emit decision IDs, session links or individual records. `--output` creates a new `0600` file outside Git and never overwrites an existing report.
+The command streams decrypted records through bounded aggregation and writes only the closed `palisade.shadow-analysis.v2` report. It reports decision/action distributions, shadow/canary/enforce counts, exact canary rollout counts, score minimum/maximum/mean values, outcome coverage, endpoint totals, bounded reason-code counts and policy/model versions. Every endpoint includes Wilson 95% intervals for computed risky actions, challenge failure and abandonment, fallback, appeal, unknown outcomes and confirmed-label mix. Canary comparisons are grouped only by rollout ID and endpoint and contrast their computed/enforced risky-action proportions with the same endpoint in shadow mode. A difference is marked `comparable: false` when either group is absent from the retained window. It does not emit decision IDs, session links or individual records. `--output` creates a new `0600` file outside Git and never overwrites an existing report.
 
 Default scan budgets are 4096 managed files, 10 million records and 16 GiB of encrypted input. `--max-files`, `--max-records` and `--max-encrypted-bytes` may lower or raise them only within compiled hard caps. Distinct reason, policy and model values are also bounded; exceeding a budget fails closed instead of growing memory without limit.
 
-The v1 recommendation gates are deliberately conservative:
+The v2 recommendation gates are deliberately conservative:
 
 - at least 1000 decisions across a representative traffic cycle;
 - at least 24 hours between the first and last authenticated record before a rollout can be signed;
@@ -100,11 +100,11 @@ The v1 recommendation gates are deliberately conservative:
 - after at least 100 challenge results, review when failure plus abandonment exceeds 10%;
 - any risky action actually enforced by a record marked `shadow` is a critical safety violation.
 
-Meeting the data gates produces only `operator_review_candidate` and `review_reversible_canary`. `automatic_enforcement` is always `false`. The report cannot establish a false-positive rate by itself: endpoint-specific confidence intervals, cohort coverage, accessibility results, rollback readiness and operator approval remain external release gates. Sparse or contaminated labels produce concrete data-collection recommendations rather than an enforcement recommendation.
+Meeting the data gates produces only `operator_review_candidate` and `review_reversible_canary`. `automatic_enforcement` is always `false`. Wilson intervals quantify sampling uncertainty for the named aggregate proportion; they do not repair missing linkage, contaminated labels or cohort selection and therefore do not establish a false-positive rate. Accessibility results, rollback readiness and operator approval remain external release gates. Sparse or contaminated labels produce concrete data-collection recommendations rather than an enforcement recommendation.
 
-Promotion uses the separate [signed rollout workflow](ROLLOUT.md). Full enforcement requires at least 1000 recorded decisions attributed to the exact named predecessor canary; unrelated historical canaries do not satisfy that gate.
+Promotion uses the separate [signed rollout workflow](ROLLOUT.md). Full enforcement review requires at least 1000 recorded decisions attributed to the exact named predecessor canary on the exact recommended endpoint; unrelated historical canaries or a different endpoint do not satisfy that gate.
 
-The JSON contract is [`schemas/shadow-analysis-report-v1.schema.json`](../schemas/shadow-analysis-report-v1.schema.json). Keep generated reports beside the private logs, outside Git. They are aggregate but may still disclose operational security posture and should not be published automatically.
+The current JSON contract is [`schemas/shadow-analysis-report-v2.schema.json`](../schemas/shadow-analysis-report-v2.schema.json). v1 files remain documented for audit compatibility but are rejected by the v2 runtime and must be regenerated locally from the encrypted log. Keep generated reports beside the private logs, outside Git. They are aggregate but may still disclose operational security posture and should not be published automatically.
 
 AES-GCM detects changes to records that are present, while sequential counters detect internal gaps and reordering. It cannot prove that an entire file was deleted or rolled back, and a crash can leave the newest frame incomplete; verification then fails that file. Use host audit logging, a protected append-only filesystem or independent encrypted backups when deletion resistance or crash recovery is required. Retention intentionally deletes complete managed files, so the sink is append-only within its active retention set rather than immutable forever.
 

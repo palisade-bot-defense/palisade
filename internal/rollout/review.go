@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	ReviewSchemaVersion        = "palisade.rollout-review.v1"
+	ReviewSchemaVersion        = "palisade.rollout-review.v2"
 	ReviewStateHold            = "hold"
 	ReviewStateCandidate       = "review_candidate"
 	ReviewGatePass             = "pass"
@@ -121,13 +121,17 @@ func BuildReviewProposal(report shadowanalysis.Report, reportBytes []byte, optio
 	endpoint, endpointOK := recommendedEndpoint(report.Endpoints)
 	observedEndpoint := "none"
 	if endpointOK {
-		observedEndpoint = fmt.Sprintf("%s:%d/%d", endpoint.EndpointClass, endpoint.ComputedRiskyActions, endpoint.Decisions)
+		observedEndpoint = fmt.Sprintf("%s:risky=%d/%d,human=%d,abuse=%d", endpoint.EndpointClass, endpoint.ComputedRiskyActions, endpoint.Decisions, endpoint.HumanConfirmed, endpoint.OperatorConfirmedAbuse)
 	}
-	proposal.addGate("ELIGIBLE_ENDPOINT_SCOPE", endpointOK, observedEndpoint, "one_public_endpoint_with_risky_shadow_actions", "Choose one narrow public endpoint with measured risky shadow actions; account and authentication endpoints are excluded.")
+	proposal.addGate("ELIGIBLE_ENDPOINT_SCOPE", endpointOK, observedEndpoint, fmt.Sprintf("one_public_endpoint_with_risky_shadow_actions,human>=%d,abuse>=%d", shadowanalysis.DefaultMinConfirmedHumans, shadowanalysis.DefaultMinConfirmedAbuse), "Choose one narrow public endpoint with measured risky shadow actions and sufficient confirmed human and confirmed-abuse outcomes; account and authentication endpoints are excluded.")
 
 	if options.Stage == core.RuntimeModeEnforce {
-		decisions := countedValue(report.CanaryRollouts, options.PredecessorRolloutID)
-		proposal.addGate("PREDECESSOR_CANARY_VOLUME", decisions >= MinimumCanaryDecisions, fmt.Sprintf("%d", decisions), fmt.Sprintf("%d", MinimumCanaryDecisions), "Enforcement review requires measured decisions from the exact predecessor canary.")
+		comparison, found := canaryComparison(report.CanaryComparisons, options.PredecessorRolloutID, endpoint.EndpointClass)
+		decisions := uint64(0)
+		if found {
+			decisions = comparison.CanaryDecisions
+		}
+		proposal.addGate("PREDECESSOR_ENDPOINT_CANARY", found && decisions >= MinimumCanaryDecisions, fmt.Sprintf("%s:%d", endpoint.EndpointClass, decisions), fmt.Sprintf("same_endpoint_decisions>=%d", MinimumCanaryDecisions), "Enforcement review requires measured decisions from the exact predecessor canary on the exact recommended endpoint.")
 	}
 
 	if proposal.hasHoldGate() {
@@ -213,7 +217,7 @@ func (p ReviewProposal) Validate() error {
 	hasHold := false
 	expectedGateCodes := []string{"REPORT_READINESS", "OBSERVATION_WINDOW", "POLICY_VERSION_DOMINANCE", "MODEL_VERSION_DOMINANCE", "ELIGIBLE_ENDPOINT_SCOPE"}
 	if p.RequestedStage == core.RuntimeModeEnforce {
-		expectedGateCodes = append(expectedGateCodes, "PREDECESSOR_CANARY_VOLUME")
+		expectedGateCodes = append(expectedGateCodes, "PREDECESSOR_ENDPOINT_CANARY")
 	}
 	if len(p.Gates) != len(expectedGateCodes) {
 		return ErrInvalidReview
@@ -297,7 +301,8 @@ func reviewDominantVersion(values []shadowanalysis.CountedValue, decisions uint6
 func recommendedEndpoint(values []shadowanalysis.EndpointSummary) (shadowanalysis.EndpointSummary, bool) {
 	candidates := make([]shadowanalysis.EndpointSummary, 0, len(values))
 	for _, endpoint := range values {
-		if allowedEndpoint(endpoint.EndpointClass) && endpoint.Decisions > 0 && endpoint.ComputedRiskyActions > 0 {
+		if allowedEndpoint(endpoint.EndpointClass) && endpoint.Decisions > 0 && endpoint.ComputedRiskyActions > 0 &&
+			endpoint.HumanConfirmed >= shadowanalysis.DefaultMinConfirmedHumans && endpoint.OperatorConfirmedAbuse >= shadowanalysis.DefaultMinConfirmedAbuse {
 			candidates = append(candidates, endpoint)
 		}
 	}
@@ -319,6 +324,15 @@ func recommendedEndpoint(values []shadowanalysis.EndpointSummary) (shadowanalysi
 		return candidates[left].EndpointClass < candidates[right].EndpointClass
 	})
 	return candidates[0], true
+}
+
+func canaryComparison(values []shadowanalysis.CanaryComparison, rolloutID, endpoint string) (shadowanalysis.CanaryComparison, bool) {
+	for _, comparison := range values {
+		if comparison.RolloutID == rolloutID && comparison.EndpointClass == endpoint {
+			return comparison, true
+		}
+	}
+	return shadowanalysis.CanaryComparison{}, false
 }
 
 func sourceWindowSeconds(first, last string) int64 {
