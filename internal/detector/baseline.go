@@ -54,11 +54,36 @@ func (d SequenceVelocity) Evaluate(_ context.Context, input core.DetectorInput) 
 	if input.Session.RequestCount > 1 && input.Session.MaxSequenceGap <= 2 {
 		result = append(result, evidence("SESSION_SEQUENCE_STABLE", d.ID(), core.DimensionContinuity, core.DirectionBenign, .18, .6))
 	}
-	if input.Request.Observations.HoneypotHits > 0 {
-		strength := .62 + float64(input.Request.Observations.HoneypotHits-1)*.12
-		result = append(result, evidence("HONEYPOT_INTERACTION", d.ID(), core.DimensionIntent, core.DirectionSuspicious, clamp(strength), .88))
-	}
 	return result, nil
+}
+
+type NavigationGraph struct{}
+
+func (NavigationGraph) ID() string { return "navigation_graph_v1" }
+
+func (d NavigationGraph) Evaluate(_ context.Context, input core.DetectorInput) ([]core.Evidence, error) {
+	duration := input.Session.LastSeen.Sub(input.Session.FirstSeen)
+	if input.Session.DistinctEndpointClasses >= 5 && input.Session.EndpointTransitions >= 6 && duration >= 0 && duration <= 2*time.Minute {
+		return []core.Evidence{
+			evidence("NAVIGATION_SURFACE_SWEEP", d.ID(), core.DimensionIntent, core.DirectionSuspicious, .42, .45),
+		}, nil
+	}
+	return nil, nil
+}
+
+type DecoyInteraction struct{}
+
+func (DecoyInteraction) ID() string { return "decoy_interaction_v1" }
+
+func (d DecoyInteraction) Evaluate(_ context.Context, input core.DetectorInput) ([]core.Evidence, error) {
+	hits := input.Request.Observations.HoneypotHits
+	if hits == 0 {
+		return nil, nil
+	}
+	strength := .62 + float64(hits-1)*.12
+	return []core.Evidence{
+		evidence("HONEYPOT_INTERACTION", d.ID(), core.DimensionIntent, core.DirectionSuspicious, clamp(strength), .88),
+	}, nil
 }
 
 // CampaignSurface describes endpoint intent learned from an evaluated offline

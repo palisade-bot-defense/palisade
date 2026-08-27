@@ -201,3 +201,47 @@ func TestSequenceVelocityUsesConservativeDataBoundThresholds(t *testing.T) {
 		})
 	}
 }
+
+func TestNavigationGraphEmitsOnlyConservativeSweepEvidence(t *testing.T) {
+	first := time.Unix(1_800_000_000, 0).UTC()
+	tests := []struct {
+		name     string
+		snapshot core.SessionSnapshot
+		want     bool
+	}{
+		{name: "broad fast sweep", snapshot: core.SessionSnapshot{FirstSeen: first, LastSeen: first.Add(time.Minute), DistinctEndpointClasses: 5, EndpointTransitions: 6}, want: true},
+		{name: "two surface bounce poisoning", snapshot: core.SessionSnapshot{FirstSeen: first, LastSeen: first.Add(time.Minute), DistinctEndpointClasses: 2, EndpointTransitions: 500}},
+		{name: "slow broad navigation", snapshot: core.SessionSnapshot{FirstSeen: first, LastSeen: first.Add(10 * time.Minute), DistinctEndpointClasses: 8, EndpointTransitions: 20}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			evidence, err := (NavigationGraph{}).Evaluate(context.Background(), core.DetectorInput{Session: test.snapshot})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (len(evidence) == 1) != test.want {
+				t.Fatalf("evidence = %+v", evidence)
+			}
+			if test.want && (evidence[0].Code != "NAVIGATION_SURFACE_SWEEP" || evidence[0].Detector != "navigation_graph_v1" || evidence[0].Dimension != core.DimensionIntent || evidence[0].Direction != core.DirectionSuspicious) {
+				t.Fatalf("unexpected navigation evidence = %+v", evidence)
+			}
+		})
+	}
+}
+
+func TestDecoyInteractionIsSeparateIntentEvidence(t *testing.T) {
+	for _, hits := range []int{0, 1, 100} {
+		evidence, err := (DecoyInteraction{}).Evaluate(context.Background(), core.DetectorInput{
+			Request: core.DecisionRequest{Observations: core.Observations{HoneypotHits: hits}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if hits == 0 && len(evidence) != 0 {
+			t.Fatalf("zero hits evidence = %+v", evidence)
+		}
+		if hits > 0 && (len(evidence) != 1 || evidence[0].Detector != "decoy_interaction_v1" || evidence[0].Dimension != core.DimensionIntent || evidence[0].Strength > 1) {
+			t.Fatalf("hits=%d evidence=%+v", hits, evidence)
+		}
+	}
+}

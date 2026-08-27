@@ -83,12 +83,23 @@ type DecisionRequest struct {
 }
 
 type SessionSnapshot struct {
-	SessionID      string    `json:"session_id"`
-	FirstSeen      time.Time `json:"first_seen"`
-	LastSeen       time.Time `json:"last_seen"`
-	RequestCount   uint64    `json:"request_count"`
-	LastSequence   uint64    `json:"last_sequence"`
-	MaxSequenceGap uint64    `json:"max_sequence_gap"`
+	SessionID               string    `json:"session_id"`
+	FirstSeen               time.Time `json:"first_seen"`
+	LastSeen                time.Time `json:"last_seen"`
+	RequestCount            uint64    `json:"request_count"`
+	LastSequence            uint64    `json:"last_sequence"`
+	MaxSequenceGap          uint64    `json:"max_sequence_gap"`
+	DistinctEndpointClasses uint8     `json:"distinct_endpoint_classes"`
+	EndpointTransitions     uint64    `json:"endpoint_transitions"`
+}
+
+func ValidEndpointClass(value string) bool {
+	switch value {
+	case "public_content", "compare_index", "compare_noindex", "challenge_worker", "other_public", "account", "login", "checkout", "other":
+		return true
+	default:
+		return false
+	}
 }
 
 type DetectorInput struct {

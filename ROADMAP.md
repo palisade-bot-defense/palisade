@@ -35,8 +35,10 @@ security and address provenance without transmitting raw addresses; forwarded
 metadata is accepted only from explicitly trusted TCP peers. Browser-event
 counts are server-authoritative and create benign continuity evidence only when
 backed by the bounded event store. Missing sensor data remains neutral, and
-forged request counts are covered by regression tests. Broader poisoning and
-proxy-misconfiguration tests remain open.
+forged request counts are covered by regression tests. Navigation state is a
+fixed nine-bit endpoint-class graph with capacity eviction; broad sweeps are
+low-confidence shadow evidence and decoy interaction is isolated as its own
+detector. Broader poisoning and proxy-misconfiguration tests remain open.
 
 Exit gate: improvements hold on a time-separated test set and unseen attack families, not only random train/test splits.
 
