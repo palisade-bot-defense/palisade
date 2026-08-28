@@ -140,7 +140,9 @@ never policy input and must not contain free text, identity, fingerprint or a
 diagnosis; leave it empty to record `unknown`. The
 optional signal provider may read only already authenticated, normalized facts
 from trusted application context. Do not trust client headers for proxy,
-verified-bot, policy-alert or external-score values.
+crawler identity, policy-alert or external-score values. The reference adapter
+overwrites crawler fields from its own local registry boundary, so a custom
+signal provider cannot promote a user-agent claim.
 
 Without a signal provider the adapter submits only whether a User-Agent header
 is present. It never sends the User-Agent value, application method/path/query,
@@ -156,9 +158,11 @@ a loopback IP so the bearer credential cannot be configured over a remote
 cleartext connection.
 
 The adapter accepts these normalized signals: browser event count, honeypot
-hits, closed challenge verdict, 0..1 external risk score, policy alert and
-verified beneficial-bot status. Values outside their documented bounds are
-rejected locally.
+hits, closed challenge verdict, 0..1 external risk score and policy alert.
+Crawler identity is derived separately from `CrawlerRegistry`, the validated
+transport address and a product-specific user-agent token. Values outside their
+documented bounds are rejected locally. See
+[crawler identity and SEO/GEO safety](CRAWLER_IDENTITY.md).
 
 The adapter itself owns three additional closed transport fields. Configure a
 trusted proxy only with explicit CIDRs and one supported single-address header:

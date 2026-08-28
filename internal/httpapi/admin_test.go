@@ -63,15 +63,76 @@ func TestAdminSurfaceIsSeparateAuthenticatedAndAggregateOnly(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &summary); err != nil {
 		t.Fatal(err)
 	}
-	if summary.SchemaVersion != "palisade.admin-summary.v7" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Delay != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" ||
+	if summary.SchemaVersion != "palisade.admin-summary.v9" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Delay != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" ||
 		summary.Collection.State != "disabled" || summary.Collection.TrafficDenominator != "external_total_unavailable" ||
 		summary.OriginCoverage.State != "unavailable" || summary.OutcomeFlow.State != "disabled" ||
+		summary.Transport.State != "attention" || summary.Transport.Scope != "evaluated_decisions" || summary.Transport.Samples != 1 ||
+		summary.Transport.Protocol.Unknown != 1 || summary.Transport.Security.Unknown != 1 || summary.Transport.AddressSource.Unknown != 1 ||
+		summary.CrawlerIdentity.State != "no_samples" || summary.CrawlerIdentity.Observations != 0 ||
 		len(summary.Traffic.Reasons) != 2 || summary.Traffic.Reasons[0].Code != "HONEYPOT_INTERACTION" || summary.Traffic.Reasons[0].Count != 1 || summary.Traffic.Reasons[1].Code != "STEP_UP_REQUIRED" || summary.Traffic.Reasons[1].Count != 1 {
 		t.Fatalf("unexpected aggregate summary: %+v", summary)
 	}
 	for _, forbidden := range []string{"session-12345678", "api-key", "admin-key", "proof_token", "decision_id"} {
 		if bytes.Contains(response.Body.Bytes(), []byte(forbidden)) {
 			t.Fatalf("admin response exposed %q: %s", forbidden, response.Body.String())
+		}
+	}
+}
+
+func TestAdminCrawlerIdentitySeparatesQualifiedAndUnqualifiedWithoutRawIdentity(t *testing.T) {
+	var counters crawlerCounters
+	counters.increment(core.Observations{
+		VerifiedBot: true, CrawlerClass: core.CrawlerClassSearchIndexer,
+		CrawlerVerification: core.CrawlerVerificationIPUARegistry,
+	}, "public_content")
+	counters.increment(core.Observations{
+		VerifiedBot: true, CrawlerClass: core.CrawlerClassSearchIndexer,
+		CrawlerVerification: core.CrawlerVerificationIPUARegistry,
+	}, "login")
+	counters.increment(core.Observations{
+		VerifiedBot: true, CrawlerClass: core.CrawlerClassTrainingCrawler,
+		CrawlerVerification: core.CrawlerVerificationFCrDNSUA,
+	}, "public_content")
+	counters.increment(core.Observations{VerifiedBot: true}, "public_content")
+	counters.increment(core.Observations{}, "public_content")
+
+	summary := counters.snapshot()
+	if summary.State != "attention" || summary.Scope != "evaluated_identity_observations" || summary.Observations != 4 ||
+		summary.Qualified != 1 || summary.Unqualified != 3 || summary.Classes.SearchIndexer != 2 ||
+		summary.Classes.TrainingCrawler != 1 || summary.Classes.Unknown != 1 ||
+		summary.Verification.IPUARegistry != 2 || summary.Verification.FCrDNSUA != 1 || summary.Verification.Unknown != 1 {
+		t.Fatalf("crawler identity summary = %+v", summary)
+	}
+	encoded, _ := json.Marshal(summary)
+	for _, forbidden := range []string{"Googlebot", "192.0.2.10", "CF-Connecting-IP", "user-agent", "vendor-search"} {
+		if bytes.Contains(encoded, []byte(forbidden)) {
+			t.Fatalf("crawler summary exposed %q: %s", forbidden, encoded)
+		}
+	}
+}
+
+func TestAdminTransportPostureUsesOnlyClosedAggregateClasses(t *testing.T) {
+	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
+	server := New(fakeEngine{}, tokens, "api-key", slog.Default())
+	server.counters.transport.increment(core.Observations{
+		TransportProtocol: "http2", TransportSecurity: "trusted_proxy_tls", ClientAddressSource: "trusted_proxy",
+	})
+	server.counters.transport.increment(core.Observations{
+		TransportProtocol: "http1", TransportSecurity: "plaintext", ClientAddressSource: "invalid_trusted_proxy",
+	})
+	server.counters.transport.increment(core.Observations{})
+
+	posture := server.transportPostureSummary()
+	if posture.State != "attention" || posture.Scope != "evaluated_decisions" || posture.Samples != 3 ||
+		posture.Protocol.HTTP1 != 1 || posture.Protocol.HTTP2 != 1 || posture.Protocol.Unknown != 1 ||
+		posture.Security.TrustedProxyTLS != 1 || posture.Security.Plaintext != 1 || posture.Security.Unknown != 1 ||
+		posture.AddressSource.TrustedProxy != 1 || posture.AddressSource.InvalidTrustedProxy != 1 || posture.AddressSource.Unknown != 1 {
+		t.Fatalf("transport posture = %+v", posture)
+	}
+	encoded, _ := json.Marshal(posture)
+	for _, forbidden := range []string{"198.51.100.7", "CF-Connecting-IP", "X-Real-IP", "RemoteAddr", "header_value"} {
+		if bytes.Contains(encoded, []byte(forbidden)) {
+			t.Fatalf("transport posture exposed %q: %s", forbidden, encoded)
 		}
 	}
 }

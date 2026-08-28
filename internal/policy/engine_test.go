@@ -38,8 +38,8 @@ func TestDefaultPolicyVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if engine.Version() != "default-v4" {
-		t.Fatalf("version = %s, want default-v4", engine.Version())
+	if engine.Version() != "default-v5" {
+		t.Fatalf("version = %s, want default-v5", engine.Version())
 	}
 }
 
@@ -70,15 +70,15 @@ func TestVerifiedBotPolicyBoundaries(t *testing.T) {
 	}{
 		{
 			name: "high intent",
-			input: Input{VerifiedBot: true, Scores: core.Scores{
+			input: Input{VerifiedBot: true, EndpointClass: "public_content", Scores: core.Scores{
 				AutomationRisk: .1, AbuseIntentRisk: .95, AccountContinuity: .5,
 			}},
-			action: core.ActionBlock,
-			reason: "HIGH_RISK",
+			action: core.ActionThrottle,
+			reason: "PUBLIC_CONTENT_HIGH_RISK",
 		},
 		{
 			name: "elevated intent",
-			input: Input{VerifiedBot: true, Scores: core.Scores{
+			input: Input{VerifiedBot: true, EndpointClass: "public_content", Scores: core.Scores{
 				AutomationRisk: .1, AbuseIntentRisk: .7, AccountContinuity: .5,
 			}},
 			action: core.ActionChallenge,
@@ -86,7 +86,7 @@ func TestVerifiedBotPolicyBoundaries(t *testing.T) {
 		},
 		{
 			name: "policy alert only",
-			input: Input{VerifiedBot: true, PolicyAlert: true, Scores: core.Scores{
+			input: Input{VerifiedBot: true, EndpointClass: "public_content", PolicyAlert: true, Scores: core.Scores{
 				AutomationRisk: .1, AbuseIntentRisk: .5, AccountContinuity: .5,
 			}},
 			action: core.ActionChallenge,
@@ -94,7 +94,7 @@ func TestVerifiedBotPolicyBoundaries(t *testing.T) {
 		},
 		{
 			name: "honeypot only",
-			input: Input{VerifiedBot: true, HoneypotHits: 1, Scores: core.Scores{
+			input: Input{VerifiedBot: true, EndpointClass: "public_content", HoneypotHits: 1, Scores: core.Scores{
 				AutomationRisk: .1, AbuseIntentRisk: .5, AccountContinuity: .5,
 			}},
 			action: core.ActionChallenge,
@@ -102,7 +102,7 @@ func TestVerifiedBotPolicyBoundaries(t *testing.T) {
 		},
 		{
 			name: "multi source",
-			input: Input{VerifiedBot: true, PolicyAlert: true, HoneypotHits: 1, Scores: core.Scores{
+			input: Input{VerifiedBot: true, EndpointClass: "public_content", PolicyAlert: true, HoneypotHits: 1, Scores: core.Scores{
 				AutomationRisk: .1, AbuseIntentRisk: .5, AccountContinuity: .5,
 			}},
 			action: core.ActionBlock,
@@ -110,19 +110,35 @@ func TestVerifiedBotPolicyBoundaries(t *testing.T) {
 		},
 		{
 			name: "automation only",
-			input: Input{VerifiedBot: true, Scores: core.Scores{
+			input: Input{VerifiedBot: true, EndpointClass: "public_content", Scores: core.Scores{
 				AutomationRisk: .95, AbuseIntentRisk: .5, AccountContinuity: .5,
 			}},
 			action: core.ActionAllow,
-			reason: "VERIFIED_AUTOMATION_ALLOWED",
+			reason: "VERIFIED_PUBLIC_CRAWLER_ALLOWED",
 		},
 		{
 			name: "benign verified bot",
-			input: Input{VerifiedBot: true, Scores: core.Scores{
+			input: Input{VerifiedBot: true, EndpointClass: "public_content", Scores: core.Scores{
 				AutomationRisk: .1, AbuseIntentRisk: .1, AccountContinuity: .5,
 			}},
 			action: core.ActionAllow,
-			reason: "VERIFIED_AUTOMATION_ALLOWED",
+			reason: "VERIFIED_PUBLIC_CRAWLER_ALLOWED",
+		},
+		{
+			name: "claimed crawler on login is ordinary automation",
+			input: Input{VerifiedBot: true, EndpointClass: "login", Scores: core.Scores{
+				AutomationRisk: .95, AbuseIntentRisk: .1, AccountContinuity: .5,
+			}},
+			action: core.ActionBlock,
+			reason: "HIGH_RISK",
+		},
+		{
+			name: "claimed crawler on noindex is ordinary automation",
+			input: Input{VerifiedBot: true, EndpointClass: "compare_noindex", Scores: core.Scores{
+				AutomationRisk: .7, AbuseIntentRisk: .1, AccountContinuity: .5,
+			}},
+			action: core.ActionChallenge,
+			reason: "STEP_UP_REQUIRED",
 		},
 	}
 	for _, test := range tests {

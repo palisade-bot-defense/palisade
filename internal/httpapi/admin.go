@@ -51,6 +51,8 @@ type runtimeCounters struct {
 	eventShadowRejected atomic.Uint64
 	outcomeRejected     atomic.Uint64
 	outcomeDropped      atomic.Uint64
+	transport           transportCounters
+	crawlers            crawlerCounters
 	endpointContexts    endpointCounters
 	enforced            actionCounters
 	computed            actionCounters
@@ -70,18 +72,20 @@ type CountedReason struct {
 }
 
 type AdminSummary struct {
-	SchemaVersion  string                 `json:"schema_version"`
-	GeneratedAt    time.Time              `json:"generated_at"`
-	UptimeSeconds  uint64                 `json:"uptime_seconds"`
-	Runtime        AdminRuntime           `json:"runtime"`
-	Capabilities   AdminCapabilities      `json:"capabilities"`
-	Traffic        AdminTraffic           `json:"traffic"`
-	Recording      AdminRecording         `json:"recording"`
-	Collection     AdminCollection        `json:"collection"`
-	OriginCoverage AdminOriginCoverage    `json:"origin_coverage"`
-	OutcomeFlow    AdminOutcomeFlow       `json:"outcome_flow"`
-	AnalysisStatus AdminAnalysisStatus    `json:"analysis_status"`
-	Analysis       *shadowanalysis.Report `json:"analysis"`
+	SchemaVersion   string                 `json:"schema_version"`
+	GeneratedAt     time.Time              `json:"generated_at"`
+	UptimeSeconds   uint64                 `json:"uptime_seconds"`
+	Runtime         AdminRuntime           `json:"runtime"`
+	Capabilities    AdminCapabilities      `json:"capabilities"`
+	Traffic         AdminTraffic           `json:"traffic"`
+	Recording       AdminRecording         `json:"recording"`
+	Collection      AdminCollection        `json:"collection"`
+	OriginCoverage  AdminOriginCoverage    `json:"origin_coverage"`
+	OutcomeFlow     AdminOutcomeFlow       `json:"outcome_flow"`
+	Transport       AdminTransportPosture  `json:"transport_posture"`
+	CrawlerIdentity AdminCrawlerIdentity   `json:"crawler_identity"`
+	AnalysisStatus  AdminAnalysisStatus    `json:"analysis_status"`
+	Analysis        *shadowanalysis.Report `json:"analysis"`
 }
 
 type AdminRuntime struct {
@@ -173,6 +177,79 @@ type AdminOutcomeFlow struct {
 	Dropped  uint64 `json:"dropped"`
 }
 
+type transportCounters struct {
+	samples       atomic.Uint64
+	protocol      [4]atomic.Uint64
+	security      [4]atomic.Uint64
+	addressSource [4]atomic.Uint64
+}
+
+type AdminTransportPosture struct {
+	State         string                      `json:"state"`
+	Scope         string                      `json:"scope"`
+	Samples       uint64                      `json:"samples"`
+	Protocol      AdminTransportProtocol      `json:"protocol"`
+	Security      AdminTransportSecurity      `json:"security"`
+	AddressSource AdminTransportAddressSource `json:"address_source"`
+}
+
+type AdminTransportProtocol struct {
+	HTTP1   uint64 `json:"http1"`
+	HTTP2   uint64 `json:"http2"`
+	HTTP3   uint64 `json:"http3"`
+	Unknown uint64 `json:"unknown"`
+}
+
+type AdminTransportSecurity struct {
+	DirectTLS       uint64 `json:"direct_tls"`
+	TrustedProxyTLS uint64 `json:"trusted_proxy_tls"`
+	Plaintext       uint64 `json:"plaintext"`
+	Unknown         uint64 `json:"unknown"`
+}
+
+type AdminTransportAddressSource struct {
+	Direct              uint64 `json:"direct"`
+	TrustedProxy        uint64 `json:"trusted_proxy"`
+	InvalidTrustedProxy uint64 `json:"invalid_trusted_proxy"`
+	Unknown             uint64 `json:"unknown"`
+}
+
+type crawlerCounters struct {
+	observations atomic.Uint64
+	qualified    atomic.Uint64
+	unqualified  atomic.Uint64
+	classes      [8]atomic.Uint64
+	verification [4]atomic.Uint64
+}
+
+type AdminCrawlerIdentity struct {
+	State        string                         `json:"state"`
+	Scope        string                         `json:"scope"`
+	Observations uint64                         `json:"observations"`
+	Qualified    uint64                         `json:"qualified_public"`
+	Unqualified  uint64                         `json:"unqualified"`
+	Classes      AdminCrawlerClassCounts        `json:"classes"`
+	Verification AdminCrawlerVerificationCounts `json:"verification"`
+}
+
+type AdminCrawlerClassCounts struct {
+	SearchIndexer      uint64 `json:"search_indexer"`
+	AnswerEngine       uint64 `json:"answer_engine"`
+	TrainingCrawler    uint64 `json:"training_crawler"`
+	UserTriggeredAgent uint64 `json:"user_triggered_agent"`
+	Preview            uint64 `json:"preview"`
+	Monitoring         uint64 `json:"monitoring"`
+	Other              uint64 `json:"other"`
+	Unknown            uint64 `json:"unknown"`
+}
+
+type AdminCrawlerVerificationCounts struct {
+	IPUARegistry  uint64 `json:"ip_ua_registry"`
+	FCrDNSUA      uint64 `json:"fcrdns_ua"`
+	HTTPSignature uint64 `json:"http_signature"`
+	Unknown       uint64 `json:"unknown"`
+}
+
 type endpointCounters struct {
 	values [9]atomic.Uint64
 }
@@ -236,7 +313,7 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 		}
 	}
 	return AdminSummary{
-		SchemaVersion: "palisade.admin-summary.v7",
+		SchemaVersion: "palisade.admin-summary.v9",
 		GeneratedAt:   now,
 		UptimeSeconds: uptime,
 		Runtime: AdminRuntime{
@@ -256,11 +333,163 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 			Decisions: s.counters.recordedDecisions.Load(), Outcomes: s.counters.recordedOutcomes.Load(),
 			Dropped: s.shadowDrops.Load(), EventShadowDropped: s.eventShadowDrops.Load(),
 		},
-		Collection:     s.collectionSummary(),
-		OriginCoverage: s.originCoverageSummary(),
-		OutcomeFlow:    s.outcomeFlowSummary(),
-		AnalysisStatus: analysisStatus,
-		Analysis:       analysis,
+		Collection:      s.collectionSummary(),
+		OriginCoverage:  s.originCoverageSummary(),
+		OutcomeFlow:     s.outcomeFlowSummary(),
+		Transport:       s.transportPostureSummary(),
+		CrawlerIdentity: s.counters.crawlers.snapshot(),
+		AnalysisStatus:  analysisStatus,
+		Analysis:        analysis,
+	}
+}
+
+func (c *crawlerCounters) increment(observations core.Observations, endpointClass string) {
+	class, _ := core.NormalizeCrawlerClass(observations.CrawlerClass)
+	verification, _ := core.NormalizeCrawlerVerification(observations.CrawlerVerification)
+	if !observations.VerifiedBot && class == core.CrawlerClassUnknown && verification == core.CrawlerVerificationUnknown {
+		return
+	}
+	c.observations.Add(1)
+	c.classes[crawlerClassIndex(class)].Add(1)
+	c.verification[crawlerVerificationIndex(verification)].Add(1)
+	if core.VerifiedPublicCrawler(observations, endpointClass) {
+		c.qualified.Add(1)
+	} else {
+		c.unqualified.Add(1)
+	}
+}
+
+func (c *crawlerCounters) snapshot() AdminCrawlerIdentity {
+	result := AdminCrawlerIdentity{
+		State: "no_samples", Scope: "evaluated_identity_observations",
+		Observations: c.observations.Load(), Qualified: c.qualified.Load(), Unqualified: c.unqualified.Load(),
+		Classes: AdminCrawlerClassCounts{
+			SearchIndexer: c.classes[0].Load(), AnswerEngine: c.classes[1].Load(), TrainingCrawler: c.classes[2].Load(),
+			UserTriggeredAgent: c.classes[3].Load(), Preview: c.classes[4].Load(), Monitoring: c.classes[5].Load(),
+			Other: c.classes[6].Load(), Unknown: c.classes[7].Load(),
+		},
+		Verification: AdminCrawlerVerificationCounts{
+			IPUARegistry: c.verification[0].Load(), FCrDNSUA: c.verification[1].Load(),
+			HTTPSignature: c.verification[2].Load(), Unknown: c.verification[3].Load(),
+		},
+	}
+	if result.Observations > 0 {
+		result.State = "collecting"
+	}
+	if result.Unqualified > 0 {
+		result.State = "attention"
+	}
+	return result
+}
+
+func crawlerClassIndex(value core.CrawlerClass) int {
+	switch value {
+	case core.CrawlerClassSearchIndexer:
+		return 0
+	case core.CrawlerClassAnswerEngine:
+		return 1
+	case core.CrawlerClassTrainingCrawler:
+		return 2
+	case core.CrawlerClassUserTriggeredAgent:
+		return 3
+	case core.CrawlerClassPreview:
+		return 4
+	case core.CrawlerClassMonitoring:
+		return 5
+	case core.CrawlerClassOther:
+		return 6
+	default:
+		return 7
+	}
+}
+
+func crawlerVerificationIndex(value core.CrawlerVerification) int {
+	switch value {
+	case core.CrawlerVerificationIPUARegistry:
+		return 0
+	case core.CrawlerVerificationFCrDNSUA:
+		return 1
+	case core.CrawlerVerificationHTTPSignature:
+		return 2
+	default:
+		return 3
+	}
+}
+
+func (s *Server) transportPostureSummary() AdminTransportPosture {
+	result := s.counters.transport.snapshot()
+	result.State = "no_samples"
+	result.Scope = "evaluated_decisions"
+	if result.Samples == 0 {
+		return result
+	}
+	result.State = "collecting"
+	if result.Protocol.Unknown > 0 || result.Security.Plaintext > 0 || result.Security.Unknown > 0 ||
+		result.AddressSource.InvalidTrustedProxy > 0 || result.AddressSource.Unknown > 0 {
+		result.State = "attention"
+	}
+	return result
+}
+
+func (c *transportCounters) increment(observations core.Observations) {
+	c.samples.Add(1)
+	c.protocol[transportProtocolIndex(observations.TransportProtocol)].Add(1)
+	c.security[transportSecurityIndex(observations.TransportSecurity)].Add(1)
+	c.addressSource[transportAddressSourceIndex(observations.ClientAddressSource)].Add(1)
+}
+
+func (c *transportCounters) snapshot() AdminTransportPosture {
+	return AdminTransportPosture{
+		Samples: c.samples.Load(),
+		Protocol: AdminTransportProtocol{
+			HTTP1: c.protocol[0].Load(), HTTP2: c.protocol[1].Load(), HTTP3: c.protocol[2].Load(), Unknown: c.protocol[3].Load(),
+		},
+		Security: AdminTransportSecurity{
+			DirectTLS: c.security[0].Load(), TrustedProxyTLS: c.security[1].Load(), Plaintext: c.security[2].Load(), Unknown: c.security[3].Load(),
+		},
+		AddressSource: AdminTransportAddressSource{
+			Direct: c.addressSource[0].Load(), TrustedProxy: c.addressSource[1].Load(),
+			InvalidTrustedProxy: c.addressSource[2].Load(), Unknown: c.addressSource[3].Load(),
+		},
+	}
+}
+
+func transportProtocolIndex(value string) int {
+	switch value {
+	case "http1":
+		return 0
+	case "http2":
+		return 1
+	case "http3":
+		return 2
+	default:
+		return 3
+	}
+}
+
+func transportSecurityIndex(value string) int {
+	switch value {
+	case "direct_tls":
+		return 0
+	case "trusted_proxy_tls":
+		return 1
+	case "plaintext":
+		return 2
+	default:
+		return 3
+	}
+}
+
+func transportAddressSourceIndex(value string) int {
+	switch value {
+	case "direct":
+		return 0
+	case "trusted_proxy":
+		return 1
+	case "invalid_trusted_proxy":
+		return 2
+	default:
+		return 3
 	}
 }
 

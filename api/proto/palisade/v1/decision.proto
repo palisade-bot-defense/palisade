@@ -25,6 +25,10 @@ message Observations {
   string transport_protocol = 8;
   string transport_security = 9;
   string client_address_source = 10;
+  // Closed crawler purpose and proof method. A user-agent alone is never a
+  // verified identity; training crawlers are not auto-allowed.
+  string crawler_class = 11;
+  string crawler_verification = 12;
 }
 
 message DecideRequest {

@@ -10,7 +10,7 @@ import (
 	"github.com/palisade-bot-defense/palisade/internal/core"
 )
 
-const DefaultVersion = "default-v4"
+const DefaultVersion = "default-v5"
 
 type Input struct {
 	Scores        core.Scores
@@ -45,11 +45,11 @@ type ruleSpec struct {
 func defaultRuleSpecs() []ruleSpec {
 	return []ruleSpec{
 		{"policy_alert && honeypot_hits >= 1", "MULTI_SOURCE_ABUSE", core.ActionBlock},
-		{"endpoint_class == 'public_content' && (intent_risk >= 0.90 || (!verified_bot && automation_risk >= 0.88))", "PUBLIC_CONTENT_HIGH_RISK", core.ActionThrottle},
-		{"intent_risk >= 0.90 || (!verified_bot && automation_risk >= 0.88)", "HIGH_RISK", core.ActionBlock},
-		{"policy_alert || honeypot_hits >= 1 || intent_risk >= 0.68 || account_continuity < 0.20 || (!verified_bot && automation_risk >= 0.68)", "STEP_UP_REQUIRED", core.ActionChallenge},
-		{"intent_risk >= 0.52 || (!verified_bot && automation_risk >= 0.52)", "ELEVATED_RISK", core.ActionDelay},
-		{"verified_bot && !policy_alert && honeypot_hits == 0", "VERIFIED_AUTOMATION_ALLOWED", core.ActionAllow},
+		{"endpoint_class == 'public_content' && (intent_risk >= 0.90 || (!verified_public_crawler && automation_risk >= 0.88))", "PUBLIC_CONTENT_HIGH_RISK", core.ActionThrottle},
+		{"intent_risk >= 0.90 || (!verified_public_crawler && automation_risk >= 0.88)", "HIGH_RISK", core.ActionBlock},
+		{"policy_alert || honeypot_hits >= 1 || intent_risk >= 0.68 || account_continuity < 0.20 || (!verified_public_crawler && automation_risk >= 0.68)", "STEP_UP_REQUIRED", core.ActionChallenge},
+		{"intent_risk >= 0.52 || (!verified_public_crawler && automation_risk >= 0.52)", "ELEVATED_RISK", core.ActionDelay},
+		{"verified_public_crawler && !policy_alert && honeypot_hits == 0", "VERIFIED_PUBLIC_CRAWLER_ALLOWED", core.ActionAllow},
 	}
 }
 
@@ -57,7 +57,7 @@ func defaultRuleSpecs() []ruleSpec {
 // specifications that are compiled for runtime evaluation.
 func DefaultSource() string {
 	var source strings.Builder
-	source.WriteString("// Generated documentation form of the computed default-v4 policy.\n")
+	source.WriteString("// Generated documentation form of the computed default-v5 policy.\n")
 	source.WriteString("// internal/policy/engine_test.go rejects drift from the runtime rules.\n")
 	for _, spec := range defaultRuleSpecs() {
 		fmt.Fprintf(&source, "%s ? %s :\n", spec.expression, strconv.Quote(string(spec.action)))
@@ -75,7 +75,7 @@ func NewDefault() (*Engine, error) {
 		cel.Variable("endpoint_class", cel.StringType),
 		cel.Variable("honeypot_hits", cel.IntType),
 		cel.Variable("policy_alert", cel.BoolType),
-		cel.Variable("verified_bot", cel.BoolType),
+		cel.Variable("verified_public_crawler", cel.BoolType),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create CEL environment: %w", err)
@@ -99,13 +99,13 @@ func (e *Engine) Version() string { return e.version }
 
 func (e *Engine) Evaluate(input Input) (Result, error) {
 	activation := map[string]any{
-		"automation_risk":    input.Scores.AutomationRisk,
-		"intent_risk":        input.Scores.AbuseIntentRisk,
-		"account_continuity": input.Scores.AccountContinuity,
-		"endpoint_class":     input.EndpointClass,
-		"honeypot_hits":      int64(input.HoneypotHits),
-		"policy_alert":       input.PolicyAlert,
-		"verified_bot":       input.VerifiedBot,
+		"automation_risk":         input.Scores.AutomationRisk,
+		"intent_risk":             input.Scores.AbuseIntentRisk,
+		"account_continuity":      input.Scores.AccountContinuity,
+		"endpoint_class":          input.EndpointClass,
+		"honeypot_hits":           int64(input.HoneypotHits),
+		"policy_alert":            input.PolicyAlert,
+		"verified_public_crawler": input.VerifiedBot && publicCrawlerEndpoint(input.EndpointClass),
 	}
 	for _, current := range e.rules {
 		value, _, err := current.program.Eval(activation)
@@ -121,4 +121,13 @@ func (e *Engine) Evaluate(input Input) (Result, error) {
 		}
 	}
 	return Result{Action: core.ActionAllow, Reason: "BASELINE_LOW_RISK"}, nil
+}
+
+func publicCrawlerEndpoint(value string) bool {
+	switch value {
+	case "public_content", "compare_index", "other_public":
+		return true
+	default:
+		return false
+	}
 }

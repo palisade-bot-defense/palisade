@@ -71,6 +71,10 @@ func TestTransportNormalizerRejectsUnsafeConfiguration(t *testing.T) {
 		{TrustedProxyCIDRs: []string{"8000::/1"}, TrustedClientIPHeader: "CF-Connecting-IP"},
 		{TrustedProxyCIDRs: []string{"203.0.113.0/24"}, TrustedClientIPHeader: "X-Forwarded-For"},
 		{TrustedProxyCIDRs: []string{"203.0.113.0/24"}, TrustedProtoHeader: "Forwarded"},
+		{TrustedProxyCIDRs: []string{"203.0.113.0/24"}},
+		{TrustedProxyCIDRs: []string{"203.0.113.7/24"}, TrustedClientIPHeader: "CF-Connecting-IP"},
+		{TrustedProxyCIDRs: []string{"203.0.113.0/24", "203.0.113.0/25"}, TrustedClientIPHeader: "CF-Connecting-IP"},
+		{TrustedProxyCIDRs: []string{"203.0.113.0/24", "203.0.113.0/24"}, TrustedClientIPHeader: "CF-Connecting-IP"},
 		{TrustedProxyCIDRs: []string{"not-a-prefix"}},
 		{TrustedProxyCIDRs: tooMany},
 	}
@@ -91,8 +95,28 @@ func TestTransportNormalizerAcceptsXRealIPAndIPv4MappedPeer(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "http://origin.example/", nil)
 	request.RemoteAddr = "[::ffff:203.0.113.5]:8080"
 	request.Header.Set("X-Real-IP", "2001:db8::5")
-	_, _, source := normalizer.normalize(request)
-	if source != ClientAddressSourceTrustedProxy {
-		t.Fatalf("source = %s", source)
+	_, security, source := normalizer.normalize(request)
+	if source != ClientAddressSourceTrustedProxy || security != TransportSecurityUnknown {
+		t.Fatalf("security/source = %s/%s", security, source)
+	}
+}
+
+func TestTransportNormalizerTreatsMissingTrustedEdgeProtoAsUnknown(t *testing.T) {
+	normalizer, err := newTransportNormalizer(Config{
+		TrustedProxyCIDRs: []string{"203.0.113.0/24"}, TrustedClientIPHeader: "CF-Connecting-IP",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, target := range map[string]string{"plain proxy hop": "http://origin.example/", "tls proxy hop": "https://origin.example/"} {
+		t.Run(name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, target, nil)
+			request.RemoteAddr = "203.0.113.9:443"
+			request.Header.Set("CF-Connecting-IP", "198.51.100.7")
+			_, security, source := normalizer.normalize(request)
+			if security != TransportSecurityUnknown || source != ClientAddressSourceTrustedProxy {
+				t.Fatalf("security/source = %s/%s", security, source)
+			}
+		})
 	}
 }

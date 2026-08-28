@@ -28,21 +28,108 @@ type Evidence struct {
 }
 
 type Observations struct {
-	UserAgentPresent      bool    `json:"user_agent_present"`
-	BrowserEventCount     int     `json:"browser_event_count"`
-	HoneypotHits          int     `json:"honeypot_hits"`
-	ChallengeVerdict      string  `json:"challenge_verdict,omitempty"`
-	ExternalRiskScore     float64 `json:"external_risk_score,omitempty"`
-	PolicyAlert           bool    `json:"policy_alert"`
-	VerifiedBot           bool    `json:"verified_bot"`
-	TransportProtocol     string  `json:"transport_protocol,omitempty"`
-	TransportSecurity     string  `json:"transport_security,omitempty"`
-	ClientAddressSource   string  `json:"client_address_source,omitempty"`
-	ServerSessionVerified bool    `json:"-"`
+	UserAgentPresent      bool                `json:"user_agent_present"`
+	BrowserEventCount     int                 `json:"browser_event_count"`
+	HoneypotHits          int                 `json:"honeypot_hits"`
+	ChallengeVerdict      string              `json:"challenge_verdict,omitempty"`
+	ExternalRiskScore     float64             `json:"external_risk_score,omitempty"`
+	PolicyAlert           bool                `json:"policy_alert"`
+	VerifiedBot           bool                `json:"verified_bot"`
+	CrawlerClass          CrawlerClass        `json:"crawler_class,omitempty"`
+	CrawlerVerification   CrawlerVerification `json:"crawler_verification,omitempty"`
+	TransportProtocol     string              `json:"transport_protocol,omitempty"`
+	TransportSecurity     string              `json:"transport_security,omitempty"`
+	ClientAddressSource   string              `json:"client_address_source,omitempty"`
+	ServerSessionVerified bool                `json:"-"`
 	// BrowserEventsVerified is set only by a trusted in-process boundary after
 	// reading the server-side event store. A caller-supplied count must never
 	// create benign continuity evidence by itself.
 	BrowserEventsVerified bool `json:"-"`
+}
+
+// CrawlerClass is an operator-controlled purpose class, not an identity claim.
+// Training crawlers are deliberately distinct from search and answer-engine
+// retrieval so deployments can apply their robots and licensing policy.
+type CrawlerClass string
+
+const (
+	CrawlerClassUnknown            CrawlerClass = "unknown"
+	CrawlerClassSearchIndexer      CrawlerClass = "search_indexer"
+	CrawlerClassAnswerEngine       CrawlerClass = "answer_engine"
+	CrawlerClassTrainingCrawler    CrawlerClass = "training_crawler"
+	CrawlerClassUserTriggeredAgent CrawlerClass = "user_triggered_agent"
+	CrawlerClassPreview            CrawlerClass = "preview"
+	CrawlerClassMonitoring         CrawlerClass = "monitoring"
+	CrawlerClassOther              CrawlerClass = "other"
+)
+
+type CrawlerVerification string
+
+const (
+	CrawlerVerificationUnknown       CrawlerVerification = "unknown"
+	CrawlerVerificationIPUARegistry  CrawlerVerification = "ip_ua_registry"
+	CrawlerVerificationFCrDNSUA      CrawlerVerification = "fcrdns_ua"
+	CrawlerVerificationHTTPSignature CrawlerVerification = "http_signature"
+)
+
+func NormalizeCrawlerClass(value CrawlerClass) (CrawlerClass, bool) {
+	if value == "" {
+		return CrawlerClassUnknown, true
+	}
+	switch value {
+	case CrawlerClassUnknown, CrawlerClassSearchIndexer, CrawlerClassAnswerEngine,
+		CrawlerClassTrainingCrawler, CrawlerClassUserTriggeredAgent,
+		CrawlerClassPreview, CrawlerClassMonitoring, CrawlerClassOther:
+		return value, true
+	default:
+		return "", false
+	}
+}
+
+func NormalizeCrawlerVerification(value CrawlerVerification) (CrawlerVerification, bool) {
+	if value == "" {
+		return CrawlerVerificationUnknown, true
+	}
+	switch value {
+	case CrawlerVerificationUnknown, CrawlerVerificationIPUARegistry,
+		CrawlerVerificationFCrDNSUA, CrawlerVerificationHTTPSignature:
+		return value, true
+	default:
+		return "", false
+	}
+}
+
+// VerifiedPublicCrawler is the sole gate that lets beneficial automation
+// neutralize automation risk. Identity, verification and public scope must all
+// agree; private/sensitive endpoints and training crawlers never qualify.
+func VerifiedPublicCrawler(observations Observations, endpointClass string) bool {
+	if !observations.VerifiedBot || !publicCrawlerEndpoint(endpointClass) {
+		return false
+	}
+	verification, valid := NormalizeCrawlerVerification(observations.CrawlerVerification)
+	if !valid || verification == CrawlerVerificationUnknown {
+		return false
+	}
+	class, valid := NormalizeCrawlerClass(observations.CrawlerClass)
+	if !valid {
+		return false
+	}
+	switch class {
+	case CrawlerClassSearchIndexer, CrawlerClassAnswerEngine,
+		CrawlerClassUserTriggeredAgent, CrawlerClassPreview:
+		return true
+	default:
+		return false
+	}
+}
+
+func publicCrawlerEndpoint(value string) bool {
+	switch value {
+	case "public_content", "compare_index", "other_public":
+		return true
+	default:
+		return false
+	}
 }
 
 // EvaluationCohort is a coarse, deployment-supplied measurement slice. It is

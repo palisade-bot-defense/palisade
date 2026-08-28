@@ -84,6 +84,13 @@ and actions are instrument artifacts and must not be used for calibration.
 Reanalysis cannot rewrite a historical decision; begin a new comparison window
 after deploying v9.
 
+`transparent-baseline-v10` and policy `default-v5` narrow beneficial crawler
+handling to a complete verified-purpose tuple on an indexable public endpoint.
+Earlier `verified_bot`-only decisions are not evidence that a crawler identity
+was cryptographically or network verified and must not be used to estimate SEO
+or answer-engine false-positive rates. Start a new comparison window after the
+v10 deployment and monitor the aggregate crawler-identity posture separately.
+
 This collection bridge requires the encrypted sink and signed session cookie.
 It rejects signed rollout configuration and therefore cannot enforce. Disable
 it before enabling the origin middleware or a rollout; otherwise flush-based
