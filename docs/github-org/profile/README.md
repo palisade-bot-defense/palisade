@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>Adaptive bot defense, built together.</strong><br>
+  <strong>Open-source signal fusion for bot defense.</strong><br>
   Explainable decisions, privacy-limited signals, and measurable rollout gates.
 </p>
 
@@ -41,6 +41,6 @@ The PALISADE core is licensed under **GNU AGPL-3.0-only**. The browser sensor is
 
 ## Participate safely
 
-Design discussion and defensive research are welcome through the repository's issue templates. Substantive external code contributions remain paused until the separate contributor agreement is active. Never attach production traffic, personal data, credentials, or bypass details for real installations to a public issue.
+Design discussion, defensive research and narrowly scoped code contributions are welcome through the repository. Contributions use the license covering the affected path. Never attach production traffic, personal data, credentials, or bypass details for real installations to a public issue.
 
 Report vulnerabilities privately through [GitHub Security Advisories](https://github.com/palisade-bot-defense/palisade/security/advisories/new). See the full [security policy](https://github.com/palisade-bot-defense/palisade/security/policy) and [contribution status](https://github.com/palisade-bot-defense/palisade/blob/main/CONTRIBUTING.md).

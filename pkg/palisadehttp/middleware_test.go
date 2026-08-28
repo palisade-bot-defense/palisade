@@ -371,6 +371,8 @@ func TestMiddlewarePassesClosedSignalsWithoutRawRequestData(t *testing.T) {
 	middleware.signals = func(*http.Request) (Signals, error) {
 		return Signals{
 			UserAgentPresent: true, TransportProtocol: "provider-spoof", TransportSecurity: "provider-spoof", ClientAddressSource: "provider-spoof",
+			EdgeFingerprintClass: "automation_consistent", EdgeFingerprintMethod: "tls_http2",
+			NetworkReputation: "elevated_risk", NetworkType: "hosting",
 		}, nil
 	}
 	var nextCalls atomic.Int32
@@ -415,6 +417,30 @@ func TestMiddlewarePassesClosedSignalsWithoutRawRequestData(t *testing.T) {
 			if !bytes.Contains(body, expected) {
 				t.Fatalf("normalized transport field %s missing: %s", expected, body)
 			}
+		}
+		for _, expected := range [][]byte{[]byte(`"edge_fingerprint_class":"automation_consistent"`), []byte(`"edge_fingerprint_method":"tls_http2"`), []byte(`"network_reputation":"elevated_risk"`), []byte(`"network_type":"hosting"`)} {
+			if !bytes.Contains(body, expected) {
+				t.Fatalf("closed edge field %s missing: %s", expected, body)
+			}
+		}
+	}
+}
+
+func TestEdgeIntelligenceRejectsRawOrUnpairedValues(t *testing.T) {
+	valid := Signals{EdgeFingerprintClass: "automation_consistent", EdgeFingerprintMethod: "tls_http2", NetworkReputation: "elevated_risk", NetworkType: "hosting"}
+	if !validEdgeIntelligence(valid) {
+		t.Fatal("valid closed edge intelligence was rejected")
+	}
+	invalid := []Signals{
+		{EdgeFingerprintClass: "ja4:a1b2c3", EdgeFingerprintMethod: "tls"},
+		{EdgeFingerprintClass: "automation_consistent"},
+		{EdgeFingerprintMethod: "http2"},
+		{NetworkReputation: "provider-score-92"},
+		{NetworkType: "AS13335"},
+	}
+	for _, signals := range invalid {
+		if validEdgeIntelligence(signals) {
+			t.Fatalf("invalid edge intelligence accepted: %+v", signals)
 		}
 	}
 }

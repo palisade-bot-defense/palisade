@@ -11,6 +11,10 @@ PALISADE should decide from behavior without reconstructing a person's content.
 - Server-side protocol consistency signals.
 - Closed transport protocol/security and client-address provenance classes;
   never the peer, proxy or client address itself.
+- Closed edge-fingerprint method/class and network reputation/type classes
+  computed by a trusted deployment adapter. Raw JA4/JA3 hashes, HTTP/2
+  fingerprints, IP addresses, ASNs, reverse-DNS names, provider scores and
+  vendor labels never enter PALISADE.
 - Closed crawler purpose and proof-method classes derived at the trusted origin.
   The reference adapter may compare an address and user-agent transiently with
   an operator-supplied local registry, but sends and retains only the closed

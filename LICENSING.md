@@ -16,12 +16,9 @@ PALISADE uses a clearly separated license structure:
   dependency metadata.
 
 No license in this repository grants rights to PALISADE names, logos or other
-trademarks except as necessary for reasonable attribution. Commercial support,
-managed hosting and alternative licensing may be offered separately; those
-arrangements do not remove the rights already granted for the published code
-under AGPL-3.0-only or Apache-2.0.
+trademarks except as necessary for reasonable attribution.
 
-The contributor agreement is a separate governance document and is not yet
-active. Until its acceptance process is finalized, substantive external code
-contributions remain paused; this does not make the published software
-unlicensed.
+Contributions are accepted under the license that covers the affected path:
+AGPL-3.0-only by default, or Apache-2.0 under `sensor/`. Contributors retain
+their copyright. The repository does not require copyright assignment or a
+separate contributor license agreement; see [`CONTRIBUTING.md`](CONTRIBUTING.md).

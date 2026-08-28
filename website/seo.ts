@@ -19,21 +19,21 @@ export const normalizePublicSiteUrl = (raw: string | undefined): string | null =
 export const createSeoArtifacts = (rawPublicSiteUrl: string | undefined): SeoArtifacts => {
   const publicSiteUrl = normalizePublicSiteUrl(rawPublicSiteUrl);
   const repository = "https://github.com/palisade-bot-defense/palisade";
-  const description = "Explainable bot defense with private shadow measurement, reversible enforcement, and locally controlled evidence.";
+  const description = "Open-source, self-hosted signal fusion for explainable bot and abuse decisions.";
   const llms = [
     "# PALISADE",
     "",
     `> ${description}`,
     "",
-    "PALISADE is self-hostable bot-defense infrastructure. It separates automation, abuse intent, and account continuity; starts in shadow mode; and requires signed, reversible rollout approval before risky enforcement.",
+    "PALISADE is an open-source, self-hosted signal-fusion and policy layer. It separates automation, abuse intent, and account continuity; starts in shadow mode; and requires signed, reversible rollout approval before risky enforcement.",
     "",
     "## Facts",
     "",
-    "- Product: PALISADE bot defense",
+    "- Project: PALISADE open-source signal fusion for bot defense",
     "- Core license: AGPL-3.0-only",
     "- Browser sensor license: Apache-2.0",
     "- Data model: closed, normalized signals; no cross-site identity graph",
-    "- Availability: open-source core available; managed service is early access",
+    "- Availability: early prototype; no production-supported or managed-service release",
     `- Source and technical documentation: ${repository}`,
     ...(publicSiteUrl ? [`- Official product page: ${publicSiteUrl}`] : []),
     "",

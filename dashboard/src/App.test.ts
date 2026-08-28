@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { collectionRateLabel, collectionStateCopy, countComparableCanaries, crawlerIdentityCopy, explainReason, formatInterval, originCoverageCopy, outcomeFlowCopy, scoreEvidenceState, transportPostureCopy } from "./App";
+import { createDemoSummary } from "./demo";
 
 describe("aggregate endpoint evidence", () => {
   it("does not invent an interval for an absent sample", () => {
@@ -14,7 +15,17 @@ describe("aggregate endpoint evidence", () => {
 
   it("explains known and future stable reason codes without exposing rows", () => {
     expect(explainReason("NAVIGATION_SURFACE_SWEEP")).toContain("endpoint classes");
+    expect(explainReason("EDGE_AUTOMATION_PROFILE")).toContain("raw fingerprint");
     expect(explainReason("FUTURE_REASON_CODE")).toContain("versioned rule");
+  });
+
+  it("marks the bundled demo as synthetic and non-enforcing", () => {
+    const summary = createDemoSummary(new Date("2026-08-28T12:00:00Z"));
+    expect(summary.runtime.mode).toBe("shadow");
+    expect(summary.analysis?.readiness.automatic_enforcement).toBe(false);
+    expect(summary.traffic.enforced.challenge).toBe(0);
+    expect(summary.traffic.computed.challenge).toBeGreaterThan(0);
+    expect(summary.analysis?.recommendations.some((item) => item.code === "KEEP_SHADOW_MODE")).toBe(true);
   });
 
   it("does not present the neutral prior as measured intent risk", () => {

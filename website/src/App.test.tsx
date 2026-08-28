@@ -2,17 +2,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
 
-describe("business website", () => {
-  it("states the complete business offer and honest availability boundary", () => {
+describe("open-source project website", () => {
+  it("states the repository scope and honest maturity boundary", () => {
     const html = renderToStaticMarkup(<App />);
 
-    expect(html).toContain("Palisade Core");
-    expect(html).toContain("Palisade Pilot");
-    expect(html).toContain("Palisade Managed");
-    expect(html).toContain("Available now");
-    expect(html).toContain("Design partner");
-    expect(html).toContain("Early access");
-    expect(html).toContain("production SLAs");
+    expect(html).toContain("ONE OPEN-SOURCE PROJECT");
+    expect(html).toContain("Decision service");
+    expect(html).toContain("Origin integration");
+    expect(html).toContain("Local evaluation");
+    expect(html).toContain("not a production-supported release");
+    expect(html).not.toContain('href="#contact"');
   });
 
   it("makes the security and licensing boundaries visible", () => {
@@ -28,8 +27,15 @@ describe("business website", () => {
   it("keeps the demo explicitly illustrative", () => {
     const html = renderToStaticMarkup(<App />);
 
-    expect(html).toContain("Illustrative, not customer data");
+    expect(html).toContain("Illustrative, not customer data or measured efficacy");
     expect(html).toContain("Shadow-first");
     expect(html).toContain("computed CHALLENGE");
+  });
+
+  it("does not expose a sales or contact funnel", () => {
+    const html = renderToStaticMarkup(<App />);
+    expect(html).toContain("No analytics, form submissions or private contact funnel");
+    expect(html).not.toContain("mailto:");
+    expect(html).not.toContain("VITE_CONTACT_URL");
   });
 });

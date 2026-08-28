@@ -50,18 +50,22 @@ type Classification struct {
 }
 
 type Signals struct {
-	UserAgentPresent    bool    `json:"user_agent_present"`
-	BrowserEventCount   int     `json:"browser_event_count"`
-	HoneypotHits        int     `json:"honeypot_hits"`
-	ChallengeVerdict    string  `json:"challenge_verdict,omitempty"`
-	ExternalRiskScore   float64 `json:"external_risk_score,omitempty"`
-	PolicyAlert         bool    `json:"policy_alert"`
-	VerifiedBot         bool    `json:"verified_bot"`
-	CrawlerClass        string  `json:"crawler_class,omitempty"`
-	CrawlerVerification string  `json:"crawler_verification,omitempty"`
-	TransportProtocol   string  `json:"transport_protocol"`
-	TransportSecurity   string  `json:"transport_security"`
-	ClientAddressSource string  `json:"client_address_source"`
+	UserAgentPresent      bool    `json:"user_agent_present"`
+	BrowserEventCount     int     `json:"browser_event_count"`
+	HoneypotHits          int     `json:"honeypot_hits"`
+	ChallengeVerdict      string  `json:"challenge_verdict,omitempty"`
+	ExternalRiskScore     float64 `json:"external_risk_score,omitempty"`
+	PolicyAlert           bool    `json:"policy_alert"`
+	VerifiedBot           bool    `json:"verified_bot"`
+	CrawlerClass          string  `json:"crawler_class,omitempty"`
+	CrawlerVerification   string  `json:"crawler_verification,omitempty"`
+	TransportProtocol     string  `json:"transport_protocol"`
+	TransportSecurity     string  `json:"transport_security"`
+	ClientAddressSource   string  `json:"client_address_source"`
+	EdgeFingerprintClass  string  `json:"edge_fingerprint_class,omitempty"`
+	EdgeFingerprintMethod string  `json:"edge_fingerprint_method,omitempty"`
+	NetworkReputation     string  `json:"network_reputation,omitempty"`
+	NetworkType           string  `json:"network_type,omitempty"`
 }
 
 type Classifier func(*http.Request) (Classification, error)

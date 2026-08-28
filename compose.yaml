@@ -1,0 +1,23 @@
+services:
+  palisade-demo:
+    build:
+      context: .
+    image: palisade:local-demo
+    command:
+      - serve
+      - --dev
+      - --listen
+      - 0.0.0.0:8080
+      - --admin-listen
+      - 0.0.0.0:8081
+      - --dev-container-admin
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8081:8081"

@@ -13,6 +13,8 @@ vendor payloads, headers and free text from silently becoming trusted features.
 | Server-issued session | `__Host-palisade_session` | PALISADE-signed HttpOnly cookie | Continuity only; never human identity |
 | Protocol presence | `user_agent_present` | Trusted origin observation | Automation consistency |
 | Transport normalization | `transport_protocol`, `transport_security`, `client_address_source` | Reference origin adapter plus explicit trusted-proxy CIDRs | Closed data-quality context; not scored until calibrated |
+| Edge fingerprint classification | `edge_fingerprint_class` + `edge_fingerprint_method` | Trusted reverse proxy or edge adapter | Suspicious automation context only; never human proof |
+| Network context | `network_reputation` + `network_type` | Trusted local reputation/ASN adapter | Conservative automation/intent context; never a standalone allow or block |
 | Honeypot interaction | `honeypot_hits` | Trusted origin adapter | Abuse intent |
 | Challenge result | `challenge_verdict` | Trusted challenge adapter | Suspicious automation only; pass is not human proof |
 | External score | `external_risk_score` | Trusted server-side adapter | Abuse intent, bounded to 0..1 |
@@ -24,6 +26,15 @@ Client-controlled forwarding headers must not set trusted observations. Resolve
 the actual TCP peer and proxy allowlist in the deployment adapter first. If a
 proxy supplies a client address, accept it only when the direct peer belongs to
 the configured trusted proxy network.
+
+JA4/JA3 and HTTP/2 fingerprints, client addresses, ASNs, reverse-DNS results and
+provider-specific reputation values are processed only inside the trusted edge
+adapter. The adapter maps them to the closed fingerprint method/class, network
+type and reputation enums before calling PALISADE. It must reject unknown
+provider values rather than forwarding or hashing them. A fingerprint class is
+valid only together with its method. `browser_consistent`, `low_risk`,
+`residential` and `mobile` produce no benign evidence: they do not establish a
+person, a unique device or acceptable intent.
 
 The event proof is action-bound to the literal `events`. A token minted for
 `read` is valid cryptographically but is correctly rejected by `/v1/events`.
@@ -96,7 +107,11 @@ with `POST /v1/token`, then submits a normalized decision request:
     "policy_alert": false,
     "verified_bot": false,
     "crawler_class": "unknown",
-    "crawler_verification": "unknown"
+    "crawler_verification": "unknown",
+    "edge_fingerprint_class": "automation_consistent",
+    "edge_fingerprint_method": "tls_http2",
+    "network_reputation": "elevated_risk",
+    "network_type": "hosting"
   }
 }
 ```
@@ -122,7 +137,7 @@ The response separates what PALISADE recommends from what it actually applies:
   "reason_codes": ["STEP_UP_REQUIRED", "SHADOW_ACTION_OVERRIDDEN"],
   "evidence": [],
   "policy_version": "default-v5",
-  "model_version": "transparent-baseline-v10",
+  "model_version": "transparent-baseline-v11",
   "expires_at": "2026-08-27T12:00:30Z"
 }
 ```

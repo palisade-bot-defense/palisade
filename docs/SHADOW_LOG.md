@@ -91,6 +91,12 @@ was cryptographically or network verified and must not be used to estimate SEO
 or answer-engine false-positive rates. Start a new comparison window after the
 v10 deployment and monitor the aggregate crawler-identity posture separately.
 
+`transparent-baseline-v11` adds only closed edge-fingerprint and network-context
+classes. Raw JA4/JA3 or HTTP/2 fingerprints, addresses, ASNs and vendor labels
+remain outside PALISADE. These new classes create conservative suspicious
+evidence only and must begin a fresh shadow comparison window; a browser-like,
+residential or low-risk class is never a confirmed-human label.
+
 This collection bridge requires the encrypted sink and signed session cookie.
 It rejects signed rollout configuration and therefore cannot enforce. Disable
 it before enabling the origin middleware or a rollout; otherwise flush-based

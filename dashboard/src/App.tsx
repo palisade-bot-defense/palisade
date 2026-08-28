@@ -1,4 +1,5 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
+import { createDemoSummary } from "./demo";
 
 type Health = "checking" | "ready" | "offline";
 type LoadState = "locked" | "loading" | "ready" | "unauthorized" | "error";
@@ -75,7 +76,7 @@ type Analysis = {
   canary_comparisons: { rollout_id: string; endpoint_class: string; comparable: boolean; canary_decisions: number; computed_risk_difference: { estimate: number; lower_95: number; upper_95: number } }[];
   recommendations: Recommendation[];
 };
-type Summary = {
+export type Summary = {
   schema_version: string;
   generated_at: string;
   uptime_seconds: number;
@@ -147,6 +148,12 @@ const reasonCopy: Record<string, string> = {
   COMPARE_NOINDEX_CAMPAIGN_SURFACE: "The request reached a public comparison surface associated with the configured campaign pattern.",
   POLICY_ALERT: "A trusted deployment policy adapter reported elevated abuse intent.",
   EXTERNAL_RISK: "A trusted external adapter contributed a normalized risk signal.",
+  EDGE_AUTOMATION_PROFILE: "A trusted edge adapter classified the TLS or HTTP/2 profile as automation-consistent without sending the raw fingerprint.",
+  EDGE_PROTOCOL_ANOMALY: "A trusted edge adapter reported a closed protocol-profile anomaly.",
+  NETWORK_REPUTATION_ELEVATED: "A trusted local reputation adapter reported elevated network risk.",
+  NETWORK_REPUTATION_HIGH: "A trusted local reputation adapter reported high network risk.",
+  NETWORK_HOSTING_CONTEXT: "A trusted network adapter classified the connection as hosting context; this is not abuse by itself.",
+  NETWORK_ANONYMIZER_CONTEXT: "A trusted network adapter classified anonymizer context; this is not abuse by itself.",
   CHALLENGE_VERDICT_SUSPICIOUS: "A trusted challenge adapter reported a suspicious outcome.",
   VERIFIED_PUBLIC_CRAWLER: "A trusted origin adapter verified a declared crawler class for an indexable public endpoint.",
   VERIFIED_PUBLIC_CRAWLER_ALLOWED: "A verified beneficial crawler remained below intent and continuity risk thresholds on a public endpoint.",
@@ -167,10 +174,12 @@ function StatusPill({ enabled, children }: { enabled: boolean; children: ReactNo
 }
 
 export function App() {
-  const [health, setHealth] = useState<Health>("checking");
-  const [loadState, setLoadState] = useState<LoadState>("locked");
-  const [adminKey, setAdminKey] = useState("");
-  const [summary, setSummary] = useState<Summary | null>(null);
+	const initialDemo = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1";
+	const [health, setHealth] = useState<Health>("checking");
+	const [loadState, setLoadState] = useState<LoadState>(initialDemo ? "ready" : "locked");
+	const [adminKey, setAdminKey] = useState("");
+	const [summary, setSummary] = useState<Summary | null>(() => initialDemo ? createDemoSummary(new Date()) : null);
+	const [syntheticDemo, setSyntheticDemo] = useState(initialDemo);
   const [refreshSeconds, setRefreshSeconds] = useState(10);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshWarning, setRefreshWarning] = useState(false);
@@ -225,10 +234,11 @@ export function App() {
     void refresh(adminKey);
   }
 
-  function lock() {
-    setAdminKey("");
-    setSummary(null);
-    setLoadState("locked");
+	function lock() {
+		setAdminKey("");
+		setSummary(null);
+		setSyntheticDemo(false);
+		setLoadState("locked");
   }
 
   const generatedAt = summary ? new Date(summary.generated_at) : null;
@@ -240,7 +250,7 @@ export function App() {
         <img src="/palisade-horizontal.svg" alt="PALISADE" />
         <nav>
           <span className={`health ${health}`}><i /> runtime {health}</span>
-          {loadState === "ready" && <><button className="text-button" onClick={() => void refresh(adminKey)}>Refresh now</button><button className="text-button" onClick={lock}>Lock console</button></>}
+		  {loadState === "ready" && <>{!syntheticDemo && <button className="text-button" onClick={() => void refresh(adminKey)}>Refresh now</button>}<button className="text-button" onClick={lock}>{syntheticDemo ? "Exit demo" : "Lock console"}</button></>}
         </nav>
       </header>
 
@@ -257,15 +267,16 @@ export function App() {
             <p>The key stays in this tab&apos;s memory and is never written to browser storage.</p>
             <label htmlFor="admin-key">PALISADE_ADMIN_KEY</label>
             <input id="admin-key" type="password" autoComplete="off" value={adminKey} onChange={(event) => setAdminKey(event.target.value)} required />
-            <button type="submit" disabled={loadState === "loading"}>{loadState === "loading" ? "Connecting…" : "Open console"}</button>
+			<button type="submit" disabled={loadState === "loading"}>{loadState === "loading" ? "Connecting…" : "Open console"}</button>
+			<a className="demo-link" href="?demo=1">View a clearly marked synthetic demo</a>
             {loadState === "unauthorized" && <p className="form-error" role="alert">The operator key was rejected.</p>}
             {loadState === "error" && <p className="form-error" role="alert">The local admin endpoint is unavailable.</p>}
           </form>
         </section>
       ) : (
         <>
-          <div className={`connection-banner ${refreshWarning || stale ? "warning" : "ok"}`} role="status" aria-live="polite">
-            <span>{refreshWarning ? "Refresh failed — showing the last valid summary." : stale ? "Summary is stale — verify the local service." : "Live aggregate telemetry connected."}</span>
+		  <div className={`connection-banner ${syntheticDemo ? "demo" : refreshWarning || stale ? "warning" : "ok"}`} role="status" aria-live="polite">
+			<span>{syntheticDemo ? "Synthetic demo — illustrative aggregates, not live traffic or measured efficacy." : refreshWarning ? "Refresh failed — showing the last valid summary." : stale ? "Summary is stale — verify the local service." : "Live aggregate telemetry connected."}</span>
             <b>{generatedAt ? generatedAt.toLocaleString() : "No timestamp"}</b>
           </div>
           <section className="console-heading">

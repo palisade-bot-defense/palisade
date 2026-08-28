@@ -1,5 +1,31 @@
 # Evaluation protocol
 
+## Minimum viable validation campaign
+
+The current detector is not validated by repository size, feature count or an
+unlabeled traffic sample. Before making a detection-efficacy claim, run one
+falsifiable four-week shadow campaign on representative traffic:
+
+1. Week 1 verifies integration coverage, route classes, collection loss and
+   outcome linkage. Detector thresholds do not change while instrumentation is
+   suspect.
+2. Weeks 2–3 collect complete traffic cycles with authenticated or
+   operator-reviewed human outcomes, operator-confirmed abuse and explicit
+   unknowns. Challenge completion remains an outcome, not a human label.
+3. Week 4 freezes thresholds and evaluates a time-separated holdout plus unseen
+   attack families. Compare the fused decision against the deployment's edge
+   and reputation baseline; report incremental lift rather than crediting
+   PALISADE for upstream signals.
+4. Publish aggregate coverage, label provenance, confidence intervals,
+   latency, false-positive rate, recall, challenge abandonment and every
+   material cohort gap. A count threshold alone is not representativeness.
+
+The campaign fails—and enforcement stays off—if confirmed humans do not cover
+the protected endpoint classes and relevant browser/accessibility cohorts, if
+the external traffic denominator is missing, if collection artifacts remain,
+or if the time-separated comparison does not improve the declared security
+metric within the false-positive and abandonment budgets.
+
 ## Unit of evaluation
 
 Evaluate a session/action decision, not an isolated request. Preserve event order and time while replacing direct identifiers with pilot-scoped pseudonyms. Keep raw source data outside the repository.

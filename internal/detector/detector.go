@@ -46,7 +46,7 @@ func NewRegistry(detectors ...Detector) *Registry {
 func NewDefaultRegistry() *Registry {
 	return NewRegistry(
 		ProtocolConsistency{}, SequenceVelocity{}, NavigationGraph{},
-		DecoyInteraction{}, CampaignSurface{}, ExternalVerdicts{},
+		DecoyInteraction{}, CampaignSurface{}, ExternalVerdicts{}, EdgeIntelligence{},
 	)
 }
 

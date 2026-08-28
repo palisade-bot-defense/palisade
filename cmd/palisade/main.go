@@ -227,6 +227,7 @@ func serve(args []string) error {
 	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
 	listen := flags.String("listen", "127.0.0.1:8080", "public decision API listen address")
 	adminListen := flags.String("admin-listen", "127.0.0.1:8081", "loopback-only operator console listen address")
+	devContainerAdmin := flags.Bool("dev-container-admin", false, "development only: allow the admin listener on 0.0.0.0 for a host-loopback-published demo container")
 	adminAnalysisReport := flags.String("admin-analysis-report", "", "owner-only aggregate analysis report outside every Git worktree")
 	adminAnalysisRefresh := flags.Duration("admin-analysis-refresh", 30*time.Second, "poll interval for an atomically replaced aggregate analysis report")
 	dev := flags.Bool("dev", false, "allow ephemeral local secrets and proof-free decisions")
@@ -249,7 +250,10 @@ func serve(args []string) error {
 	if flags.NArg() != 0 {
 		return errors.New("serve does not accept positional arguments")
 	}
-	if err := validateAdminListen(*adminListen); err != nil {
+	if *devContainerAdmin && !*dev {
+		return errors.New("--dev-container-admin requires --dev")
+	}
+	if err := validateAdminListenForServe(*adminListen, *devContainerAdmin); err != nil {
 		return err
 	}
 	mode, err := parseRuntimeMode(*modeName)
@@ -559,6 +563,21 @@ func validateAdminListen(address string) error {
 	portNumber, err := strconv.Atoi(port)
 	if ip == nil || !ip.IsLoopback() || err != nil || portNumber < 1 || portNumber > 65535 {
 		return errors.New("--admin-listen must be a loopback IP and port")
+	}
+	return nil
+}
+
+func validateAdminListenForServe(address string, devContainerAdmin bool) error {
+	if err := validateAdminListen(address); err == nil {
+		return nil
+	}
+	if !devContainerAdmin {
+		return errors.New("--admin-listen must be a loopback IP and port")
+	}
+	host, port, err := net.SplitHostPort(address)
+	portNumber, portErr := strconv.Atoi(port)
+	if err != nil || portErr != nil || host != "0.0.0.0" || portNumber < 1 || portNumber > 65535 {
+		return errors.New("--dev-container-admin accepts only 0.0.0.0 with a valid port")
 	}
 	return nil
 }

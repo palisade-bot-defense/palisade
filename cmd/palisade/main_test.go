@@ -186,6 +186,20 @@ func TestAdminListenerIsLoopbackOnly(t *testing.T) {
 	}
 }
 
+func TestContainerAdminExceptionIsExplicitAndNarrow(t *testing.T) {
+	if err := validateAdminListenForServe("0.0.0.0:8081", true); err != nil {
+		t.Fatalf("explicit development container listener rejected: %v", err)
+	}
+	for _, address := range []string{"0.0.0.0:0", "[::]:8081", "192.0.2.10:8081", "localhost:8081"} {
+		if err := validateAdminListenForServe(address, true); err == nil {
+			t.Fatalf("unsafe container listener %q accepted", address)
+		}
+	}
+	if err := validateAdminListenForServe("0.0.0.0:8081", false); err == nil {
+		t.Fatal("non-loopback listener accepted without explicit development exception")
+	}
+}
+
 func TestAdminSecretIsRequiredAndDistinct(t *testing.T) {
 	t.Setenv("PALISADE_ADMIN_KEY", "")
 	if key, err := adminSecret(true, "development-only"); err != nil || key != "development-only-admin" {

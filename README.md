@@ -3,11 +3,21 @@
 </p>
 
 <p align="center">
-  Behavior-first bot defense with explainable, privacy-limited decisions.
+  Open-source, explainable signal fusion for bot and abuse decisions.
 </p>
 
 > [!IMPORTANT]
-> PALISADE is an early defensive prototype. It does not claim perfect bot detection and must begin in shadow mode. No CAPTCHA or behavior model can guarantee 100% separation against an adaptive attacker.
+> PALISADE is an early defensive prototype. It does not claim perfect bot detection and must begin in shadow mode. Its false-positive rate is not yet calibrated on a representative confirmed-human cohort. No CAPTCHA, fingerprint or behavior model can guarantee 100% separation against an adaptive attacker.
+
+## Project focus
+
+PALISADE is developed as a self-hosted open-source project: an explainable
+fusion and policy layer for bounded bot and abuse signals. The current priority
+is a reproducible local experience, representative shadow evaluation and useful
+adapters—not hosted SaaS, managed operations, billing or commercial product
+tiers. Strong edge signals such as protocol fingerprints and reputation can be
+normalized by a trusted deployment adapter; PALISADE does not need to own every
+detector to make their combined decision auditable.
 
 ## What exists today
 
@@ -19,11 +29,52 @@ PALISADE keeps three questions separate:
 - **Abuse intent:** how likely is the current action harmful?
 - **Account continuity:** how consistent is this session with its established behavior?
 
-Every decision response includes the enforced `action`, the unmodified `computed_action`, the runtime `mode`, stable reason codes, policy/model versions and an expiry time. The current reported versions are policy `default-v5` and model `transparent-baseline-v10`. The progressive action vocabulary is `allow → observe → delay → throttle → challenge → block`: `delay` is a one-second retry response, never a sleep in the PALISADE hot path, and is enforced only by a valid signed rollout. Beneficial crawler handling requires a purpose class, a strong local verification method and an indexable public endpoint; a user-agent or `verified_bot` boolean alone is never allowlisted, and training crawlers are policy-controlled. The Go origin adapter can atomically watch a signed, expiring local crawler registry and falls back to `unknown` after expiry without performing vendor or DNS lookups in the request path. See [crawler identity and SEO/GEO safety](docs/CRAWLER_IDENTITY.md). Session volume, fast bursts and broad navigation sweeps remain conservative evidence because the current offline evaluation has too few confirmed-human clients to calibrate a false-positive rate. Completing a proof-of-work challenge is an outcome, not benign-automation evidence; browser automation may complete the same challenge routinely. Browser-event counts create benign continuity evidence only after PALISADE verifies them against its own bounded event store. A score fixed at `0.5` means that no evidence moved that dimension away from its neutral prior; it is not a measured 50% abuse probability.
+Every decision response includes the enforced `action`, the unmodified
+`computed_action`, the runtime `mode`, stable reason codes, policy/model
+versions and an expiry time. The current reported versions are policy
+`default-v5` and model `transparent-baseline-v11`. The progressive action
+vocabulary is `allow → observe → delay → throttle → challenge → block`:
+`delay` is a one-second retry response, never a sleep in the PALISADE hot path,
+and is enforced only by a valid signed rollout.
+
+Beneficial crawler handling requires a purpose class, a strong local
+verification method and an indexable public endpoint; a user-agent or
+`verified_bot` boolean alone is never allowlisted, and training crawlers are
+policy-controlled. The Go origin adapter can atomically watch a signed,
+expiring local crawler registry and falls back to `unknown` after expiry without
+performing vendor or DNS lookups in the request path. See
+[crawler identity and SEO/GEO safety](docs/CRAWLER_IDENTITY.md).
+
+Trusted edge adapters may normalize TLS/JA4, HTTP/2, ASN and IP-reputation
+results into closed classes. Raw fingerprints, addresses, ASNs and vendor
+labels never enter PALISADE, and no browser-like, residential or low-risk class
+is treated as human evidence. Session volume, fast bursts and broad navigation
+sweeps remain conservative evidence because the current offline evaluation has
+too few confirmed-human clients to calibrate a false-positive rate. Completing
+a proof-of-work challenge is an outcome, not benign-automation evidence;
+browser automation may complete the same challenge routinely. Browser-event
+counts create benign continuity evidence only after PALISADE verifies them
+against its own bounded event store. A score fixed at `0.5` means that no
+evidence moved that dimension away from its neutral prior; it is not a measured
+50% abuse probability.
 
 ## Quick start
 
-Requirements: Go 1.27, Node.js 24 and pnpm 11.24.
+The fastest path is the loopback-only synthetic demo. It never loads private
+traffic and cannot enforce a risky action:
+
+```sh
+docker compose up --build
+```
+
+Open `http://127.0.0.1:8081/?demo=1`. The banner and all sample values are
+explicitly marked synthetic; they demonstrate the Operator Console contract,
+not measured detection efficacy. The demo-only container exception binds the
+admin listener inside the container while Docker publishes it only on host
+loopback. Do not copy `--dev-container-admin` into a deployment configuration.
+
+For local source development, requirements are Go 1.27, Node.js 24 and pnpm
+11.24:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -147,23 +198,18 @@ The first deployment should ingest normalized challenge, external-risk and polic
 
 Authorized historical exports can be normalized with the local-only `palisade import-offline` command. Raw inputs and normalized outputs must stay outside every Git worktree. The importer accepts only `offline_export`, never emits raw rows, and treats upstream policy outcomes as weak labels rather than ground truth. Deployment-local and opt-in community ingestion are future, separate trust boundaries and are not accepted by this command.
 
-See the [architecture and stack](docs/ARCHITECTURE.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
+See the [architecture and stack](docs/ARCHITECTURE.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
 
 ## Project status and license
 
 The PALISADE server, dashboard, policies, CLI and documentation are licensed under **GNU AGPL-3.0-only**. The browser sensor under [`sensor/`](sensor/) is independently licensed under **Apache-2.0** for straightforward integration. See [the licensing map](LICENSING.md), the root [`LICENSE`](LICENSE) and [`sensor/LICENSE`](sensor/LICENSE).
 
-Commercial support, managed hosting and alternative licensing may be offered separately. The published AGPL-3.0-only and Apache-2.0 grants remain valid for their respective code. No software license grants rights to PALISADE names or logos beyond reasonable attribution.
+No software license grants rights to PALISADE names or logos beyond reasonable attribution.
 Bundled dependency notices are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-The commercial product is defined as three honest deployment paths: self-hosted
-**Palisade Core**, a scoped **Palisade Pilot** service and dedicated single-tenant
-**Palisade Managed** early access. The public website lives in [`website/`](website/);
-the availability boundary, buyer, deliverables, success metrics and remaining
-commercial launch gates are documented in the
-[business product specification](docs/product/BUSINESS_PRODUCT.md). The website
-contains no analytics or customer-data collection and accepts a private contact
-URL only through `VITE_CONTACT_URL` at build time.
+The public project website lives in [`website/`](website/). It contains no
+analytics, forms or customer-data collection and describes only capabilities
+available in this repository.
 
 ## Contributing and security
 
