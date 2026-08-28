@@ -470,7 +470,7 @@ func buildEngine(secret []byte, requireProof bool, mode core.RuntimeMode, option
 	if err != nil {
 		return nil, nil, err
 	}
-	registry := detector.NewRegistry(detector.ProtocolConsistency{}, detector.SequenceVelocity{}, detector.NavigationGraph{}, detector.DecoyInteraction{}, detector.CampaignSurface{}, detector.ExternalVerdicts{})
+	registry := detector.NewDefaultRegistry()
 	if err := registry.Err(); err != nil {
 		return nil, nil, err
 	}
