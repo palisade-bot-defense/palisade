@@ -32,6 +32,7 @@ type Middleware struct {
 	now          func() time.Time
 	state        *boundedState
 	transport    transportNormalizer
+	edgeHeaders  edgeHeaderNormalizer
 	crawlers     *CrawlerRegistry
 	coverage     *coverageReporter
 }
@@ -101,6 +102,10 @@ func New(config Config) (*Middleware, error) {
 	if err != nil {
 		return nil, err
 	}
+	edgeHeaders, err := newEdgeHeaderNormalizer(config, transport)
+	if err != nil {
+		return nil, err
+	}
 	client := http.DefaultClient
 	if config.HTTPClient != nil {
 		clone := *config.HTTPClient
@@ -126,7 +131,7 @@ func New(config Config) (*Middleware, error) {
 		baseURL: baseURL, apiKey: config.APIKey, client: client, classifier: config.Classifier, signals: config.Signals,
 		failureMode: config.FailureMode, prefix: config.Prefix, fallbackPath: config.FallbackPath,
 		logger: config.Logger, now: time.Now,
-		state: state, transport: transport, crawlers: config.CrawlerRegistry, coverage: coverage,
+		state: state, transport: transport, edgeHeaders: edgeHeaders, crawlers: config.CrawlerRegistry, coverage: coverage,
 	}, nil
 }
 

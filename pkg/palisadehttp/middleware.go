@@ -49,6 +49,18 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		var clientAddress netip.Addr
 		var clientAddressOK bool
 		signals.TransportProtocol, signals.TransportSecurity, signals.ClientAddressSource, clientAddress, clientAddressOK = m.transport.normalizeWithAddress(r)
+		if m.edgeHeaders.enabled {
+			edge, edgeErr := m.edgeHeaders.normalize(r)
+			if edgeErr != nil {
+				m.logger.Error("PALISADE trusted edge headers were invalid")
+				writeAdapterError(w, http.StatusInternalServerError, "palisade_edge_headers_invalid")
+				return
+			}
+			signals.EdgeFingerprintClass = edge.fingerprintClass
+			signals.EdgeFingerprintMethod = edge.fingerprintMethod
+			signals.NetworkReputation = edge.networkReputation
+			signals.NetworkType = edge.networkType
+		}
 		// Identity is always derived at the trusted transport boundary. A custom
 		// signal provider cannot turn a client-supplied user-agent into a verified
 		// crawler claim.

@@ -192,6 +192,41 @@ peer supplied by Go's HTTP server. For a trusted proxy,
 `X-Forwarded-Proto` describes the browser-to-proxy edge even when the
 proxy-to-origin hop also uses TLS.
 
+The same peer boundary can carry already-normalized fingerprint and network
+context. Enable `TrustedEdgeHeaders` only when the proxy strips client-supplied
+copies and overwrites all four fixed headers itself:
+
+```go
+guard, err := palisadehttp.New(palisadehttp.Config{
+    // ...normal required settings...
+    TrustedProxyCIDRs:  []string{"203.0.113.0/24"},
+    TrustedEdgeHeaders: true,
+})
+```
+
+| Fixed header | Accepted values |
+|---|---|
+| `X-Palisade-Edge-Fingerprint-Class` | `unknown`, `browser_consistent`, `automation_consistent`, `anomalous` |
+| `X-Palisade-Edge-Fingerprint-Method` | `unknown`, `tls`, `http2`, `tls_http2` |
+| `X-Palisade-Network-Reputation` | `unknown`, `low_risk`, `elevated_risk`, `high_risk` |
+| `X-Palisade-Network-Type` | `unknown`, `residential`, `mobile`, `hosting`, `enterprise`, `education`, `anonymizer` |
+
+The class and method must either both be known or both be `unknown`. Duplicate,
+comma-separated, oversized and unknown values from a trusted peer fail closed
+before a PALISADE request is sent. The same headers on a direct connection are
+ignored without parsing. When this mode is enabled, these four values replace
+any edge claims returned by the application `SignalProvider`, so a provider
+cannot bypass the configured peer boundary. Raw JA3/JA4, HTTP/2 fingerprints,
+IP addresses, ASNs and provider labels stay at the proxy and never enter the
+adapter request.
+
+A trusted peer alone is not sufficient if it forwards client headers. Configure
+the internet-facing proxy to remove all four names from the incoming request and
+set a value on every forwarded request, using `unknown` when its local classifier
+has no result. Restrict the origin firewall to the same audited proxy networks;
+otherwise a direct client that can connect from an allowed address can cross the
+trust boundary by construction.
+
 ## Challenge behavior
 
 Applied challenges on `GET` requests render an accessible same-origin page

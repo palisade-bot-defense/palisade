@@ -36,6 +36,15 @@ valid only together with its method. `browser_consistent`, `low_risk`,
 `residential` and `mobile` produce no benign evidence: they do not establish a
 person, a unique device or acceptable intent.
 
+The reference Go origin adapter can enforce this boundary with
+`TrustedEdgeHeaders`. It reads only four fixed `X-Palisade-Edge-*` and
+`X-Palisade-Network-*` headers, only when the socket peer belongs to an explicit
+`TrustedProxyCIDRs` entry, and replaces any corresponding `SignalProvider`
+claims. Direct-client copies are ignored; malformed values from a trusted peer
+fail closed. The proxy must strip incoming copies and overwrite the closed
+values on every request. See [the origin-adapter guide](ORIGIN_ADAPTER.md) for
+the exact header contract and deployment firewall requirement.
+
 The event proof is action-bound to the literal `events`. A token minted for
 `read` is valid cryptographically but is correctly rejected by `/v1/events`.
 The sensor asks its proof callback explicitly for `events`, defaults to and

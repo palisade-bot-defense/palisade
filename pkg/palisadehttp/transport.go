@@ -46,7 +46,7 @@ func newTransportNormalizer(config Config) (transportNormalizer, error) {
 	if len(config.TrustedProxyCIDRs) == 0 && (clientHeader != "" || protoHeader != "") {
 		return transportNormalizer{}, ErrInvalidConfig
 	}
-	if len(config.TrustedProxyCIDRs) > 0 && clientHeader == "" && protoHeader == "" {
+	if len(config.TrustedProxyCIDRs) > 0 && clientHeader == "" && protoHeader == "" && !config.TrustedEdgeHeaders {
 		return transportNormalizer{}, ErrInvalidConfig
 	}
 	normalizer := transportNormalizer{clientIPHeader: clientHeader, protoHeader: protoHeader}

@@ -15,6 +15,9 @@ PALISADE should decide from behavior without reconstructing a person's content.
   computed by a trusted deployment adapter. Raw JA4/JA3 hashes, HTTP/2
   fingerprints, IP addresses, ASNs, reverse-DNS names, provider scores and
   vendor labels never enter PALISADE.
+- Fixed trusted-edge headers may carry only those closed categories from an
+  allowlisted socket peer. The reference adapter ignores direct-client copies
+  and never serializes the header names or raw upstream values.
 - Closed crawler purpose and proof-method classes derived at the trusted origin.
   The reference adapter may compare an address and user-agent transiently with
   an operator-supplied local registry, but sends and retains only the closed

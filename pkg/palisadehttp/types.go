@@ -97,6 +97,11 @@ type Config struct {
 	TrustedProxyCIDRs     []string
 	TrustedClientIPHeader string
 	TrustedProtoHeader    string
+	// TrustedEdgeHeaders reads only the four fixed X-Palisade-Edge-* and
+	// X-Palisade-Network-* headers, and only when RemoteAddr belongs to
+	// TrustedProxyCIDRs. The proxy must strip client-supplied copies and set the
+	// closed values itself on every request.
+	TrustedEdgeHeaders bool
 	// CrawlerRegistry verifies a claimed crawler product against a local,
 	// deployment-maintained static or signed expiring IP registry. The adapter
 	// never sends the address or user-agent to PALISADE, and never performs a
