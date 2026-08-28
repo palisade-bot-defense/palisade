@@ -67,6 +67,15 @@ response remains `202` in both cases because retrying an accepted batch would
 duplicate or reorder sequences. Drops are counted in process logs and must be
 included as measurement loss.
 
+The local Operator Console exposes a process-local collection funnel for this
+bridge: successfully issued route-context proofs, accepted event batches,
+recorded shadow decisions, rejected proof/context attempts and post-ingest
+drops. Endpoint counts use only PALISADE's nine closed endpoint classes; paths,
+URLs and referers never enter the counters. This funnel measures internal
+collection completeness only. PALISADE does not observe the total traffic that
+reached the protected site, so it cannot derive or claim a site-wide evaluation
+rate from these counters.
+
 Event-shadow decisions written by model versions before
 `transparent-baseline-v9` used the last browser event number as the decision
 sequence. Those authenticated records remain valid for chain integrity,

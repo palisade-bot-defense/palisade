@@ -368,7 +368,8 @@ func serve(args []string) error {
 	api.WithAdmin(httpapi.AdminConfig{
 		Key: adminKey, StartedAt: time.Now().UTC(), Mode: mode, RolloutID: rolloutID,
 		PolicyVersion: policy.DefaultVersion, ModelVersion: decisionengine.ModelVersion,
-		ShadowLogEnabled: shadowSink != nil, EventShadowEnabled: eventShadowEnabled, AnalysisFeed: analysisFeed,
+		ShadowLogEnabled: shadowSink != nil, EventShadowEnabled: eventShadowEnabled,
+		EventShadowFromProof: *eventShadowFromProof, AnalysisFeed: analysisFeed,
 	})
 	server := &http.Server{
 		Addr:              *listen,
