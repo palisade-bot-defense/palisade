@@ -94,8 +94,9 @@ type Config struct {
 	TrustedClientIPHeader string
 	TrustedProtoHeader    string
 	// CrawlerRegistry verifies a claimed crawler product against a local,
-	// deployment-maintained IP registry. The adapter never sends the address or
-	// user-agent to PALISADE, and never performs a network lookup in the hot path.
+	// deployment-maintained static or signed expiring IP registry. The adapter
+	// never sends the address or user-agent to PALISADE, and never performs a
+	// network lookup in the hot path.
 	CrawlerRegistry *CrawlerRegistry
 }
 

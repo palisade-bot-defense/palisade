@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.bot/schemas/crawler-registry-v1.schema.json",
+  "title": "PALISADE signed crawler registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["payload", "signature"],
+  "properties": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "revision", "issued_at", "expires_at", "entries"],
+      "properties": {
+        "schema_version": { "const": "palisade.crawler-registry.v1" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "issued_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "class", "user_agent_tokens", "cidrs"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[!-~]+$" },
+              "class": {
+                "type": "string",
+                "enum": ["search_indexer", "answer_engine", "training_crawler", "user_triggered_agent", "preview", "monitoring", "other"]
+              },
+              "user_agent_tokens": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": { "type": "string", "minLength": 5, "maxLength": 64, "pattern": "^[!-~]+$" }
+              },
+              "cidrs": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4096,
+                "items": { "type": "string", "minLength": 3, "maxLength": 64 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "signature": { "type": "string", "minLength": 86, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" }
+  }
+}

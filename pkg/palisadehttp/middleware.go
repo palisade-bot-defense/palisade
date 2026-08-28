@@ -56,7 +56,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		signals.CrawlerClass = CrawlerClassUnknown
 		signals.CrawlerVerification = CrawlerVerificationUnknown
 		if m.crawlers != nil && clientAddressOK {
-			signals.VerifiedBot, signals.CrawlerClass, signals.CrawlerVerification = m.crawlers.verify(r.UserAgent(), clientAddress)
+			signals.VerifiedBot, signals.CrawlerClass, signals.CrawlerVerification = m.crawlers.verifyAt(r.UserAgent(), clientAddress, now)
 		}
 		if !validSignals(signals) {
 			m.logger.Error("PALISADE normalized signal provider failed")

@@ -27,27 +27,42 @@ automation. `compare_noindex`, `login`, `account`, `checkout`,
 that touches a decoy or trips an intent rule can still be challenged or
 blocked. This separates identity from authorization.
 
-## Reference Go adapter
+## Signed local registry
 
-Build an immutable registry from an authenticated vendor publication during a
-controlled deployment step, then pass it to the middleware:
+Production deployments should transform authenticated crawler publications in
+an offline or deployment-controlled publisher, review the normalized entries,
+and sign the complete registry. The private Ed25519 key stays with that
+publisher. The origin process receives only the public key and the signed local
+JSON document described by
+[`crawler-registry-v1.schema.json`](../schemas/crawler-registry-v1.schema.json).
+It performs no vendor fetch, DNS lookup or other network request while handling
+an application request.
+
+Start the watcher before serving traffic, then pass the registry to the
+middleware:
 
 ```go
-registry, err := palisadehttp.NewCrawlerRegistry([]palisadehttp.CrawlerIdentity{
-    {
-        Name: "vendor-search",
-        Class: palisadehttp.CrawlerClassSearchIndexer,
-        UserAgentTokens: []string{"VendorSearchBot"},
-        CIDRs: verifiedVendorCIDRs,
-    },
-    {
-        Name: "vendor-answer-retrieval",
-        Class: palisadehttp.CrawlerClassAnswerEngine,
-        UserAgentTokens: []string{"VendorAnswerBot"},
-        CIDRs: verifiedVendorCIDRs,
-    },
-})
+registry, err := palisadehttp.NewSignedCrawlerRegistry(verificationKey)
 if err != nil { /* fail deployment */ }
+if err := registry.UpdateSignedFile(
+    "/etc/palisade/crawler-registry.json",
+    time.Now().UTC(),
+); err != nil { /* fail deployment */ }
+
+watchCtx, stopWatching := context.WithCancel(context.Background())
+defer stopWatching()
+go func() {
+    if err := registry.WatchSignedFile(
+        watchCtx,
+        "/etc/palisade/crawler-registry.json",
+        time.Minute,
+        func(event palisadehttp.CrawlerRegistryReloadEvent) {
+            // Export only this closed aggregate event to local operations.
+        },
+    ); err != nil {
+        // Watcher stopped unexpectedly: alert local operations.
+    }
+}()
 
 guard, err := palisadehttp.New(palisadehttp.Config{
     // normal PALISADE configuration omitted
@@ -58,11 +73,39 @@ guard, err := palisadehttp.New(palisadehttp.Config{
 })
 ```
 
-The documentation CIDR above is not a real vendor range. Production CIDRs must
-come from an authenticated vendor source. Registry construction rejects empty,
-private, loopback, non-canonical and excessive inputs. Matching requires both
-network and product token. Multiple matching identities are ambiguous and fail
-closed to `unknown` rather than depending on rule order.
+The initial watcher load must succeed. Every later update must have a strictly
+increasing revision, a valid Ed25519 signature, canonical UTC timestamps and a
+signed lifetime of at most 31 days. The document and registry sizes are bounded.
+Only a completely parsed and validated snapshot is swapped into the concurrent
+request path. A rejected or partially written update leaves the last known-good
+snapshot active, but only until its signed expiry. An expired or empty registry
+classifies every crawler claim as `unknown`.
+
+The increasing-revision check protects the lifetime of one origin process. On
+cold start there is no trusted local revision checkpoint, so the signed expiry
+is the hard replay bound. Deployments that require stricter restart protection
+must retain the accepted revision in their own authenticated deployment state
+and refuse to publish an older file before starting PALISADE.
+
+`CrawlerRegistryStatus` and `CrawlerRegistryReloadEvent` expose only the closed
+state, revision, timestamps, SHA-256 digest and aggregate entry/prefix counts.
+They contain no address, user-agent token, vendor name or source path. Keep the
+callback fast and non-blocking. Operators should alert on `rejected`, `expired`
+and an approaching `expires_at`; `unchanged/same_document` is an ordinary poll.
+
+An offline publisher can create the document with
+`EncodeSignedCrawlerRegistry`. That API is a deterministic signing primitive,
+not a vendor downloader: the publisher remains responsible for authenticated
+source retrieval, purpose mapping, review and increasing revisions. Never copy
+the private key into the origin image, configuration repository or registry
+document. Deployment- or community-maintained inputs must enter through this
+same signed, reviewed boundary.
+
+For a fixed test or tightly controlled immutable deployment,
+`NewCrawlerRegistry` remains available. Registry construction rejects empty,
+private, loopback, non-canonical and excessive inputs. Matching always requires
+both network and product token. Multiple matching identities are ambiguous and
+fail closed to `unknown` rather than depending on rule order.
 
 The adapter trusts a forwarding header only when the direct TCP peer is inside
 an explicitly configured proxy CIDR. Direct clients cannot spoof
@@ -75,10 +118,11 @@ summary.
 
 - Fetch vendor registries outside the request hot path using TLS and the
   vendor's authenticated publication channel.
-- Validate schema, canonical CIDRs, entry counts, class mapping and a freshness
-  deadline before atomically replacing the in-memory registry.
-- Keep the last known-good registry for a bounded grace period. After expiry,
-  downgrade affected identities to `unknown`; never keep a stale allow forever.
+- Normalize and review sources before signing; the verifier validates the
+  signature, schema, canonical CIDRs, entry counts, class mapping, revision and
+  signed freshness deadline before atomically replacing its snapshot.
+- Keep the last known-good registry only until its signed expiry, then downgrade
+  affected identities to `unknown`; never keep a stale allow forever.
 - Record only aggregate update status, version/digest and counts. Do not log
   request addresses or user-agent strings.
 - Test additions with known-positive vendor fixtures, wrong-network claims,
