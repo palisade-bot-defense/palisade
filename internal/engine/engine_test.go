@@ -32,7 +32,7 @@ func TestShadowModeOverridesRiskyComputedAction(t *testing.T) {
 	if !hasReason(decision.ReasonCodes, core.ReasonShadowActionOverridden) {
 		t.Fatalf("missing %s in %v", core.ReasonShadowActionOverridden, decision.ReasonCodes)
 	}
-	if decision.PolicyVersion != "default-v5" || decision.ModelVersion != "transparent-baseline-v10" {
+	if decision.PolicyVersion != "default-v5" || decision.ModelVersion != "transparent-baseline-v11" {
 		t.Fatalf("unexpected versions: policy=%s model=%s", decision.PolicyVersion, decision.ModelVersion)
 	}
 }
@@ -137,6 +137,29 @@ func TestDecisionRejectsFreeFormTransportClasses(t *testing.T) {
 			test.mutate(&request.Observations)
 			if _, err := current.Decide(context.Background(), request); !errors.Is(err, ErrInvalidRequest) {
 				t.Fatalf("free-form transport class error = %v", err)
+			}
+		})
+	}
+}
+
+func TestDecisionRejectsRawOrUnpairedEdgeIntelligence(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*core.Observations)
+	}{
+		{name: "raw fingerprint", mutate: func(observations *core.Observations) { observations.EdgeFingerprintClass = "ja4:a1b2c3" }},
+		{name: "raw ASN", mutate: func(observations *core.Observations) { observations.NetworkType = "AS13335" }},
+		{name: "raw reputation provider", mutate: func(observations *core.Observations) { observations.NetworkReputation = "vendor-score-92" }},
+		{name: "class without method", mutate: func(observations *core.Observations) { observations.EdgeFingerprintClass = "automation_consistent" }},
+		{name: "method without class", mutate: func(observations *core.Observations) { observations.EdgeFingerprintMethod = "tls_http2" }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			current := newTestEngine(t, core.RuntimeModeShadow)
+			request := highRiskRequest()
+			test.mutate(&request.Observations)
+			if _, err := current.Decide(context.Background(), request); !errors.Is(err, ErrInvalidRequest) {
+				t.Fatalf("error=%v, want ErrInvalidRequest", err)
 			}
 		})
 	}

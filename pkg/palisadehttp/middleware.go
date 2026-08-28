@@ -206,6 +206,9 @@ func validSignals(signals Signals) bool {
 	if !validCrawlerClass(signals.CrawlerClass) || !validCrawlerVerification(signals.CrawlerVerification) {
 		return false
 	}
+	if !validEdgeIntelligence(signals) {
+		return false
+	}
 	if signals.VerifiedBot && (signals.CrawlerClass == CrawlerClassUnknown || signals.CrawlerVerification == CrawlerVerificationUnknown) {
 		return false
 	}
@@ -215,6 +218,27 @@ func validSignals(signals Signals) bool {
 	default:
 		return false
 	}
+}
+
+func validEdgeIntelligence(signals Signals) bool {
+	if !oneOf(signals.EdgeFingerprintClass, "", "unknown", "browser_consistent", "automation_consistent", "anomalous") ||
+		!oneOf(signals.EdgeFingerprintMethod, "", "unknown", "tls", "http2", "tls_http2") ||
+		!oneOf(signals.NetworkReputation, "", "unknown", "low_risk", "elevated_risk", "high_risk") ||
+		!oneOf(signals.NetworkType, "", "unknown", "residential", "mobile", "hosting", "enterprise", "education", "anonymizer") {
+		return false
+	}
+	classKnown := signals.EdgeFingerprintClass != "" && signals.EdgeFingerprintClass != "unknown"
+	methodKnown := signals.EdgeFingerprintMethod != "" && signals.EdgeFingerprintMethod != "unknown"
+	return classKnown == methodKnown
+}
+
+func oneOf(value string, values ...string) bool {
+	for _, candidate := range values {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 func integerString(value int) string {

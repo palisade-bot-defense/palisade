@@ -43,3 +43,29 @@ func TestCrawlerEnumsAreClosed(t *testing.T) {
 		t.Fatal("weak or free-form verification accepted")
 	}
 }
+
+func TestValidEdgeIntelligenceRequiresClosedPairedClasses(t *testing.T) {
+	valid := [][4]string{
+		{"", "", "", ""},
+		{"unknown", "unknown", "unknown", "unknown"},
+		{"browser_consistent", "tls_http2", "low_risk", "residential"},
+		{"automation_consistent", "tls", "high_risk", "hosting"},
+	}
+	for _, values := range valid {
+		if !ValidEdgeIntelligence(values[0], values[1], values[2], values[3]) {
+			t.Fatalf("valid values rejected: %v", values)
+		}
+	}
+	invalid := [][4]string{
+		{"ja4:a1b2c3", "tls", "unknown", "unknown"},
+		{"automation_consistent", "", "unknown", "unknown"},
+		{"", "http2", "unknown", "unknown"},
+		{"unknown", "unknown", "provider-score", "unknown"},
+		{"unknown", "unknown", "unknown", "AS13335"},
+	}
+	for _, values := range invalid {
+		if ValidEdgeIntelligence(values[0], values[1], values[2], values[3]) {
+			t.Fatalf("invalid values accepted: %v", values)
+		}
+	}
+}

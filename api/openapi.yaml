@@ -744,6 +744,22 @@ components:
           type: string
           enum: [direct, trusted_proxy, invalid_trusted_proxy, unknown]
           description: Provenance class only. PALISADE does not receive the client or proxy address.
+        edge_fingerprint_class:
+          type: string
+          enum: [unknown, browser_consistent, automation_consistent, anomalous]
+          description: Closed classification from trusted edge-side TLS/HTTP2 analysis. Raw JA4 or HTTP2 fingerprints are forbidden; browser_consistent is never human proof.
+        edge_fingerprint_method:
+          type: string
+          enum: [unknown, tls, http2, tls_http2]
+          description: Closed provenance for edge_fingerprint_class. A non-unknown class and method must be supplied together.
+        network_reputation:
+          type: string
+          enum: [unknown, low_risk, elevated_risk, high_risk]
+          description: Closed deployment-normalized reputation class. Raw addresses, ASNs, numeric provider scores and vendor labels are forbidden.
+        network_type:
+          type: string
+          enum: [unknown, residential, mobile, hosting, enterprise, education, anonymizer]
+          description: Closed deployment-normalized network context. No class creates benign or human evidence.
     DecisionRequest:
       type: object
       additionalProperties: false

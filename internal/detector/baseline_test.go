@@ -73,6 +73,43 @@ func TestSolvedChallengeIsNotHumanEvidence(t *testing.T) {
 	}
 }
 
+func TestEdgeIntelligenceIsSuspiciousOnlyAndClosed(t *testing.T) {
+	tests := []struct {
+		name         string
+		observations core.Observations
+		wantCodes    []string
+	}{
+		{name: "browser and residential are not human evidence", observations: core.Observations{
+			EdgeFingerprintClass: "browser_consistent", EdgeFingerprintMethod: "tls_http2",
+			NetworkReputation: "low_risk", NetworkType: "residential",
+		}},
+		{name: "automation and high reputation combine", observations: core.Observations{
+			EdgeFingerprintClass: "automation_consistent", EdgeFingerprintMethod: "tls",
+			NetworkReputation: "high_risk", NetworkType: "hosting",
+		}, wantCodes: []string{"EDGE_AUTOMATION_PROFILE", "NETWORK_REPUTATION_HIGH", "NETWORK_HOSTING_CONTEXT"}},
+		{name: "anomaly and anonymizer remain conservative context", observations: core.Observations{
+			EdgeFingerprintClass: "anomalous", EdgeFingerprintMethod: "http2",
+			NetworkReputation: "elevated_risk", NetworkType: "anonymizer",
+		}, wantCodes: []string{"EDGE_PROTOCOL_ANOMALY", "NETWORK_REPUTATION_ELEVATED", "NETWORK_ANONYMIZER_CONTEXT"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			evidence, err := (EdgeIntelligence{}).Evaluate(context.Background(), core.DetectorInput{Request: core.DecisionRequest{Observations: test.observations}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(evidence) != len(test.wantCodes) {
+				t.Fatalf("evidence=%+v, want codes=%v", evidence, test.wantCodes)
+			}
+			for index, item := range evidence {
+				if item.Code != test.wantCodes[index] || item.Detector != "edge_intelligence_v1" || item.Direction != core.DirectionSuspicious {
+					t.Fatalf("unexpected edge evidence: %+v", item)
+				}
+			}
+		})
+	}
+}
+
 func TestSignedSessionAffectsContinuityOnly(t *testing.T) {
 	evidence, err := (ProtocolConsistency{}).Evaluate(context.Background(), core.DetectorInput{
 		Request: core.DecisionRequest{Observations: core.Observations{ServerSessionVerified: true}},

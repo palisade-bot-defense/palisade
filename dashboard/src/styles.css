@@ -25,10 +25,12 @@ h1 em { color: var(--cobalt); font-style: normal; }
 .login-card label { display: block; margin: 24px 0 8px; color: #4c4b72; font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .login-card input { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 11px; color: #30305f; background: white; }
 .login-card button[type="submit"] { width: 100%; margin-top: 12px; padding: 13px; border: 0; border-radius: 11px; color: white; background: var(--cobalt); cursor: pointer; font-weight: 800; }
+.demo-link { display: block; margin-top: 14px; color: var(--cobalt); font-size: 12px; font-weight: 750; text-align: center; }
 .login-card button:disabled { opacity: .6; cursor: wait; }
 .login-card .form-error { margin-bottom: 0; color: #a83545; font-weight: 700; }
 .connection-banner { min-height: 46px; margin-bottom: 12px; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border: 1px solid #b8ead9; border-radius: 14px; color: #08664b; background: #ecfff8; font-size: 12px; }
 .connection-banner.warning { border-color: #f2c2a1; color: #80430f; background: #fff8ef; }
+.connection-banner.demo { border-color: #c6c2ff; color: #3029a8; background: #f2f0ff; }
 .connection-banner b { font-weight: 700; }
 .console-heading { min-height: 300px; padding: 50px 56px; display: flex; align-items: flex-end; justify-content: space-between; gap: 44px; border: 1px solid var(--line); border-radius: 32px; background: radial-gradient(circle at 88% 28%, rgb(79 70 229 / 10%), transparent 28%), var(--paper) url('/signal-grid.svg') right center / 45% auto no-repeat; box-shadow: var(--shadow); }
 .runtime-badges { max-width: 310px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }

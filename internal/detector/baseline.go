@@ -130,6 +130,37 @@ func (d ExternalVerdicts) Evaluate(_ context.Context, input core.DetectorInput) 
 	return result, nil
 }
 
+// EdgeIntelligence consumes only closed classifications produced at a trusted
+// deployment edge. Browser-consistent, low-risk, residential and mobile
+// classes never create benign evidence: none of them proves humanity.
+type EdgeIntelligence struct{}
+
+func (EdgeIntelligence) ID() string { return "edge_intelligence_v1" }
+
+func (d EdgeIntelligence) Evaluate(_ context.Context, input core.DetectorInput) ([]core.Evidence, error) {
+	var result []core.Evidence
+	observations := input.Request.Observations
+	switch observations.EdgeFingerprintClass {
+	case "automation_consistent":
+		result = append(result, evidence("EDGE_AUTOMATION_PROFILE", d.ID(), core.DimensionAutomation, core.DirectionSuspicious, .58, .72))
+	case "anomalous":
+		result = append(result, evidence("EDGE_PROTOCOL_ANOMALY", d.ID(), core.DimensionAutomation, core.DirectionSuspicious, .48, .62))
+	}
+	switch observations.NetworkReputation {
+	case "elevated_risk":
+		result = append(result, evidence("NETWORK_REPUTATION_ELEVATED", d.ID(), core.DimensionIntent, core.DirectionSuspicious, .46, .58))
+	case "high_risk":
+		result = append(result, evidence("NETWORK_REPUTATION_HIGH", d.ID(), core.DimensionIntent, core.DirectionSuspicious, .72, .76))
+	}
+	switch observations.NetworkType {
+	case "hosting":
+		result = append(result, evidence("NETWORK_HOSTING_CONTEXT", d.ID(), core.DimensionAutomation, core.DirectionSuspicious, .28, .40))
+	case "anonymizer":
+		result = append(result, evidence("NETWORK_ANONYMIZER_CONTEXT", d.ID(), core.DimensionAutomation, core.DirectionSuspicious, .32, .44))
+	}
+	return result, nil
+}
+
 func evidence(code, detectorID string, dimension core.Dimension, direction core.Direction, strength, confidence float64) core.Evidence {
 	return core.Evidence{
 		Code:       code,

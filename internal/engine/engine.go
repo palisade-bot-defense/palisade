@@ -24,7 +24,7 @@ var (
 	ErrExplicitTimeWithProof = errors.New("explicit decision time is unavailable with proof enforcement")
 )
 
-const ModelVersion = "transparent-baseline-v10"
+const ModelVersion = "transparent-baseline-v11"
 
 type Engine struct {
 	sessions      *session.MemoryStore
@@ -186,6 +186,10 @@ func validateRequest(request core.DecisionRequest) error {
 	}
 	if !validTransportProtocol(request.Observations.TransportProtocol) || !validTransportSecurity(request.Observations.TransportSecurity) ||
 		!validClientAddressSource(request.Observations.ClientAddressSource) {
+		return ErrInvalidRequest
+	}
+	if !core.ValidEdgeIntelligence(request.Observations.EdgeFingerprintClass, request.Observations.EdgeFingerprintMethod,
+		request.Observations.NetworkReputation, request.Observations.NetworkType) {
 		return ErrInvalidRequest
 	}
 	switch request.Observations.ChallengeVerdict {

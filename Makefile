@@ -1,4 +1,4 @@
-.PHONY: build test check coverage-check privacy-check license-check offline-eval-test replay dev docker
+.PHONY: build test check coverage-check privacy-check license-check offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -31,6 +31,9 @@ replay:
 
 dev:
 	go run ./cmd/palisade serve --dev
+
+demo:
+	docker compose up --build
 
 docker:
 	docker build -t palisade:dev .

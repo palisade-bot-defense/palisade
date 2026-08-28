@@ -29,6 +29,12 @@ message Observations {
   // verified identity; training crawlers are not auto-allowed.
   string crawler_class = 11;
   string crawler_verification = 12;
+  // Closed edge classifications only. Raw JA4/HTTP2 fingerprints, ASN, IP and
+  // vendor labels never enter the PALISADE decision service.
+  string edge_fingerprint_class = 13;
+  string edge_fingerprint_method = 14;
+  string network_reputation = 15;
+  string network_type = 16;
 }
 
 message DecideRequest {

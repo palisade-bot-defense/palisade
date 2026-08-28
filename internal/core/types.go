@@ -40,11 +40,39 @@ type Observations struct {
 	TransportProtocol     string              `json:"transport_protocol,omitempty"`
 	TransportSecurity     string              `json:"transport_security,omitempty"`
 	ClientAddressSource   string              `json:"client_address_source,omitempty"`
+	EdgeFingerprintClass  string              `json:"edge_fingerprint_class,omitempty"`
+	EdgeFingerprintMethod string              `json:"edge_fingerprint_method,omitempty"`
+	NetworkReputation     string              `json:"network_reputation,omitempty"`
+	NetworkType           string              `json:"network_type,omitempty"`
 	ServerSessionVerified bool                `json:"-"`
 	// BrowserEventsVerified is set only by a trusted in-process boundary after
 	// reading the server-side event store. A caller-supplied count must never
 	// create benign continuity evidence by itself.
 	BrowserEventsVerified bool `json:"-"`
+}
+
+// ValidEdgeIntelligence accepts only deployment-normalized classes. Raw JA4,
+// HTTP/2 fingerprint, ASN, IP, vendor label or free-form reputation values are
+// deliberately outside the PALISADE decision contract.
+func ValidEdgeIntelligence(class, method, reputation, networkType string) bool {
+	if !allowed(class, "", "unknown", "browser_consistent", "automation_consistent", "anomalous") ||
+		!allowed(method, "", "unknown", "tls", "http2", "tls_http2") ||
+		!allowed(reputation, "", "unknown", "low_risk", "elevated_risk", "high_risk") ||
+		!allowed(networkType, "", "unknown", "residential", "mobile", "hosting", "enterprise", "education", "anonymizer") {
+		return false
+	}
+	classKnown := class != "" && class != "unknown"
+	methodKnown := method != "" && method != "unknown"
+	return classKnown == methodKnown
+}
+
+func allowed(value string, values ...string) bool {
+	for _, candidate := range values {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 // CrawlerClass is an operator-controlled purpose class, not an identity claim.
