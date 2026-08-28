@@ -49,7 +49,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: palisade <serve|doctor|replay|import-offline|verify-shadow-log|analyze-shadow-log|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
+		return errors.New("usage: palisade <serve|doctor|replay|import-offline|verify-shadow-log|analyze-shadow-log|crawler-registry-keygen|crawler-registry-sign|crawler-registry-inspect|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
 	}
 	switch args[0] {
 	case "serve":
@@ -64,6 +64,12 @@ func run(args []string) error {
 		return verifyShadowLog(args[1:])
 	case "analyze-shadow-log":
 		return analyzeShadowLog(args[1:])
+	case "crawler-registry-keygen":
+		return crawlerRegistryKeygen(args[1:])
+	case "crawler-registry-sign":
+		return crawlerRegistrySign(args[1:])
+	case "crawler-registry-inspect":
+		return crawlerRegistryInspect(args[1:])
 	case "rollout-keygen":
 		return rolloutKeygen(args[1:])
 	case "prepare-review":

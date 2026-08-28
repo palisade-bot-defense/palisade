@@ -11,17 +11,18 @@ import (
 )
 
 const (
-	SessionCookieName       = "__Host-palisade_session"
-	RedemptionCookieName    = "__Host-palisade_redemption"
-	PendingCookieName       = "__Host-palisade_pending"
-	DefaultPrefix           = "/__palisade"
-	DefaultMaxSessions      = 100_000
-	DefaultMaxGrants        = 100_000
-	DefaultStateTTL         = 10 * time.Minute
-	DefaultGrantTTL         = 30 * time.Second
-	DefaultPendingTTL       = 15 * time.Minute
-	DefaultCoverageEvery    = uint64(100)
-	DefaultCoverageInterval = 30 * time.Second
+	SessionCookieName               = "__Host-palisade_session"
+	RedemptionCookieName            = "__Host-palisade_redemption"
+	PendingCookieName               = "__Host-palisade_pending"
+	DefaultPrefix                   = "/__palisade"
+	DefaultMaxSessions              = 100_000
+	DefaultMaxGrants                = 100_000
+	DefaultStateTTL                 = 10 * time.Minute
+	DefaultGrantTTL                 = 30 * time.Second
+	DefaultPendingTTL               = 15 * time.Minute
+	DefaultCoverageEvery            = uint64(100)
+	DefaultCoverageInterval         = 30 * time.Second
+	DefaultCrawlerRegistryReportTTL = 5 * time.Minute
 )
 
 var (
@@ -98,6 +99,11 @@ type Config struct {
 	// never sends the address or user-agent to PALISADE, and never performs a
 	// network lookup in the hot path.
 	CrawlerRegistry *CrawlerRegistry
+	// CrawlerRegistryReporting enables explicit authenticated publication of
+	// closed registry health through ReportCrawlerRegistryStatus. It does not
+	// start a background task and never transmits registry entries.
+	CrawlerRegistryReporting bool
+	CrawlerRegistryReportTTL time.Duration
 }
 
 func StaticClassification(action, endpointClass string) Classifier {

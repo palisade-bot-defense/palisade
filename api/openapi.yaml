@@ -207,6 +207,24 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /v1/crawler-registry-status:
+    post:
+      summary: Report closed crawler-registry health from a trusted origin adapter
+      description: Backend-authenticated operational contract. Reports contain only a random process epoch, monotonic sequence, bounded heartbeat deadline, closed state, signed revision and validity, digest, and aggregate entry/prefix counts. Registry entries, addresses, user-agent values, vendor labels and local paths are forbidden.
+      operationId: reportCrawlerRegistryStatus
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CrawlerRegistryStatusReport" }
+      responses:
+        "202": { description: Registry status accepted or idempotently replayed. }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /v1/challenge/{challenge_id}:
     get:
       summary: Retrieve a session-bound accessible challenge
@@ -363,9 +381,9 @@ components:
     AdminSummary:
       type: object
       additionalProperties: false
-      required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, collection, origin_coverage, outcome_flow, transport_posture, crawler_identity, analysis_status, analysis]
+      required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, collection, origin_coverage, outcome_flow, transport_posture, crawler_identity, crawler_registry, analysis_status, analysis]
       properties:
-        schema_version: { type: string, const: palisade.admin-summary.v9 }
+        schema_version: { type: string, const: palisade.admin-summary.v10 }
         generated_at: { type: string, format: date-time }
         uptime_seconds: { type: integer, minimum: 0 }
         runtime:
@@ -543,6 +561,24 @@ components:
                 fcrdns_ua: { type: integer, minimum: 0 }
                 http_signature: { type: integer, minimum: 0 }
                 unknown: { type: integer, minimum: 0 }
+        crawler_registry:
+          type: object
+          description: Authenticated closed registry-health reports from reference origin adapters. Current requires every reporting source to have the same non-expired signed revision and digest. No registry entry, address, user-agent, vendor label or path is retained.
+          additionalProperties: false
+          required: [state, scope, sources, current_sources, expired_sources, empty_sources, static_sources, minimum_revision, maximum_revision, distinct_digests, earliest_expires_at, last_reported_at]
+          properties:
+            state: { type: string, enum: [unavailable, current, attention] }
+            scope: { type: string, const: authenticated_origin_registry_reports }
+            sources: { type: integer, minimum: 0, maximum: 1024 }
+            current_sources: { type: integer, minimum: 0, maximum: 1024 }
+            expired_sources: { type: integer, minimum: 0, maximum: 1024 }
+            empty_sources: { type: integer, minimum: 0, maximum: 1024 }
+            static_sources: { type: integer, minimum: 0, maximum: 1024 }
+            minimum_revision: { type: integer, minimum: 0 }
+            maximum_revision: { type: integer, minimum: 0 }
+            distinct_digests: { type: integer, minimum: 0, maximum: 1024 }
+            earliest_expires_at: { type: [string, "null"], format: date-time }
+            last_reported_at: { type: [string, "null"], format: date-time }
         analysis_status:
           type: object
           additionalProperties: false
@@ -675,6 +711,28 @@ components:
         bypassed_requests: { type: integer, minimum: 0, maximum: 1000000000000000 }
         rejected_requests: { type: integer, minimum: 0, maximum: 1000000000000000 }
         granted_retries: { type: integer, minimum: 0, maximum: 1000000000000000 }
+    CrawlerRegistryStatusReport:
+      type: object
+      additionalProperties: false
+      required: [schema_version, source_id, sequence, reported_at, valid_until, status]
+      properties:
+        schema_version: { type: string, const: palisade.crawler-registry-status.v1 }
+        source_id: { type: string, pattern: "^[0-9a-f]{32}$", description: Random per-process epoch; not a deployment, account or device identifier. }
+        sequence: { type: integer, minimum: 1 }
+        reported_at: { type: string, format: date-time }
+        valid_until: { type: string, format: date-time, description: Whole-second UTC heartbeat deadline. The report is discarded after this time; it must be between one minute and 25 hours after reported_at. }
+        status:
+          type: object
+          additionalProperties: false
+          required: [state, revision, issued_at, expires_at, digest_sha256, identity_count, prefix_count]
+          properties:
+            state: { type: string, enum: [empty, static, current, expired] }
+            revision: { type: integer, minimum: 0 }
+            issued_at: { type: string, format: date-time }
+            expires_at: { type: string, format: date-time }
+            digest_sha256: { type: string, pattern: "^$|^[0-9a-f]{64}$" }
+            identity_count: { type: integer, minimum: 0, maximum: 128 }
+            prefix_count: { type: integer, minimum: 0, maximum: 4096 }
     BrowserEvent:
       type: object
       additionalProperties: false

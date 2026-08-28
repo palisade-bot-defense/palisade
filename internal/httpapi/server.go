@@ -48,12 +48,16 @@ type Server struct {
 	eventShadow       *EventShadowProfile
 	eventShadowDrops  atomic.Uint64
 	originCoverage    *originCoverageStore
+	crawlerRegistry   *crawlerRegistryStatusStore
 	admin             AdminConfig
 	counters          runtimeCounters
 }
 
 func New(engine DecisionEngine, tokens *token.Service, apiKey string, logger *slog.Logger) *Server {
-	return &Server{engine: engine, tokens: tokens, apiKey: apiKey, logger: logger, originCoverage: newOriginCoverageStore(time.Now().UTC())}
+	return &Server{
+		engine: engine, tokens: tokens, apiKey: apiKey, logger: logger,
+		originCoverage: newOriginCoverageStore(time.Now().UTC()), crawlerRegistry: newCrawlerRegistryStatusStore(),
+	}
 }
 
 func (s *Server) WithEventStore(store *events.Store) *Server {
@@ -104,6 +108,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/decision", s.handleDecision)
 	mux.HandleFunc("POST /v1/origin-check", s.handleOriginCheck)
 	mux.HandleFunc("POST /v1/origin-coverage", s.handleOriginCoverage)
+	mux.HandleFunc("POST /v1/crawler-registry-status", s.handleCrawlerRegistryStatus)
 	mux.HandleFunc("POST /v1/outcome", s.handleOutcome)
 	mux.HandleFunc("GET /v1/challenge/{challenge_id}", s.handleChallengeView)
 	mux.HandleFunc("POST /v1/challenge/verify", s.handleChallengeVerify)
@@ -335,6 +340,30 @@ func (s *Server) handleOriginCoverage(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusServiceUnavailable, "origin_coverage_capacity")
 		default:
 			writeError(w, http.StatusBadRequest, "invalid_origin_coverage")
+		}
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (s *Server) handleCrawlerRegistryStatus(w http.ResponseWriter, r *http.Request) {
+	if !s.authorized(r) {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	var report crawlerRegistryStatusReport
+	if err := decodeJSON(w, r, &report); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_crawler_registry_status")
+		return
+	}
+	if err := s.crawlerRegistry.observe(report, time.Now().UTC()); err != nil {
+		switch {
+		case errors.Is(err, errCrawlerRegistryStatusConflict):
+			writeError(w, http.StatusConflict, "crawler_registry_status_conflict")
+		case errors.Is(err, errCrawlerRegistryStatusCapacity):
+			writeError(w, http.StatusServiceUnavailable, "crawler_registry_status_capacity")
+		default:
+			writeError(w, http.StatusBadRequest, "invalid_crawler_registry_status")
 		}
 		return
 	}

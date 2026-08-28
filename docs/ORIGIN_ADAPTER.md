@@ -164,6 +164,17 @@ transport address and a product-specific user-agent token. Values outside their
 documented bounds are rejected locally. See
 [crawler identity and SEO/GEO safety](CRAWLER_IDENTITY.md).
 
+When `CrawlerRegistryReporting` is explicitly enabled, the adapter can send one
+authenticated closed operational snapshot with `ReportCrawlerRegistryStatus`.
+This method is called by deployment startup/watcher code, including unchanged
+polls as a heartbeat, never automatically from a protected request. It reports
+only a random process epoch, monotonic sequence, closed heartbeat deadline,
+state, revision, validity, digest and aggregate counts. Registry entries and
+local paths remain inside the origin deployment. The heartbeat TTL defaults to
+five minutes, is bounded to one minute through 25 hours and must comfortably
+exceed the watcher interval. Expired source epochs are removed from the
+process-local PALISADE aggregate.
+
 The adapter itself owns three additional closed transport fields. Configure a
 trusted proxy only with explicit CIDRs and one supported single-address header:
 

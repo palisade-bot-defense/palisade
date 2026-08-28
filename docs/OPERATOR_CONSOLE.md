@@ -32,6 +32,9 @@ uses a constant-time bearer comparison and sends `Cache-Control: no-store`.
 - authenticated protected-handler coverage from reference origin adapters,
   including evaluated requests, bound challenge retries, availability bypasses
   and adapter rejections per closed endpoint class;
+- authenticated crawler-registry health from reference origin adapters,
+  including signed expiry, revision range, replica drift and closed
+  current/expired/empty/static source counts;
 - accepted, rejected and dropped outcome-event ingestion counts, without
   presenting event volume as ground-truth label coverage;
 - an optional aggregate v3 analysis report with linked endpoint/cohort Wilson
@@ -70,6 +73,16 @@ a random per-process epoch, reports are monotonic and idempotent, and the server
 keeps at most 1,024 epochs in memory. This still says nothing about requests
 that never traversed the configured middleware, so the UI continues to state
 that total website traffic is unavailable.
+
+Registry health is similarly explicit rather than inferred from decision
+traffic. An adapter with `CrawlerRegistryReporting` enabled calls
+`ReportCrawlerRegistryStatus` after initial load and on every bounded watcher
+poll. PALISADE accepts only a random process epoch, monotonic sequence, closed
+heartbeat deadline, state, revision, validity timestamps, digest and aggregate
+counts. Reports disappear after their bounded heartbeat deadline. The Console marks
+the registry `current` only when every reporting source has the same unexpired
+signed revision and digest. Missing reports are `unavailable`; expiry, static or
+empty sources and replica drift are `attention`.
 
 The outcome funnel counts only authorized ingestion attempts after the API-key
 boundary. Invalid payload/session/provenance combinations are `rejected`;

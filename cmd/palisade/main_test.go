@@ -107,6 +107,29 @@ func TestOfflineImportRejectsFutureProvenance(t *testing.T) {
 	}
 }
 
+func TestCrawlerRegistryCommandsRequireClosedExplicitInputs(t *testing.T) {
+	for name, call := range map[string]func() error{
+		"keygen": func() error { return crawlerRegistryKeygen([]string{"--private-key", "only-private"}) },
+		"sign": func() error {
+			return crawlerRegistrySign([]string{"--entries", "entries", "--private-key", "key", "--output", "registry"})
+		},
+		"inspect": func() error { return crawlerRegistryInspect([]string{"--registry", "registry"}) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := call(); err == nil || !strings.Contains(err.Error(), "requires") {
+				t.Fatalf("incomplete %s arguments error=%v", name, err)
+			}
+		})
+	}
+}
+
+func TestUsageListsCrawlerRegistryOperations(t *testing.T) {
+	err := run(nil)
+	if err == nil || !strings.Contains(err.Error(), "crawler-registry-keygen") || !strings.Contains(err.Error(), "crawler-registry-sign") || !strings.Contains(err.Error(), "crawler-registry-inspect") {
+		t.Fatalf("usage error=%v", err)
+	}
+}
+
 func TestServeRequiresBothShadowLogPaths(t *testing.T) {
 	err := serve([]string{"--dev", "--shadow-log-dir", "synthetic-shadow-dir"})
 	if err == nil || !strings.Contains(err.Error(), "configured together") {

@@ -20,20 +20,21 @@ import (
 const maxServiceBody = 64 << 10
 
 type Middleware struct {
-	baseURL      *url.URL
-	apiKey       string
-	client       *http.Client
-	classifier   Classifier
-	signals      SignalProvider
-	failureMode  FailureMode
-	prefix       string
-	fallbackPath string
-	logger       *slog.Logger
-	now          func() time.Time
-	state        *boundedState
-	transport    transportNormalizer
-	crawlers     *CrawlerRegistry
-	coverage     *coverageReporter
+	baseURL       *url.URL
+	apiKey        string
+	client        *http.Client
+	classifier    Classifier
+	signals       SignalProvider
+	failureMode   FailureMode
+	prefix        string
+	fallbackPath  string
+	logger        *slog.Logger
+	now           func() time.Time
+	state         *boundedState
+	transport     transportNormalizer
+	crawlers      *CrawlerRegistry
+	coverage      *coverageReporter
+	crawlerStatus *crawlerStatusReporter
 }
 
 type apiStatusError struct {
@@ -97,6 +98,10 @@ func New(config Config) (*Middleware, error) {
 	if err != nil {
 		return nil, err
 	}
+	crawlerStatus, err := newCrawlerStatusReporter(config)
+	if err != nil {
+		return nil, err
+	}
 	transport, err := newTransportNormalizer(config)
 	if err != nil {
 		return nil, err
@@ -126,7 +131,7 @@ func New(config Config) (*Middleware, error) {
 		baseURL: baseURL, apiKey: config.APIKey, client: client, classifier: config.Classifier, signals: config.Signals,
 		failureMode: config.FailureMode, prefix: config.Prefix, fallbackPath: config.FallbackPath,
 		logger: config.Logger, now: time.Now,
-		state: state, transport: transport, crawlers: config.CrawlerRegistry, coverage: coverage,
+		state: state, transport: transport, crawlers: config.CrawlerRegistry, coverage: coverage, crawlerStatus: crawlerStatus,
 	}, nil
 }
 

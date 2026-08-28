@@ -15,6 +15,10 @@ PALISADE should decide from behavior without reconstructing a person's content.
   The reference adapter may compare an address and user-agent transiently with
   an operator-supplied local registry, but sends and retains only the closed
   verification result.
+- Authenticated crawler-registry health containing only a random process epoch,
+  monotonic sequence, bounded heartbeat deadline, closed state, revision,
+  validity timestamps, digest and aggregate entry/prefix counts; never registry
+  entries or local paths.
 - Random, server-issued session identifiers authenticated by an HttpOnly cookie; they are continuity handles, not identity claims.
 - Reason codes and normalized verdicts from challenge systems, external risk providers and policy-alert sources.
 - One closed, deployment-supplied evaluation cohort (`standard`, `reduced_motion`, `keyboard_only`, `fallback_path`, `sensor_missing`, `unknown`) used only for aggregate safety measurement.

@@ -76,6 +76,9 @@ func TestSignedCrawlerRegistryLifecycleAndLastKnownGood(t *testing.T) {
 	if status := registry.Status(now.Add(time.Hour)); status.State != "expired" || status.Revision != 1 {
 		t.Fatalf("expired status=%+v", status)
 	}
+	if status, err := InspectSignedCrawlerRegistryJSON(document, publicKey, now.Add(time.Hour)); err != nil || status.State != "expired" || status.Revision != 1 {
+		t.Fatalf("expired inspection status=%+v error=%v", status, err)
+	}
 }
 
 func TestSignedCrawlerRegistryRejectsInvalidTimeSchemaAndEnvelope(t *testing.T) {

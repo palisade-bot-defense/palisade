@@ -72,20 +72,21 @@ type CountedReason struct {
 }
 
 type AdminSummary struct {
-	SchemaVersion   string                 `json:"schema_version"`
-	GeneratedAt     time.Time              `json:"generated_at"`
-	UptimeSeconds   uint64                 `json:"uptime_seconds"`
-	Runtime         AdminRuntime           `json:"runtime"`
-	Capabilities    AdminCapabilities      `json:"capabilities"`
-	Traffic         AdminTraffic           `json:"traffic"`
-	Recording       AdminRecording         `json:"recording"`
-	Collection      AdminCollection        `json:"collection"`
-	OriginCoverage  AdminOriginCoverage    `json:"origin_coverage"`
-	OutcomeFlow     AdminOutcomeFlow       `json:"outcome_flow"`
-	Transport       AdminTransportPosture  `json:"transport_posture"`
-	CrawlerIdentity AdminCrawlerIdentity   `json:"crawler_identity"`
-	AnalysisStatus  AdminAnalysisStatus    `json:"analysis_status"`
-	Analysis        *shadowanalysis.Report `json:"analysis"`
+	SchemaVersion   string                     `json:"schema_version"`
+	GeneratedAt     time.Time                  `json:"generated_at"`
+	UptimeSeconds   uint64                     `json:"uptime_seconds"`
+	Runtime         AdminRuntime               `json:"runtime"`
+	Capabilities    AdminCapabilities          `json:"capabilities"`
+	Traffic         AdminTraffic               `json:"traffic"`
+	Recording       AdminRecording             `json:"recording"`
+	Collection      AdminCollection            `json:"collection"`
+	OriginCoverage  AdminOriginCoverage        `json:"origin_coverage"`
+	OutcomeFlow     AdminOutcomeFlow           `json:"outcome_flow"`
+	Transport       AdminTransportPosture      `json:"transport_posture"`
+	CrawlerIdentity AdminCrawlerIdentity       `json:"crawler_identity"`
+	CrawlerRegistry AdminCrawlerRegistryStatus `json:"crawler_registry"`
+	AnalysisStatus  AdminAnalysisStatus        `json:"analysis_status"`
+	Analysis        *shadowanalysis.Report     `json:"analysis"`
 }
 
 type AdminRuntime struct {
@@ -313,7 +314,7 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 		}
 	}
 	return AdminSummary{
-		SchemaVersion: "palisade.admin-summary.v9",
+		SchemaVersion: "palisade.admin-summary.v10",
 		GeneratedAt:   now,
 		UptimeSeconds: uptime,
 		Runtime: AdminRuntime{
@@ -338,6 +339,7 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 		OutcomeFlow:     s.outcomeFlowSummary(),
 		Transport:       s.transportPostureSummary(),
 		CrawlerIdentity: s.counters.crawlers.snapshot(),
+		CrawlerRegistry: s.crawlerRegistry.snapshot(now),
 		AnalysisStatus:  analysisStatus,
 		Analysis:        analysis,
 	}

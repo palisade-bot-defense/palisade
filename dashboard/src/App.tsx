@@ -50,6 +50,20 @@ export type CrawlerIdentity = {
   classes: { search_indexer: number; answer_engine: number; training_crawler: number; user_triggered_agent: number; preview: number; monitoring: number; other: number; unknown: number };
   verification: { ip_ua_registry: number; fcrdns_ua: number; http_signature: number; unknown: number };
 };
+export type CrawlerRegistryStatus = {
+  state: "unavailable" | "current" | "attention";
+  scope: "authenticated_origin_registry_reports";
+  sources: number;
+  current_sources: number;
+  expired_sources: number;
+  empty_sources: number;
+  static_sources: number;
+  minimum_revision: number;
+  maximum_revision: number;
+  distinct_digests: number;
+  earliest_expires_at: string | null;
+  last_reported_at: string | null;
+};
 type LinkedEvaluation = {
   decisions: number; confirmed_labels: number; ambiguous_ground_truth: number;
   confusion: { true_positive: number; false_positive: number; true_negative: number; false_negative: number };
@@ -88,6 +102,7 @@ type Summary = {
   outcome_flow: OutcomeFlow;
   transport_posture: TransportPosture;
   crawler_identity: CrawlerIdentity;
+  crawler_registry: CrawlerRegistryStatus;
   analysis_status: { state: "not_configured" | "ready" | "invalid_update"; loaded_at: string | null; last_attempt_at: string | null };
   analysis: Analysis | null;
 };
@@ -133,7 +148,13 @@ export const crawlerIdentityCopy = (identity: CrawlerIdentity) => {
   if (identity.state === "attention") return "At least one crawler claim lacked eligible proof, purpose or public endpoint scope; it was not allowlisted.";
   return "All observed crawler identities in this process qualified for their narrow public scope.";
 };
+export const crawlerRegistryCopy = (registry: CrawlerRegistryStatus) => {
+  if (registry.state === "unavailable") return "No authenticated registry-health report has reached PALISADE.";
+  if (registry.state === "attention") return "Registry expiry, an empty or static source, or snapshot drift requires operator review.";
+  return "All reporting origin adapters use the same current signed registry snapshot.";
+};
 const formatDuration = (seconds: number) => seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m` : `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+const formatDateTime = (value: string | null) => value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "not reported";
 const reasonCopy: Record<string, string> = {
   BASELINE_LOW_RISK: "No configured risk threshold matched.",
   STEP_UP_REQUIRED: "Policy recommends a reversible verification step.",
@@ -310,7 +331,7 @@ export function App() {
             </div>
           </section>
 
-          <section className="operational-funnels" aria-label="Origin coverage, outcome ingestion, transport posture and crawler identity">
+          <section className="operational-funnels" aria-label="Origin coverage, outcome ingestion, transport posture, crawler identity and registry health">
             <article className={`funnel-card ${summary.origin_coverage.state}`}>
               <div className="collection-heading"><div><p className="eyebrow">PROTECTED HANDLER</p><h2>Origin coverage</h2></div><span>{summary.origin_coverage.state.replaceAll("_", " ")}</span></div>
               <strong className="funnel-primary">{summary.origin_coverage.protected_requests === 0 ? "no sample" : formatPercent(summary.origin_coverage.decision_coverage_rate)}</strong>
@@ -363,6 +384,22 @@ export function App() {
                 <div><h3>Qualification</h3><span>eligible public <b>{formatNumber(summary.crawler_identity.qualified_public)}</b></span><span className={summary.crawler_identity.unqualified > 0 ? "loss" : ""}>not allowlisted <b>{formatNumber(summary.crawler_identity.unqualified)}</b></span></div>
               </div>
               <p className="scope-warning"><strong>Identity boundary:</strong> aggregate closed classes only. No IP, user-agent, DNS name or vendor label is retained.</p>
+            </article>
+
+            <article className={`funnel-card registry-card ${summary.crawler_registry.state}`}>
+              <div className="collection-heading"><div><p className="eyebrow">SIGNED REGISTRY</p><h2>Registry health</h2></div><span>{summary.crawler_registry.state.replaceAll("_", " ")}</span></div>
+              <strong className="funnel-primary">{summary.crawler_registry.sources === 0 ? "no report" : summary.crawler_registry.minimum_revision === summary.crawler_registry.maximum_revision ? `r${summary.crawler_registry.maximum_revision}` : `r${summary.crawler_registry.minimum_revision}–r${summary.crawler_registry.maximum_revision}`}</strong>
+              <p>{crawlerRegistryCopy(summary.crawler_registry)}</p>
+              <div className="funnel-metrics">
+                <span><b>{formatNumber(summary.crawler_registry.sources)}</b> reporting origins</span>
+                <span><b>{formatNumber(summary.crawler_registry.current_sources)}</b> current signed sources</span>
+                <span className={summary.crawler_registry.expired_sources > 0 ? "loss" : ""}><b>{formatNumber(summary.crawler_registry.expired_sources)}</b> expired sources</span>
+                <span className={summary.crawler_registry.empty_sources + summary.crawler_registry.static_sources > 0 ? "loss" : ""}><b>{formatNumber(summary.crawler_registry.empty_sources + summary.crawler_registry.static_sources)}</b> empty or static sources</span>
+                <span className={summary.crawler_registry.distinct_digests > 1 ? "loss" : ""}><b>{formatNumber(summary.crawler_registry.distinct_digests)}</b> distinct snapshots</span>
+                <span><b>{formatDateTime(summary.crawler_registry.earliest_expires_at)}</b> earliest signed expiry</span>
+                <span><b>{formatDateTime(summary.crawler_registry.last_reported_at)}</b> latest heartbeat</span>
+              </div>
+              <p className="scope-warning"><strong>Operational boundary:</strong> authenticated aggregate status only. Registry entries, IPs, user-agents, vendor labels, keys and local paths never enter this summary.</p>
             </article>
           </section>
 

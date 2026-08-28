@@ -63,12 +63,13 @@ func TestAdminSurfaceIsSeparateAuthenticatedAndAggregateOnly(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &summary); err != nil {
 		t.Fatal(err)
 	}
-	if summary.SchemaVersion != "palisade.admin-summary.v9" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Delay != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" ||
+	if summary.SchemaVersion != "palisade.admin-summary.v10" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Delay != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" ||
 		summary.Collection.State != "disabled" || summary.Collection.TrafficDenominator != "external_total_unavailable" ||
 		summary.OriginCoverage.State != "unavailable" || summary.OutcomeFlow.State != "disabled" ||
 		summary.Transport.State != "attention" || summary.Transport.Scope != "evaluated_decisions" || summary.Transport.Samples != 1 ||
 		summary.Transport.Protocol.Unknown != 1 || summary.Transport.Security.Unknown != 1 || summary.Transport.AddressSource.Unknown != 1 ||
 		summary.CrawlerIdentity.State != "no_samples" || summary.CrawlerIdentity.Observations != 0 ||
+		summary.CrawlerRegistry.State != "unavailable" || summary.CrawlerRegistry.Sources != 0 ||
 		len(summary.Traffic.Reasons) != 2 || summary.Traffic.Reasons[0].Code != "HONEYPOT_INTERACTION" || summary.Traffic.Reasons[0].Count != 1 || summary.Traffic.Reasons[1].Code != "STEP_UP_REQUIRED" || summary.Traffic.Reasons[1].Count != 1 {
 		t.Fatalf("unexpected aggregate summary: %+v", summary)
 	}

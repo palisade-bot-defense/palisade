@@ -53,11 +53,12 @@ loopback console ─────────── validated report feed <──
 aggregate report ───────── prepare-review ─────> non-executable hash-bound proposal
 review proposal ────────── operator signature ─> bounded canary/enforce plan
 origin middleware ───────── POST /v1/origin-check ─> 204 / 429 / 403
+origin registry watcher ─── POST /v1/crawler-registry-status ─> closed aggregate health
                                                       │ challenge
                                                       v
 signed browser session ──── /v1/challenge/* ────────> one-time bound redemption
 
-loopback admin listener ─── /v1/admin/summary ──────> counters + validated aggregate report
+loopback admin listener ─── /v1/admin/summary ──────> counters + registry health + validated aggregate report
 ```
 
 In a sensor-only shadow deployment, an optional server-trusted profile turns

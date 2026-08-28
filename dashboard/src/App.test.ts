@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { collectionRateLabel, collectionStateCopy, countComparableCanaries, crawlerIdentityCopy, explainReason, formatInterval, originCoverageCopy, outcomeFlowCopy, scoreEvidenceState, transportPostureCopy } from "./App";
+import { collectionRateLabel, collectionStateCopy, countComparableCanaries, crawlerIdentityCopy, crawlerRegistryCopy, explainReason, formatInterval, originCoverageCopy, outcomeFlowCopy, scoreEvidenceState, transportPostureCopy } from "./App";
 
 describe("aggregate endpoint evidence", () => {
   it("does not invent an interval for an absent sample", () => {
@@ -83,5 +83,17 @@ describe("aggregate endpoint evidence", () => {
     expect(crawlerIdentityCopy(identity)).toContain("not allowlisted");
     expect(crawlerIdentityCopy({ ...identity, state: "collecting", unqualified: 0 })).toContain("narrow public scope");
     expect(crawlerIdentityCopy({ ...identity, state: "no_samples", observations: 0, qualified_public: 0, unqualified: 0 })).toContain("No crawler identity");
+  });
+
+  it("shows signed registry freshness without exposing registry contents", () => {
+    const registry = {
+      state: "current" as const, scope: "authenticated_origin_registry_reports" as const,
+      sources: 2, current_sources: 2, expired_sources: 0, empty_sources: 0, static_sources: 0,
+      minimum_revision: 7, maximum_revision: 7, distinct_digests: 1,
+      earliest_expires_at: "2026-09-04T12:00:00Z", last_reported_at: "2026-08-28T12:00:00Z",
+    };
+    expect(crawlerRegistryCopy(registry)).toContain("same current signed registry");
+    expect(crawlerRegistryCopy({ ...registry, state: "attention", expired_sources: 1 })).toContain("operator review");
+    expect(crawlerRegistryCopy({ ...registry, state: "unavailable", sources: 0, current_sources: 0 })).toContain("No authenticated");
   });
 });

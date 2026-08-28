@@ -64,6 +64,7 @@ h1 em { color: var(--cobalt); font-style: normal; }
 .funnel-card.degraded .collection-heading > span { color: #80430f; background: #fff1d6; }
 .funnel-card.attention { border-color: #f2c2a1; background: #fffdf9; }
 .funnel-card.attention .collection-heading > span { color: #80430f; background: #fff1d6; }
+.registry-card { grid-column: 1 / -1; }
 .funnel-card > p { color: var(--copy); font-size: 12px; line-height: 1.55; }
 .funnel-primary { display: block; margin-top: 22px; color: var(--ink); font-size: 34px; letter-spacing: -.04em; }
 .funnel-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }

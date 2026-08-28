@@ -48,9 +48,9 @@ type SignedCrawlerRegistryDocument struct {
 type CrawlerRegistryStatus struct {
 	State         string    `json:"state"`
 	Revision      uint64    `json:"revision"`
-	IssuedAt      time.Time `json:"issued_at,omitempty"`
-	ExpiresAt     time.Time `json:"expires_at,omitempty"`
-	DigestSHA256  string    `json:"digest_sha256,omitempty"`
+	IssuedAt      time.Time `json:"issued_at"`
+	ExpiresAt     time.Time `json:"expires_at"`
+	DigestSHA256  string    `json:"digest_sha256"`
 	IdentityCount int       `json:"identity_count"`
 	PrefixCount   int       `json:"prefix_count"`
 }
@@ -98,42 +98,13 @@ func EncodeSignedCrawlerRegistry(payload CrawlerRegistryPayload, privateKey ed25
 // swap. Invalid, expired, non-increasing or partially written updates leave the
 // last known-good in-process snapshot untouched.
 func (r *CrawlerRegistry) UpdateSignedJSON(encoded []byte, now time.Time) error {
-	if r == nil || len(r.verificationKey) != ed25519.PublicKeySize || len(encoded) == 0 || len(encoded) > maxSignedCrawlerRegistrySize {
+	if r == nil || len(r.verificationKey) != ed25519.PublicKeySize {
 		return ErrInvalidCrawlerRegistry
 	}
-	var document SignedCrawlerRegistryDocument
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&document); err != nil {
-		return ErrInvalidCrawlerRegistry
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return ErrInvalidCrawlerRegistry
-	}
-	canonical, err := json.Marshal(document.Payload)
-	if err != nil {
-		return ErrInvalidCrawlerRegistry
-	}
-	signature, err := base64.RawURLEncoding.DecodeString(document.Signature)
-	if err != nil || len(signature) != ed25519.SignatureSize ||
-		base64.RawURLEncoding.EncodeToString(signature) != document.Signature ||
-		!ed25519.Verify(ed25519.PublicKey(r.verificationKey), canonical, signature) {
-		return ErrInvalidCrawlerRegistry
-	}
-	issuedAt, expiresAt, err := validateCrawlerRegistryPayload(document.Payload, now.UTC())
+	snapshot, err := parseSignedCrawlerRegistry(encoded, ed25519.PublicKey(r.verificationKey), now.UTC(), false)
 	if err != nil {
 		return err
 	}
-	snapshot, err := buildCrawlerSnapshot(document.Payload.Entries)
-	if err != nil {
-		return err
-	}
-	snapshot.revision = document.Payload.Revision
-	snapshot.issuedAt = issuedAt
-	snapshot.expiresAt = expiresAt
-	digest := sha256.Sum256(canonical)
-	snapshot.digest = hex.EncodeToString(digest[:])
 	for {
 		current := r.signed.Load()
 		if current != nil {
@@ -148,6 +119,65 @@ func (r *CrawlerRegistry) UpdateSignedJSON(encoded []byte, now time.Time) error 
 			return nil
 		}
 	}
+}
+
+// InspectSignedCrawlerRegistryJSON verifies a complete document without
+// installing it. Expired documents return an expired status rather than an
+// error so an offline publisher can enforce revision monotonicity while
+// replacing an old artifact.
+func InspectSignedCrawlerRegistryJSON(encoded []byte, publicKey ed25519.PublicKey, now time.Time) (CrawlerRegistryStatus, error) {
+	if len(publicKey) != ed25519.PublicKeySize {
+		return CrawlerRegistryStatus{}, ErrInvalidCrawlerRegistry
+	}
+	snapshot, err := parseSignedCrawlerRegistry(encoded, publicKey, now.UTC(), true)
+	if err != nil {
+		return CrawlerRegistryStatus{}, err
+	}
+	state := "current"
+	if !now.UTC().Before(snapshot.expiresAt) {
+		state = "expired"
+	}
+	return statusFromCrawlerSnapshot(state, snapshot), nil
+}
+
+func parseSignedCrawlerRegistry(encoded []byte, publicKey ed25519.PublicKey, now time.Time, allowExpired bool) (*crawlerSnapshot, error) {
+	if len(encoded) == 0 || len(encoded) > maxSignedCrawlerRegistrySize {
+		return nil, ErrInvalidCrawlerRegistry
+	}
+	var document SignedCrawlerRegistryDocument
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&document); err != nil {
+		return nil, ErrInvalidCrawlerRegistry
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return nil, ErrInvalidCrawlerRegistry
+	}
+	canonical, err := json.Marshal(document.Payload)
+	if err != nil {
+		return nil, ErrInvalidCrawlerRegistry
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(document.Signature)
+	if err != nil || len(signature) != ed25519.SignatureSize ||
+		base64.RawURLEncoding.EncodeToString(signature) != document.Signature ||
+		!ed25519.Verify(publicKey, canonical, signature) {
+		return nil, ErrInvalidCrawlerRegistry
+	}
+	issuedAt, expiresAt, err := validateCrawlerRegistryPayload(document.Payload, now.UTC(), allowExpired)
+	if err != nil {
+		return nil, err
+	}
+	snapshot, err := buildCrawlerSnapshot(document.Payload.Entries)
+	if err != nil {
+		return nil, err
+	}
+	snapshot.revision = document.Payload.Revision
+	snapshot.issuedAt = issuedAt
+	snapshot.expiresAt = expiresAt
+	digest := sha256.Sum256(canonical)
+	snapshot.digest = hex.EncodeToString(digest[:])
+	return snapshot, nil
 }
 
 func (r *CrawlerRegistry) UpdateSignedFile(path string, now time.Time) error {
@@ -251,7 +281,7 @@ func statusFromCrawlerSnapshot(state string, snapshot *crawlerSnapshot) CrawlerR
 	}
 }
 
-func validateCrawlerRegistryPayload(payload CrawlerRegistryPayload, now time.Time) (time.Time, time.Time, error) {
+func validateCrawlerRegistryPayload(payload CrawlerRegistryPayload, now time.Time, allowExpired bool) (time.Time, time.Time, error) {
 	if payload.SchemaVersion != CrawlerRegistrySchemaVersion || payload.Revision == 0 {
 		return time.Time{}, time.Time{}, ErrInvalidCrawlerRegistry
 	}
@@ -263,11 +293,11 @@ func validateCrawlerRegistryPayload(payload CrawlerRegistryPayload, now time.Tim
 	if err != nil || expiresAt.Location() != time.UTC || expiresAt.Format(time.RFC3339) != payload.ExpiresAt {
 		return time.Time{}, time.Time{}, ErrInvalidCrawlerRegistry
 	}
-	if issuedAt.After(now.Add(maxCrawlerRegistryClockSkew)) || !expiresAt.After(now) || !expiresAt.After(issuedAt) {
-		if !expiresAt.After(now) {
-			return time.Time{}, time.Time{}, ErrCrawlerRegistryExpired
-		}
+	if issuedAt.After(now.Add(maxCrawlerRegistryClockSkew)) || !expiresAt.After(issuedAt) {
 		return time.Time{}, time.Time{}, ErrInvalidCrawlerRegistry
+	}
+	if !expiresAt.After(now) && !allowExpired {
+		return time.Time{}, time.Time{}, ErrCrawlerRegistryExpired
 	}
 	if expiresAt.Sub(issuedAt) > maxCrawlerRegistryLifetime {
 		return time.Time{}, time.Time{}, ErrInvalidCrawlerRegistry

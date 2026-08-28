@@ -38,8 +38,8 @@ JSON document described by
 It performs no vendor fetch, DNS lookup or other network request while handling
 an application request.
 
-Start the watcher before serving traffic, then pass the registry to the
-middleware:
+Load the registry before serving traffic, pass it to the middleware, publish one
+closed status snapshot and then start the watcher:
 
 ```go
 registry, err := palisadehttp.NewSignedCrawlerRegistry(verificationKey)
@@ -49,6 +49,21 @@ if err := registry.UpdateSignedFile(
     time.Now().UTC(),
 ); err != nil { /* fail deployment */ }
 
+guard, err := palisadehttp.New(palisadehttp.Config{
+    // normal PALISADE configuration omitted
+    TrustedProxyCIDRs: []string{"203.0.113.0/24"},
+    TrustedClientIPHeader: "CF-Connecting-IP",
+    TrustedProtoHeader: "X-Forwarded-Proto",
+    CrawlerRegistry: registry,
+    CrawlerRegistryReporting: true,
+    CrawlerRegistryReportTTL: 5*time.Minute,
+})
+if err != nil { /* fail deployment */ }
+
+reportCtx, cancelReport := context.WithTimeout(context.Background(), 3*time.Second)
+if err := guard.ReportCrawlerRegistryStatus(reportCtx); err != nil { /* alert */ }
+cancelReport()
+
 watchCtx, stopWatching := context.WithCancel(context.Background())
 defer stopWatching()
 go func() {
@@ -57,20 +72,14 @@ go func() {
         "/etc/palisade/crawler-registry.json",
         time.Minute,
         func(event palisadehttp.CrawlerRegistryReloadEvent) {
-            // Export only this closed aggregate event to local operations.
+            ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+            defer cancel()
+            if err := guard.ReportCrawlerRegistryStatus(ctx); err != nil { /* alert */ }
         },
     ); err != nil {
         // Watcher stopped unexpectedly: alert local operations.
     }
 }()
-
-guard, err := palisadehttp.New(palisadehttp.Config{
-    // normal PALISADE configuration omitted
-    TrustedProxyCIDRs: []string{"203.0.113.0/24"},
-    TrustedClientIPHeader: "CF-Connecting-IP",
-    TrustedProtoHeader: "X-Forwarded-Proto",
-    CrawlerRegistry: registry,
-})
 ```
 
 The initial watcher load must succeed. Every later update must have a strictly
@@ -93,13 +102,61 @@ They contain no address, user-agent token, vendor name or source path. Keep the
 callback fast and non-blocking. Operators should alert on `rejected`, `expired`
 and an approaching `expires_at`; `unchanged/same_document` is an ordinary poll.
 
-An offline publisher can create the document with
-`EncodeSignedCrawlerRegistry`. That API is a deterministic signing primitive,
-not a vendor downloader: the publisher remains responsible for authenticated
-source retrieval, purpose mapping, review and increasing revisions. Never copy
-the private key into the origin image, configuration repository or registry
-document. Deployment- or community-maintained inputs must enter through this
-same signed, reviewed boundary.
+The adapter sends registry health only when the deployment explicitly calls
+`ReportCrawlerRegistryStatus`. Reporting every bounded watcher poll supplies a
+heartbeat without exposing the watched path. The authenticated report uses a
+random per-process source epoch, monotonic sequence and a closed `valid_until`
+deadline. The reporting TTL defaults to five minutes and must be between one
+minute and 25 hours; keep the watcher interval comfortably shorter than that
+TTL. PALISADE discards a source after its deadline so stopped or restarted
+origin processes cannot leave stale health behind. The Operator Console
+aggregates current, expired, empty and static sources, revision drift, distinct
+snapshot digests and the earliest signed expiry. It never receives registry
+entries.
+
+### Local publisher CLI
+
+Keep the publisher directory owner-only and outside every Git worktree. Generate
+the signing key pair once:
+
+```sh
+palisade crawler-registry-keygen \
+  --private-key /private/local/palisade-crawlers/publisher.private \
+  --public-key /private/local/palisade-crawlers/publisher.public
+```
+
+Create a reviewed entries array matching
+[`crawler-registry-entries-v1.schema.json`](../schemas/crawler-registry-entries-v1.schema.json),
+then sign and atomically publish it:
+
+```sh
+palisade crawler-registry-sign \
+  --entries /private/local/palisade-crawlers/reviewed-entries.json \
+  --private-key /private/local/palisade-crawlers/publisher.private \
+  --output /private/local/palisade-crawlers/crawler-registry.json \
+  --revision 1 \
+  --valid-for 168h
+
+palisade crawler-registry-inspect \
+  --registry /private/local/palisade-crawlers/crawler-registry.json \
+  --public-key /private/local/palisade-crawlers/publisher.public
+```
+
+Signing validates the closed entries, derives canonical whole-second UTC issue
+and expiry times, verifies the resulting signature, requires a 10-minute to
+31-day lifetime and refuses to replace a registry unless the existing artifact
+was signed by the same key and the revision increases. Publication is a synced
+same-directory temporary file followed by an atomic rename. Inputs, keys and
+outputs must be canonical owner-only regular files; symlinks and Git worktrees
+are rejected.
+
+`EncodeSignedCrawlerRegistry` remains available as a deterministic signing
+primitive for a custom offline publisher. Neither API is a vendor downloader:
+the publisher remains responsible for authenticated source retrieval, purpose
+mapping, review and increasing revisions. Never copy the private key into the
+origin image, configuration repository or registry document. Deployment- or
+community-maintained inputs must enter through this same signed, reviewed
+boundary.
 
 For a fixed test or tightly controlled immutable deployment,
 `NewCrawlerRegistry` remains available. Registry construction rejects empty,
