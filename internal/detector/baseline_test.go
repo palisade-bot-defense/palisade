@@ -10,7 +10,10 @@ import (
 
 func TestVerifiedBotIdentityOnlyOffsetsAutomation(t *testing.T) {
 	evidence, err := (ExternalVerdicts{}).Evaluate(context.Background(), core.DetectorInput{
-		Request: core.DecisionRequest{Observations: core.Observations{VerifiedBot: true, ExternalRiskScore: 1}},
+		Request: core.DecisionRequest{EndpointClass: "public_content", Observations: core.Observations{
+			VerifiedBot: true, CrawlerClass: core.CrawlerClassSearchIndexer,
+			CrawlerVerification: core.CrawlerVerificationIPUARegistry, ExternalRiskScore: 1,
+		}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -18,10 +21,10 @@ func TestVerifiedBotIdentityOnlyOffsetsAutomation(t *testing.T) {
 	verifiedFound := false
 	externalRiskFound := false
 	for _, item := range evidence {
-		if item.Detector != "external_verdicts_v2" {
-			t.Fatalf("detector ID = %s, want external_verdicts_v2", item.Detector)
+		if item.Detector != "external_verdicts_v3" {
+			t.Fatalf("detector ID = %s, want external_verdicts_v3", item.Detector)
 		}
-		if item.Code == "VERIFIED_BOT_IDENTITY" {
+		if item.Code == "VERIFIED_PUBLIC_CRAWLER" {
 			verifiedFound = true
 			if item.Dimension != core.DimensionAutomation {
 				t.Fatalf("verified identity dimension = %s, want automation", item.Dimension)
@@ -36,6 +39,25 @@ func TestVerifiedBotIdentityOnlyOffsetsAutomation(t *testing.T) {
 	}
 	if !verifiedFound || !externalRiskFound {
 		t.Fatalf("missing expected evidence: %+v", evidence)
+	}
+}
+
+func TestUnqualifiedCrawlerClaimCreatesNoBenignEvidence(t *testing.T) {
+	tests := []core.DecisionRequest{
+		{EndpointClass: "public_content", Observations: core.Observations{VerifiedBot: true}},
+		{EndpointClass: "login", Observations: core.Observations{VerifiedBot: true, CrawlerClass: core.CrawlerClassSearchIndexer, CrawlerVerification: core.CrawlerVerificationIPUARegistry}},
+		{EndpointClass: "public_content", Observations: core.Observations{VerifiedBot: true, CrawlerClass: core.CrawlerClassTrainingCrawler, CrawlerVerification: core.CrawlerVerificationIPUARegistry}},
+	}
+	for _, request := range tests {
+		evidence, err := (ExternalVerdicts{}).Evaluate(context.Background(), core.DetectorInput{Request: request})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, item := range evidence {
+			if item.Direction == core.DirectionBenign {
+				t.Fatalf("unqualified claim produced benign evidence: %+v", evidence)
+			}
+		}
 	}
 }
 

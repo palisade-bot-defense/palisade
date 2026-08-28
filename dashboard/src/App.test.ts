@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { collectionRateLabel, collectionStateCopy, countComparableCanaries, explainReason, formatInterval, originCoverageCopy, outcomeFlowCopy, scoreEvidenceState } from "./App";
+import { collectionRateLabel, collectionStateCopy, countComparableCanaries, crawlerIdentityCopy, explainReason, formatInterval, originCoverageCopy, outcomeFlowCopy, scoreEvidenceState, transportPostureCopy } from "./App";
 
 describe("aggregate endpoint evidence", () => {
   it("does not invent an interval for an absent sample", () => {
@@ -59,5 +59,29 @@ describe("aggregate endpoint evidence", () => {
   it("does not present accepted outcome events as ground-truth labels", () => {
     expect(outcomeFlowCopy({ state: "collecting", accepted: 10, rejected: 0, dropped: 0 })).toContain("events");
     expect(outcomeFlowCopy({ state: "degraded", accepted: 10, rejected: 1, dropped: 0 })).toContain("incomplete");
+  });
+
+  it("treats transport attention as a deployment review, not a proven attack", () => {
+    const posture = {
+      state: "attention" as const, scope: "evaluated_decisions" as const, samples: 10,
+      protocol: { http1: 10, http2: 0, http3: 0, unknown: 0 },
+      security: { direct_tls: 0, trusted_proxy_tls: 9, plaintext: 0, unknown: 1 },
+      address_source: { direct: 0, trusted_proxy: 9, invalid_trusted_proxy: 1, unknown: 0 },
+    };
+    expect(transportPostureCopy(posture)).toContain("verify the deployment boundary");
+    expect(transportPostureCopy({ ...posture, state: "collecting", security: { ...posture.security, unknown: 0 }, address_source: { ...posture.address_source, invalid_trusted_proxy: 0 } })).toContain("without address values");
+    expect(transportPostureCopy({ ...posture, state: "no_samples", samples: 0 })).toContain("No successfully evaluated decision");
+  });
+
+  it("shows crawler qualification without claiming unknown bots are verified", () => {
+    const identity = {
+      state: "attention" as const, scope: "evaluated_identity_observations" as const,
+      observations: 3, qualified_public: 1, unqualified: 2,
+      classes: { search_indexer: 2, answer_engine: 0, training_crawler: 1, user_triggered_agent: 0, preview: 0, monitoring: 0, other: 0, unknown: 0 },
+      verification: { ip_ua_registry: 2, fcrdns_ua: 1, http_signature: 0, unknown: 0 },
+    };
+    expect(crawlerIdentityCopy(identity)).toContain("not allowlisted");
+    expect(crawlerIdentityCopy({ ...identity, state: "collecting", unqualified: 0 })).toContain("narrow public scope");
+    expect(crawlerIdentityCopy({ ...identity, state: "no_samples", observations: 0, qualified_public: 0, unqualified: 0 })).toContain("No crawler identity");
   });
 });

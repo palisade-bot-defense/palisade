@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 )
@@ -45,7 +46,18 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 				return
 			}
 		}
-		signals.TransportProtocol, signals.TransportSecurity, signals.ClientAddressSource = m.transport.normalize(r)
+		var clientAddress netip.Addr
+		var clientAddressOK bool
+		signals.TransportProtocol, signals.TransportSecurity, signals.ClientAddressSource, clientAddress, clientAddressOK = m.transport.normalizeWithAddress(r)
+		// Identity is always derived at the trusted transport boundary. A custom
+		// signal provider cannot turn a client-supplied user-agent into a verified
+		// crawler claim.
+		signals.VerifiedBot = false
+		signals.CrawlerClass = CrawlerClassUnknown
+		signals.CrawlerVerification = CrawlerVerificationUnknown
+		if m.crawlers != nil && clientAddressOK {
+			signals.VerifiedBot, signals.CrawlerClass, signals.CrawlerVerification = m.crawlers.verify(r.UserAgent(), clientAddress)
+		}
 		if !validSignals(signals) {
 			m.logger.Error("PALISADE normalized signal provider failed")
 			writeAdapterError(w, http.StatusInternalServerError, "palisade_signals_failed")
@@ -189,6 +201,12 @@ func validSignals(signals Signals) bool {
 	switch signals.ClientAddressSource {
 	case ClientAddressSourceDirect, ClientAddressSourceTrustedProxy, ClientAddressSourceInvalidTrustedProxy, ClientAddressSourceUnknown:
 	default:
+		return false
+	}
+	if !validCrawlerClass(signals.CrawlerClass) || !validCrawlerVerification(signals.CrawlerVerification) {
+		return false
+	}
+	if signals.VerifiedBot && (signals.CrawlerClass == CrawlerClassUnknown || signals.CrawlerVerification == CrawlerVerificationUnknown) {
 		return false
 	}
 	switch signals.ChallengeVerdict {

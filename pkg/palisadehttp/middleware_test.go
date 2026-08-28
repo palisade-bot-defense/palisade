@@ -419,6 +419,63 @@ func TestMiddlewarePassesClosedSignalsWithoutRawRequestData(t *testing.T) {
 	}
 }
 
+func TestMiddlewareDerivesCrawlerIdentityAndIgnoresDirectForwardingSpoof(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	fake := &fakePalisade{t: t, now: now}
+	service := httptest.NewServer(fake)
+	defer service.Close()
+	registry, err := NewCrawlerRegistry([]CrawlerIdentity{{
+		Name: "example-search", Class: CrawlerClassSearchIndexer,
+		UserAgentTokens: []string{"ExampleSearchBot"}, CIDRs: []string{"192.0.2.0/24"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	middleware := newTestMiddleware(t, service.URL, now, FailClosed)
+	middleware.crawlers = registry
+	middleware.signals = func(*http.Request) (Signals, error) {
+		return Signals{VerifiedBot: true, CrawlerClass: CrawlerClassSearchIndexer, CrawlerVerification: CrawlerVerificationIPUARegistry}, nil
+	}
+	handler := middleware.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+
+	verified := httptest.NewRequest(http.MethodGet, "https://origin.example/", nil)
+	verified.RemoteAddr = "192.0.2.10:443"
+	verified.Header.Set("User-Agent", "ExampleSearchBot/1.0")
+	verifiedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(verifiedResponse, verified)
+	if verifiedResponse.Code != http.StatusOK {
+		t.Fatalf("verified response=%d", verifiedResponse.Code)
+	}
+	cookie := findCookie(t, verifiedResponse.Result().Cookies(), SessionCookieName)
+
+	spoofed := httptest.NewRequest(http.MethodGet, "https://origin.example/", nil)
+	spoofed.RemoteAddr = "198.51.100.10:443"
+	spoofed.Header.Set("User-Agent", "ExampleSearchBot/1.0")
+	spoofed.Header.Set("CF-Connecting-IP", "192.0.2.10")
+	spoofed.AddCookie(cookie)
+	spoofedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(spoofedResponse, spoofed)
+	if spoofedResponse.Code != http.StatusOK {
+		t.Fatalf("spoofed response=%d", spoofedResponse.Code)
+	}
+
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.originBodies) != 2 ||
+		!bytes.Contains(fake.originBodies[0], []byte(`"verified_bot":true`)) ||
+		!bytes.Contains(fake.originBodies[0], []byte(`"crawler_class":"search_indexer"`)) ||
+		!bytes.Contains(fake.originBodies[0], []byte(`"crawler_verification":"ip_ua_registry"`)) ||
+		!bytes.Contains(fake.originBodies[1], []byte(`"verified_bot":false`)) ||
+		!bytes.Contains(fake.originBodies[1], []byte(`"crawler_class":"unknown"`)) {
+		t.Fatalf("crawler payloads=%s", fake.originBodies)
+	}
+	for _, body := range fake.originBodies {
+		if bytes.Contains(body, []byte("ExampleSearchBot")) || bytes.Contains(body, []byte("192.0.2.10")) || bytes.Contains(body, []byte("198.51.100.10")) {
+			t.Fatalf("raw crawler identity left adapter: %s", body)
+		}
+	}
+}
+
 func TestMiddlewareOutcomeHandleLinksExactDecisionWithoutSessionID(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0).UTC()
 	fake := &fakePalisade{t: t, now: now}

@@ -42,7 +42,7 @@ func TestDefaultRegistryIsValidAndClosed(t *testing.T) {
 	}
 	want := []string{
 		"protocol_consistency_v2", "sequence_velocity_v2", "navigation_graph_v1",
-		"decoy_interaction_v1", "campaign_surface_v1", "external_verdicts_v2",
+		"decoy_interaction_v1", "campaign_surface_v1", "external_verdicts_v3",
 	}
 	if len(registry.detectors) != len(want) {
 		t.Fatalf("default detector count = %d, want %d", len(registry.detectors), len(want))

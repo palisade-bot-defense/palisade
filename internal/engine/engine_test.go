@@ -32,7 +32,7 @@ func TestShadowModeOverridesRiskyComputedAction(t *testing.T) {
 	if !hasReason(decision.ReasonCodes, core.ReasonShadowActionOverridden) {
 		t.Fatalf("missing %s in %v", core.ReasonShadowActionOverridden, decision.ReasonCodes)
 	}
-	if decision.PolicyVersion != "default-v4" || decision.ModelVersion != "transparent-baseline-v9" {
+	if decision.PolicyVersion != "default-v5" || decision.ModelVersion != "transparent-baseline-v10" {
 		t.Fatalf("unexpected versions: policy=%s model=%s", decision.PolicyVersion, decision.ModelVersion)
 	}
 }
@@ -65,7 +65,7 @@ func TestSignedRolloutProducesOriginDirective(t *testing.T) {
 		SchemaVersion: rollout.SchemaVersion, RolloutID: "enforce-test", ApprovalID: "review-test", PredecessorRolloutID: "canary-test",
 		CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(time.Hour).Format(time.RFC3339),
 		SourceReportSHA256: strings.Repeat("a", 64), SourceReadinessState: "operator_review_candidate",
-		PolicyVersion: "default-v4", ModelVersion: ModelVersion, Stage: core.RuntimeModeEnforce,
+		PolicyVersion: "default-v5", ModelVersion: ModelVersion, Stage: core.RuntimeModeEnforce,
 		EndpointClasses: []string{"public_content"}, MaxAction: core.ActionBlock, CanaryBasisPoints: rollout.FullRolloutBasisPoints,
 		ThrottleSeconds: 5, ChallengeTTLSeconds: 300, BlockSeconds: 300,
 	}
@@ -73,7 +73,7 @@ func TestSignedRolloutProducesOriginDirective(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	controller, err := rollout.NewController(signed, publicKey, []byte("0123456789abcdef0123456789abcdef"), "default-v4", ModelVersion, now)
+	controller, err := rollout.NewController(signed, publicKey, []byte("0123456789abcdef0123456789abcdef"), "default-v5", ModelVersion, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,6 +137,26 @@ func TestDecisionRejectsFreeFormTransportClasses(t *testing.T) {
 			test.mutate(&request.Observations)
 			if _, err := current.Decide(context.Background(), request); !errors.Is(err, ErrInvalidRequest) {
 				t.Fatalf("free-form transport class error = %v", err)
+			}
+		})
+	}
+}
+
+func TestDecisionRejectsFreeFormCrawlerIdentityClasses(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*core.Observations)
+	}{
+		{name: "crawler class", mutate: func(observations *core.Observations) { observations.CrawlerClass = "googlebot-or-user-agent" }},
+		{name: "verification", mutate: func(observations *core.Observations) { observations.CrawlerVerification = "user-agent-only" }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			current := newTestEngine(t, core.RuntimeModeShadow)
+			request := highRiskRequest()
+			test.mutate(&request.Observations)
+			if _, err := current.Decide(context.Background(), request); !errors.Is(err, ErrInvalidRequest) {
+				t.Fatalf("error=%v, want ErrInvalidRequest", err)
 			}
 		})
 	}

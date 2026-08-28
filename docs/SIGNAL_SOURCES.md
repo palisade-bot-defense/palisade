@@ -17,7 +17,7 @@ vendor payloads, headers and free text from silently becoming trusted features.
 | Challenge result | `challenge_verdict` | Trusted challenge adapter | Suspicious automation only; pass is not human proof |
 | External score | `external_risk_score` | Trusted server-side adapter | Abuse intent, bounded to 0..1 |
 | Deployment policy alert | `policy_alert` | Trusted policy adapter | Abuse intent |
-| Verified beneficial bot | `verified_bot` | Authenticated server-side verification | Offsets automation only, never abusive intent |
+| Verified public crawler | `verified_bot` + `crawler_class` + `crawler_verification` | Trusted origin verifier plus public endpoint class | Offsets automation only for eligible public crawlers; never abusive intent |
 | Delayed outcome | `POST /v1/outcome` with exact `decision_id` | Backend bearer credential | Linked local evaluation and recommendation gates |
 
 Client-controlled forwarding headers must not set trusted observations. Resolve
@@ -94,7 +94,9 @@ with `POST /v1/token`, then submits a normalized decision request:
     "challenge_verdict": "unknown",
     "external_risk_score": 0.35,
     "policy_alert": false,
-    "verified_bot": false
+    "verified_bot": false,
+    "crawler_class": "unknown",
+    "crawler_verification": "unknown"
   }
 }
 ```
@@ -119,8 +121,8 @@ The response separates what PALISADE recommends from what it actually applies:
   },
   "reason_codes": ["STEP_UP_REQUIRED", "SHADOW_ACTION_OVERRIDDEN"],
   "evidence": [],
-  "policy_version": "default-v4",
-  "model_version": "transparent-baseline-v9",
+  "policy_version": "default-v5",
+  "model_version": "transparent-baseline-v10",
   "expires_at": "2026-08-27T12:00:30Z"
 }
 ```
@@ -128,6 +130,18 @@ The response separates what PALISADE recommends from what it actually applies:
 The complete authentication, bounds and schemas are authoritative in
 [`api/openapi.yaml`](../api/openapi.yaml). `additionalProperties: false` rejects
 unknown observation fields instead of retaining them.
+
+Crawler identity is a conjunction, not a user-agent rule. The reference Go
+adapter compares the normalized direct client address (or the client address
+from an explicitly trusted proxy) with a locally maintained vendor CIDR
+registry and separately requires a crawler-specific user-agent product token.
+Only the closed result reaches PALISADE; addresses and user-agent strings do
+not. A verified search indexer, answer-engine retriever, user-triggered agent or
+preview service may offset automation risk on `public_content`,
+`compare_index` or `other_public`. Login, account, checkout, challenge-worker,
+noindex and unknown surfaces never receive that exception. Training crawlers
+are intentionally not beneficial by default. Full configuration, update and
+spoofing rules are in [CRAWLER_IDENTITY.md](CRAWLER_IDENTITY.md).
 
 `evaluation_cohort` is optional input and normalizes to `unknown`. It is a
 trusted coarse measurement slice, not a signal source: detectors and policy do

@@ -105,7 +105,7 @@ func (d CampaignSurface) Evaluate(_ context.Context, input core.DetectorInput) (
 
 type ExternalVerdicts struct{}
 
-func (ExternalVerdicts) ID() string { return "external_verdicts_v2" }
+func (ExternalVerdicts) ID() string { return "external_verdicts_v3" }
 
 func (d ExternalVerdicts) Evaluate(_ context.Context, input core.DetectorInput) ([]core.Evidence, error) {
 	var result []core.Evidence
@@ -124,8 +124,8 @@ func (d ExternalVerdicts) Evaluate(_ context.Context, input core.DetectorInput) 
 	if obs.PolicyAlert {
 		result = append(result, evidence("POLICY_ALERT", d.ID(), core.DimensionIntent, core.DirectionSuspicious, .82, .86))
 	}
-	if obs.VerifiedBot {
-		result = append(result, evidence("VERIFIED_BOT_IDENTITY", d.ID(), core.DimensionAutomation, core.DirectionBenign, .68, .92))
+	if core.VerifiedPublicCrawler(obs, input.Request.EndpointClass) {
+		result = append(result, evidence("VERIFIED_PUBLIC_CRAWLER", d.ID(), core.DimensionAutomation, core.DirectionBenign, .68, .92))
 	}
 	return result, nil
 }

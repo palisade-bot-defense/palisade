@@ -517,6 +517,8 @@ func (s *Server) evaluateDecision(w http.ResponseWriter, r *http.Request) (core.
 		}
 		return core.DecisionRequest{}, core.Decision{}, false
 	}
+	s.counters.transport.increment(request.Observations)
+	s.counters.crawlers.increment(request.Observations, request.EndpointClass)
 	s.recordRuntimeDecision(decision)
 	return request, decision, true
 }

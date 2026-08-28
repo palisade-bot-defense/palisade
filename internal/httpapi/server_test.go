@@ -96,6 +96,22 @@ func TestDecisionRejectsUnknownFields(t *testing.T) {
 	}
 }
 
+func TestDecisionAcceptsClosedCrawlerIdentityTuple(t *testing.T) {
+	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
+	engine := &recordingEngine{}
+	server := New(engine, tokens, "key", slog.Default())
+	request := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(`{"session_id":"abcdefgh","action":"read","endpoint_class":"public_content","sequence":1,"observations":{"verified_bot":true,"crawler_class":"search_indexer","crawler_verification":"ip_ua_registry"}}`))
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("decision status=%d body=%s", response.Code, response.Body.String())
+	}
+	if !engine.request.Observations.VerifiedBot || engine.request.Observations.CrawlerClass != core.CrawlerClassSearchIndexer ||
+		engine.request.Observations.CrawlerVerification != core.CrawlerVerificationIPUARegistry {
+		t.Fatalf("crawler tuple=%+v", engine.request.Observations)
+	}
+}
+
 func TestServerIssuedSessionCookieBindsDecisionContinuity(t *testing.T) {
 	secret := []byte("0123456789abcdef0123456789abcdef")
 	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())

@@ -363,9 +363,9 @@ components:
     AdminSummary:
       type: object
       additionalProperties: false
-      required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, collection, origin_coverage, outcome_flow, analysis_status, analysis]
+      required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, collection, origin_coverage, outcome_flow, transport_posture, crawler_identity, analysis_status, analysis]
       properties:
-        schema_version: { type: string, const: palisade.admin-summary.v7 }
+        schema_version: { type: string, const: palisade.admin-summary.v9 }
         generated_at: { type: string, format: date-time }
         uptime_seconds: { type: integer, minimum: 0 }
         runtime:
@@ -474,6 +474,75 @@ components:
             accepted: { type: integer, minimum: 0 }
             rejected: { type: integer, minimum: 0 }
             dropped: { type: integer, minimum: 0 }
+        transport_posture:
+          type: object
+          description: Process-local closed transport-normalization counts from successfully evaluated decisions. No peer, proxy or client address and no header value is retained. Attention means the trust boundary needs operator review, not that an attack was proven.
+          additionalProperties: false
+          required: [state, scope, samples, protocol, security, address_source]
+          properties:
+            state: { type: string, enum: [no_samples, collecting, attention] }
+            scope: { type: string, const: evaluated_decisions }
+            samples: { type: integer, minimum: 0 }
+            protocol:
+              type: object
+              additionalProperties: false
+              required: [http1, http2, http3, unknown]
+              properties:
+                http1: { type: integer, minimum: 0 }
+                http2: { type: integer, minimum: 0 }
+                http3: { type: integer, minimum: 0 }
+                unknown: { type: integer, minimum: 0 }
+            security:
+              type: object
+              additionalProperties: false
+              required: [direct_tls, trusted_proxy_tls, plaintext, unknown]
+              properties:
+                direct_tls: { type: integer, minimum: 0 }
+                trusted_proxy_tls: { type: integer, minimum: 0 }
+                plaintext: { type: integer, minimum: 0 }
+                unknown: { type: integer, minimum: 0 }
+            address_source:
+              type: object
+              additionalProperties: false
+              required: [direct, trusted_proxy, invalid_trusted_proxy, unknown]
+              properties:
+                direct: { type: integer, minimum: 0 }
+                trusted_proxy: { type: integer, minimum: 0 }
+                invalid_trusted_proxy: { type: integer, minimum: 0 }
+                unknown: { type: integer, minimum: 0 }
+        crawler_identity:
+          type: object
+          description: Process-local aggregate crawler identity observations. Qualified means the closed class, strong proof and public endpoint scope all matched; attention means at least one claim was not eligible, not that an attack was proven. No address, user-agent or vendor name is retained.
+          additionalProperties: false
+          required: [state, scope, observations, qualified_public, unqualified, classes, verification]
+          properties:
+            state: { type: string, enum: [no_samples, collecting, attention] }
+            scope: { type: string, const: evaluated_identity_observations }
+            observations: { type: integer, minimum: 0 }
+            qualified_public: { type: integer, minimum: 0 }
+            unqualified: { type: integer, minimum: 0 }
+            classes:
+              type: object
+              additionalProperties: false
+              required: [search_indexer, answer_engine, training_crawler, user_triggered_agent, preview, monitoring, other, unknown]
+              properties:
+                search_indexer: { type: integer, minimum: 0 }
+                answer_engine: { type: integer, minimum: 0 }
+                training_crawler: { type: integer, minimum: 0 }
+                user_triggered_agent: { type: integer, minimum: 0 }
+                preview: { type: integer, minimum: 0 }
+                monitoring: { type: integer, minimum: 0 }
+                other: { type: integer, minimum: 0 }
+                unknown: { type: integer, minimum: 0 }
+            verification:
+              type: object
+              additionalProperties: false
+              required: [ip_ua_registry, fcrdns_ua, http_signature, unknown]
+              properties:
+                ip_ua_registry: { type: integer, minimum: 0 }
+                fcrdns_ua: { type: integer, minimum: 0 }
+                http_signature: { type: integer, minimum: 0 }
+                unknown: { type: integer, minimum: 0 }
         analysis_status:
           type: object
           additionalProperties: false
@@ -652,7 +721,17 @@ components:
         policy_alert:
           type: boolean
           description: Trusted deployment policy alert normalized to a boolean; clients must not set this directly.
-        verified_bot: { type: boolean }
+        verified_bot:
+          type: boolean
+          description: Trusted origin claim only. It qualifies for beneficial-crawler handling only with an eligible crawler_class, a strong crawler_verification and a public indexable endpoint class; a user-agent alone never verifies identity.
+        crawler_class:
+          type: string
+          enum: [unknown, search_indexer, answer_engine, training_crawler, user_triggered_agent, preview, monitoring, other]
+          description: Closed purpose class from a trusted origin verifier. Training crawlers remain policy-controlled and are never auto-allowed by the default policy.
+        crawler_verification:
+          type: string
+          enum: [unknown, ip_ua_registry, fcrdns_ua, http_signature]
+          description: Closed proof method. The reference adapter performs local IP-plus-user-agent registry matching without sending the address or user-agent to PALISADE.
         transport_protocol:
           type: string
           enum: [http1, http2, http3, unknown]

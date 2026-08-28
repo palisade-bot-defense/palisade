@@ -33,6 +33,23 @@ export type OriginCoverage = {
   endpoints: { endpoint_class: string; protected_requests: number; evaluated_requests: number; bypassed_requests: number; rejected_requests: number; granted_retries: number }[];
 };
 export type OutcomeFlow = { state: "disabled" | "no_samples" | "collecting" | "degraded"; accepted: number; rejected: number; dropped: number };
+export type TransportPosture = {
+  state: "no_samples" | "collecting" | "attention";
+  scope: "evaluated_decisions";
+  samples: number;
+  protocol: { http1: number; http2: number; http3: number; unknown: number };
+  security: { direct_tls: number; trusted_proxy_tls: number; plaintext: number; unknown: number };
+  address_source: { direct: number; trusted_proxy: number; invalid_trusted_proxy: number; unknown: number };
+};
+export type CrawlerIdentity = {
+  state: "no_samples" | "collecting" | "attention";
+  scope: "evaluated_identity_observations";
+  observations: number;
+  qualified_public: number;
+  unqualified: number;
+  classes: { search_indexer: number; answer_engine: number; training_crawler: number; user_triggered_agent: number; preview: number; monitoring: number; other: number; unknown: number };
+  verification: { ip_ua_registry: number; fcrdns_ua: number; http_signature: number; unknown: number };
+};
 type LinkedEvaluation = {
   decisions: number; confirmed_labels: number; ambiguous_ground_truth: number;
   confusion: { true_positive: number; false_positive: number; true_negative: number; false_negative: number };
@@ -69,6 +86,8 @@ type Summary = {
   collection: Collection;
   origin_coverage: OriginCoverage;
   outcome_flow: OutcomeFlow;
+  transport_posture: TransportPosture;
+  crawler_identity: CrawlerIdentity;
   analysis_status: { state: "not_configured" | "ready" | "invalid_update"; loaded_at: string | null; last_attempt_at: string | null };
   analysis: Analysis | null;
 };
@@ -104,6 +123,16 @@ export const outcomeFlowCopy = (flow: OutcomeFlow) => {
   if (flow.state === "degraded") return "An authorized outcome was rejected or could not be written; linkage evidence is incomplete.";
   return "Normalized outcome events are reaching the encrypted local sink.";
 };
+export const transportPostureCopy = (posture: TransportPosture) => {
+  if (posture.state === "no_samples") return "No successfully evaluated decision has supplied transport context in this process.";
+  if (posture.state === "attention") return "Plaintext, unknown or invalid trusted-proxy context was observed; verify the deployment boundary before rollout.";
+  return "Evaluated decisions contain complete closed transport provenance without address values.";
+};
+export const crawlerIdentityCopy = (identity: CrawlerIdentity) => {
+  if (identity.state === "no_samples") return "No crawler identity observation has reached this process.";
+  if (identity.state === "attention") return "At least one crawler claim lacked eligible proof, purpose or public endpoint scope; it was not allowlisted.";
+  return "All observed crawler identities in this process qualified for their narrow public scope.";
+};
 const formatDuration = (seconds: number) => seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m` : `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 const reasonCopy: Record<string, string> = {
   BASELINE_LOW_RISK: "No configured risk threshold matched.",
@@ -119,8 +148,8 @@ const reasonCopy: Record<string, string> = {
   POLICY_ALERT: "A trusted deployment policy adapter reported elevated abuse intent.",
   EXTERNAL_RISK: "A trusted external adapter contributed a normalized risk signal.",
   CHALLENGE_VERDICT_SUSPICIOUS: "A trusted challenge adapter reported a suspicious outcome.",
-  VERIFIED_BOT_IDENTITY: "A trusted origin adapter verified the declared automation identity.",
-  VERIFIED_AUTOMATION_ALLOWED: "Verified automation remained below the intent and continuity risk thresholds.",
+  VERIFIED_PUBLIC_CRAWLER: "A trusted origin adapter verified a declared crawler class for an indexable public endpoint.",
+  VERIFIED_PUBLIC_CRAWLER_ALLOWED: "A verified beneficial crawler remained below intent and continuity risk thresholds on a public endpoint.",
   SERVER_SESSION_VERIFIED: "The server observed a valid first-party session continuity signal.",
   BROWSER_PROTOCOL_CONTRADICTION: "Browser claims conflicted with the protocol behavior observed by the trusted origin.",
   BROWSER_SEQUENCE_PRESENT: "Bounded browser-event sequencing was present for the session.",
@@ -281,7 +310,7 @@ export function App() {
             </div>
           </section>
 
-          <section className="operational-funnels" aria-label="Origin coverage and outcome ingestion">
+          <section className="operational-funnels" aria-label="Origin coverage, outcome ingestion, transport posture and crawler identity">
             <article className={`funnel-card ${summary.origin_coverage.state}`}>
               <div className="collection-heading"><div><p className="eyebrow">PROTECTED HANDLER</p><h2>Origin coverage</h2></div><span>{summary.origin_coverage.state.replaceAll("_", " ")}</span></div>
               <strong className="funnel-primary">{summary.origin_coverage.protected_requests === 0 ? "no sample" : formatPercent(summary.origin_coverage.decision_coverage_rate)}</strong>
@@ -310,6 +339,30 @@ export function App() {
                 <div className={summary.outcome_flow.dropped > 0 ? "loss" : ""}><strong>{formatNumber(summary.outcome_flow.dropped)}</strong><span>write failures</span></div>
               </div>
               <p className="scope-warning"><strong>Evidence boundary:</strong> outcome events are not automatically human or abuse labels. Only the linked aggregate analysis determines usable ground truth.</p>
+            </article>
+
+            <article className={`funnel-card transport-card ${summary.transport_posture.state}`}>
+              <div className="collection-heading"><div><p className="eyebrow">TRUST BOUNDARY</p><h2>Transport posture</h2></div><span>{summary.transport_posture.state.replaceAll("_", " ")}</span></div>
+              <strong className="funnel-primary">{summary.transport_posture.samples === 0 ? "no sample" : formatNumber(summary.transport_posture.samples)}</strong>
+              <p>{transportPostureCopy(summary.transport_posture)}</p>
+              <div className="transport-groups">
+                <div><h3>Protocol</h3><span>HTTP/1 <b>{formatNumber(summary.transport_posture.protocol.http1)}</b></span><span>HTTP/2 <b>{formatNumber(summary.transport_posture.protocol.http2)}</b></span><span>HTTP/3 <b>{formatNumber(summary.transport_posture.protocol.http3)}</b></span><span className={summary.transport_posture.protocol.unknown > 0 ? "loss" : ""}>unknown <b>{formatNumber(summary.transport_posture.protocol.unknown)}</b></span></div>
+                <div><h3>Security</h3><span>direct TLS <b>{formatNumber(summary.transport_posture.security.direct_tls)}</b></span><span>proxy edge TLS <b>{formatNumber(summary.transport_posture.security.trusted_proxy_tls)}</b></span><span className={summary.transport_posture.security.plaintext > 0 ? "loss" : ""}>plaintext <b>{formatNumber(summary.transport_posture.security.plaintext)}</b></span><span className={summary.transport_posture.security.unknown > 0 ? "loss" : ""}>unknown <b>{formatNumber(summary.transport_posture.security.unknown)}</b></span></div>
+                <div><h3>Address provenance</h3><span>direct peer <b>{formatNumber(summary.transport_posture.address_source.direct)}</b></span><span>trusted proxy <b>{formatNumber(summary.transport_posture.address_source.trusted_proxy)}</b></span><span className={summary.transport_posture.address_source.invalid_trusted_proxy > 0 ? "loss" : ""}>invalid proxy value <b>{formatNumber(summary.transport_posture.address_source.invalid_trusted_proxy)}</b></span><span className={summary.transport_posture.address_source.unknown > 0 ? "loss" : ""}>unknown <b>{formatNumber(summary.transport_posture.address_source.unknown)}</b></span></div>
+              </div>
+              <p className="scope-warning"><strong>Privacy boundary:</strong> aggregate classes from evaluated decisions only. No IP address or forwarding-header value is retained.</p>
+            </article>
+
+            <article className={`funnel-card transport-card ${summary.crawler_identity.state}`}>
+              <div className="collection-heading"><div><p className="eyebrow">SEO / GEO IDENTITY</p><h2>Crawler verification</h2></div><span>{summary.crawler_identity.state.replaceAll("_", " ")}</span></div>
+              <strong className="funnel-primary">{summary.crawler_identity.observations === 0 ? "no sample" : formatNumber(summary.crawler_identity.qualified_public)}</strong>
+              <p>{crawlerIdentityCopy(summary.crawler_identity)}</p>
+              <div className="transport-groups crawler-groups">
+                <div><h3>Purpose</h3><span>search indexer <b>{formatNumber(summary.crawler_identity.classes.search_indexer)}</b></span><span>answer engine <b>{formatNumber(summary.crawler_identity.classes.answer_engine)}</b></span><span>user-triggered <b>{formatNumber(summary.crawler_identity.classes.user_triggered_agent)}</b></span><span className={summary.crawler_identity.classes.training_crawler > 0 ? "loss" : ""}>training crawler <b>{formatNumber(summary.crawler_identity.classes.training_crawler)}</b></span></div>
+                <div><h3>Proof</h3><span>IP + UA registry <b>{formatNumber(summary.crawler_identity.verification.ip_ua_registry)}</b></span><span>FCrDNS + UA <b>{formatNumber(summary.crawler_identity.verification.fcrdns_ua)}</b></span><span>HTTP signature <b>{formatNumber(summary.crawler_identity.verification.http_signature)}</b></span><span className={summary.crawler_identity.verification.unknown > 0 ? "loss" : ""}>unknown <b>{formatNumber(summary.crawler_identity.verification.unknown)}</b></span></div>
+                <div><h3>Qualification</h3><span>eligible public <b>{formatNumber(summary.crawler_identity.qualified_public)}</b></span><span className={summary.crawler_identity.unqualified > 0 ? "loss" : ""}>not allowlisted <b>{formatNumber(summary.crawler_identity.unqualified)}</b></span></div>
+              </div>
+              <p className="scope-warning"><strong>Identity boundary:</strong> aggregate closed classes only. No IP, user-agent, DNS name or vendor label is retained.</p>
             </article>
           </section>
 

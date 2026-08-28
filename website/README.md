@@ -30,6 +30,24 @@ keys, customer details or tracking parameters. With no value configured the
 site links to the public repository and explicitly says that a private channel
 has not yet been added; it never invents an address.
 
+## SEO and answer-engine metadata
+
+Set the reviewed canonical HTTPS origin, including its trailing slash:
+
+```sh
+VITE_PUBLIC_SITE_URL='https://palisade.example/' \
+  pnpm --filter @palisade-bot-defense/website build
+```
+
+The build then emits a canonical URL, absolute social image, Open Graph URL,
+`SoftwareSourceCode` JSON-LD, `robots.txt`, `sitemap.xml` and a factual
+`llms.txt`. Without this variable, the build deliberately emits `noindex,
+nofollow`, a disallowing `robots.txt` and no sitemap. This makes an accidental
+preview deployment fail closed instead of competing with the reviewed domain.
+Robots directives describe crawl policy; they do not authenticate crawlers.
+Network identity and allowlisting are handled separately by the trusted origin
+adapter documented in [`docs/CRAWLER_IDENTITY.md`](../docs/CRAWLER_IDENTITY.md).
+
 ## Public-launch gate
 
 Do not publish the commercial site until all of the following are supplied and

@@ -57,6 +57,8 @@ type Signals struct {
 	ExternalRiskScore   float64 `json:"external_risk_score,omitempty"`
 	PolicyAlert         bool    `json:"policy_alert"`
 	VerifiedBot         bool    `json:"verified_bot"`
+	CrawlerClass        string  `json:"crawler_class,omitempty"`
+	CrawlerVerification string  `json:"crawler_verification,omitempty"`
 	TransportProtocol   string  `json:"transport_protocol"`
 	TransportSecurity   string  `json:"transport_security"`
 	ClientAddressSource string  `json:"client_address_source"`
@@ -91,6 +93,10 @@ type Config struct {
 	TrustedProxyCIDRs     []string
 	TrustedClientIPHeader string
 	TrustedProtoHeader    string
+	// CrawlerRegistry verifies a claimed crawler product against a local,
+	// deployment-maintained IP registry. The adapter never sends the address or
+	// user-agent to PALISADE, and never performs a network lookup in the hot path.
+	CrawlerRegistry *CrawlerRegistry
 }
 
 func StaticClassification(action, endpointClass string) Classifier {

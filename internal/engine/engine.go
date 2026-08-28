@@ -24,7 +24,7 @@ var (
 	ErrExplicitTimeWithProof = errors.New("explicit decision time is unavailable with proof enforcement")
 )
 
-const ModelVersion = "transparent-baseline-v9"
+const ModelVersion = "transparent-baseline-v10"
 
 type Engine struct {
 	sessions      *session.MemoryStore
@@ -117,7 +117,7 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 		Scores: scores, EndpointClass: request.EndpointClass,
 		HoneypotHits: request.Observations.HoneypotHits,
 		PolicyAlert:  request.Observations.PolicyAlert,
-		VerifiedBot:  request.Observations.VerifiedBot,
+		VerifiedBot:  core.VerifiedPublicCrawler(request.Observations, request.EndpointClass),
 	})
 	if err != nil {
 		return core.Decision{}, err
@@ -176,6 +176,12 @@ func validateRequest(request core.DecisionRequest) error {
 		return ErrInvalidRequest
 	}
 	if _, valid := core.NormalizeEvaluationCohort(request.EvaluationCohort); !valid {
+		return ErrInvalidRequest
+	}
+	if _, valid := core.NormalizeCrawlerClass(request.Observations.CrawlerClass); !valid {
+		return ErrInvalidRequest
+	}
+	if _, valid := core.NormalizeCrawlerVerification(request.Observations.CrawlerVerification); !valid {
 		return ErrInvalidRequest
 	}
 	if !validTransportProtocol(request.Observations.TransportProtocol) || !validTransportSecurity(request.Observations.TransportSecurity) ||

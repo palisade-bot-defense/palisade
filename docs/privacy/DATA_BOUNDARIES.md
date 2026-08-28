@@ -11,6 +11,10 @@ PALISADE should decide from behavior without reconstructing a person's content.
 - Server-side protocol consistency signals.
 - Closed transport protocol/security and client-address provenance classes;
   never the peer, proxy or client address itself.
+- Closed crawler purpose and proof-method classes derived at the trusted origin.
+  The reference adapter may compare an address and user-agent transiently with
+  an operator-supplied local registry, but sends and retains only the closed
+  verification result.
 - Random, server-issued session identifiers authenticated by an HttpOnly cookie; they are continuity handles, not identity claims.
 - Reason codes and normalized verdicts from challenge systems, external risk providers and policy-alert sources.
 - One closed, deployment-supplied evaluation cohort (`standard`, `reduced_motion`, `keyboard_only`, `fallback_path`, `sensor_missing`, `unknown`) used only for aggregate safety measurement.
@@ -23,6 +27,8 @@ PALISADE should decide from behavior without reconstructing a person's content.
 - Full URLs containing queries, fragments or embedded identifiers.
 - Raw client, proxy or peer IP addresses in decision observations or shadow
   records.
+- User-agent strings, reverse-DNS names or vendor-specific crawler labels in
+  decision observations, shadow records or the operator summary.
 - Secret tokens in logs or replay fixtures.
 - Raw customer traffic in public issues, CI artifacts or the repository.
 
