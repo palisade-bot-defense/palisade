@@ -36,8 +36,10 @@ type fakePalisade struct {
 	verifications atomic.Int32
 	redemptions   atomic.Int32
 	fallbacks     atomic.Int32
+	outcomes      atomic.Int32
 	mu            sync.Mutex
 	originBodies  [][]byte
+	outcomeBodies [][]byte
 	sequences     []uint64
 }
 
@@ -132,6 +134,16 @@ func (f *fakePalisade) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Palisade-Action", "observe")
 		w.Header().Set("X-Palisade-Handling", "pass")
 		w.WriteHeader(http.StatusNoContent)
+	case r.Method == http.MethodPost && r.URL.Path == "/v1/outcome":
+		f.outcomes.Add(1)
+		if r.Header.Get("Authorization") != "Bearer adapter-key" || cookieValue(r, SessionCookieName) != testSessionValue {
+			f.t.Errorf("unsafe outcome request: auth=%q cookie=%q", r.Header.Get("Authorization"), cookieValue(r, SessionCookieName))
+		}
+		body, _ := io.ReadAll(r.Body)
+		f.mu.Lock()
+		f.outcomeBodies = append(f.outcomeBodies, append([]byte(nil), body...))
+		f.mu.Unlock()
+		w.WriteHeader(http.StatusAccepted)
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/challenge/"+testChallengeID:
 		f.metadataGets.Add(1)
 		if cookieValue(r, SessionCookieName) != testSessionValue {
@@ -226,6 +238,60 @@ func TestMiddlewarePassesClosedSignalsWithoutRawRequestData(t *testing.T) {
 				t.Fatalf("normalized transport field %s missing: %s", expected, body)
 			}
 		}
+	}
+}
+
+func TestMiddlewareOutcomeHandleLinksExactDecisionWithoutSessionID(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	fake := &fakePalisade{t: t, now: now}
+	service := httptest.NewServer(fake)
+	defer service.Close()
+	middleware := newTestMiddleware(t, service.URL, now, FailClosed)
+
+	handler := middleware.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handle, ok := OutcomeHandleFromRequest(r)
+		if !ok || handle.DecisionID() != "decision-1" {
+			t.Fatalf("outcome handle = %+v, %v", handle, ok)
+		}
+		if err := middleware.RecordOutcome(r, handle, Outcome{
+			Kind: "human_confirmed", Provenance: "authenticated_account", Confidence: "confirmed",
+		}); err != nil {
+			t.Fatal(err)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	request := httptest.NewRequest(http.MethodGet, "https://origin.example/private?must-not-leave=true", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent || fake.outcomes.Load() != 1 {
+		t.Fatalf("response/outcomes = %d/%d", response.Code, fake.outcomes.Load())
+	}
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.outcomeBodies) != 1 || !bytes.Contains(fake.outcomeBodies[0], []byte(`"decision_id":"decision-1"`)) ||
+		!bytes.Contains(fake.outcomeBodies[0], []byte(`"endpoint_class":"public_content"`)) || bytes.Contains(fake.outcomeBodies[0], []byte("session_id")) ||
+		bytes.Contains(fake.outcomeBodies[0], []byte("must-not-leave")) {
+		t.Fatalf("outcome payload = %s", fake.outcomeBodies)
+	}
+}
+
+func TestMiddlewareRejectsInvalidOutcomeBeforeNetwork(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	fake := &fakePalisade{t: t, now: now}
+	service := httptest.NewServer(fake)
+	defer service.Close()
+	middleware := newTestMiddleware(t, service.URL, now, FailClosed)
+	handle := OutcomeHandle{decisionID: "decision-1", endpointClass: "public_content"}
+	request := withOutcomeHandle(httptest.NewRequest(http.MethodGet, "https://origin.example/", nil), handle.decisionID, handle.endpointClass, http.Cookie{Name: SessionCookieName, Value: testSessionValue})
+	if err := middleware.RecordOutcome(request, handle, Outcome{Kind: "human_confirmed", Provenance: "server_observed", Confidence: "confirmed"}); !errors.Is(err, ErrInvalidOutcome) {
+		t.Fatalf("invalid human outcome error = %v", err)
+	}
+	forged := OutcomeHandle{decisionID: "decision-2", endpointClass: "public_content"}
+	if err := middleware.RecordOutcome(request, forged, Outcome{Kind: "successful_action", Provenance: "server_observed", Confidence: "confirmed"}); !errors.Is(err, ErrInvalidOutcome) {
+		t.Fatalf("forged outcome handle error = %v", err)
+	}
+	if fake.outcomes.Load() != 0 {
+		t.Fatalf("invalid outcome reached service %d times", fake.outcomes.Load())
 	}
 }
 

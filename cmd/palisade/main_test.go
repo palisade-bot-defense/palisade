@@ -216,6 +216,10 @@ func TestServeEventShadowEvaluationRequiresCompleteSafeConfiguration(t *testing.
 		{name: "signed session", args: []string{"--dev", "--event-shadow-action", "read", "--event-shadow-endpoint-class", "public_content", "--shadow-log-dir", "synthetic", "--shadow-log-key-file", "synthetic-key"}, want: "require-session-cookie"},
 		{name: "closed profile", args: []string{"--dev", "--event-shadow-action", "unbounded", "--event-shadow-endpoint-class", "public_content", "--shadow-log-dir", "synthetic", "--shadow-log-key-file", "synthetic-key", "--require-session-cookie"}, want: "invalid event shadow evaluation profile"},
 		{name: "shadow only", args: []string{"--dev", "--event-shadow-action", "read", "--event-shadow-endpoint-class", "public_content", "--shadow-log-dir", "synthetic", "--shadow-log-key-file", "synthetic-key", "--require-session-cookie", "--rollout-plan", "synthetic-plan", "--rollout-public-key", "synthetic-public-key"}, want: "shadow-only"},
+		{name: "proof profile excludes static", args: []string{"--dev", "--event-shadow-action", "read", "--event-shadow-endpoint-class", "public_content", "--event-shadow-from-proof"}, want: "mutually exclusive"},
+		{name: "proof profile needs sink", args: []string{"--dev", "--event-shadow-from-proof"}, want: "encrypted shadow log"},
+		{name: "proof profile needs session", args: []string{"--dev", "--event-shadow-from-proof", "--shadow-log-dir", "synthetic", "--shadow-log-key-file", "synthetic-key"}, want: "require-session-cookie"},
+		{name: "proof profile needs production proofs", args: []string{"--dev", "--event-shadow-from-proof", "--shadow-log-dir", "synthetic", "--shadow-log-key-file", "synthetic-key", "--require-session-cookie"}, want: "production one-time event proofs"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

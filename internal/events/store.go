@@ -2,6 +2,7 @@ package events
 
 import (
 	"errors"
+	"math"
 	"sync"
 	"time"
 )
@@ -27,9 +28,21 @@ type Batch struct {
 }
 
 type entry struct {
-	count    int
-	lastSeen time.Time
-	lastSeq  uint64
+	count         int
+	acceptedBatch uint64
+	lastSeen      time.Time
+	lastSeq       uint64
+}
+
+// IngestReceipt contains only server-owned bounded aggregates. BatchSequence
+// is a contiguous sequence of accepted HTTP batches and must be used when an
+// accepted browser-event flush triggers a shadow decision. Browser event
+// sequence numbers describe events inside the batch and are not request
+// sequence numbers.
+type IngestReceipt struct {
+	AcceptedEvents      int
+	TotalAcceptedEvents int
+	BatchSequence       uint64
 }
 
 type Store struct {
@@ -43,13 +56,20 @@ func NewStore(ttl time.Duration) *Store {
 }
 
 func (s *Store) Ingest(batch Batch, now time.Time) error {
+	_, err := s.IngestWithReceipt(batch, now)
+	return err
+}
+
+// IngestWithReceipt validates and deduplicates a batch, then advances a
+// server-owned batch sequence atomically with the event counters.
+func (s *Store) IngestWithReceipt(batch Batch, now time.Time) (IngestReceipt, error) {
 	if len(batch.SessionID) < 8 || len(batch.SessionID) > 128 || len(batch.SensorVersion) > 32 || len(batch.Events) == 0 || len(batch.Events) > MaxBatchSize {
-		return ErrInvalidBatch
+		return IngestReceipt{}, ErrInvalidBatch
 	}
 	previous := uint64(0)
 	for _, event := range batch.Events {
 		if event.Sequence == 0 || event.Sequence <= previous || !validKind(event.Kind) || event.ElapsedBucketMS > 86_400_000 || event.ValueBucket < 0 || event.ValueBucket > 65_536 {
-			return ErrInvalidBatch
+			return IngestReceipt{}, ErrInvalidBatch
 		}
 		previous = event.Sequence
 	}
@@ -58,6 +78,9 @@ func (s *Store) Ingest(batch Batch, now time.Time) error {
 	defer s.mu.Unlock()
 	s.prune(now)
 	current := s.sessions[batch.SessionID]
+	if current.acceptedBatch == math.MaxUint64 {
+		return IngestReceipt{}, ErrInvalidBatch
+	}
 	accepted := 0
 	for _, event := range batch.Events {
 		if event.Sequence > current.lastSeq {
@@ -66,9 +89,14 @@ func (s *Store) Ingest(batch Batch, now time.Time) error {
 		}
 	}
 	current.count += accepted
+	current.acceptedBatch++
 	current.lastSeen = now
 	s.sessions[batch.SessionID] = current
-	return nil
+	return IngestReceipt{
+		AcceptedEvents:      accepted,
+		TotalAcceptedEvents: current.count,
+		BatchSequence:       current.acceptedBatch,
+	}, nil
 }
 
 func (s *Store) Count(sessionID string, now time.Time) int {

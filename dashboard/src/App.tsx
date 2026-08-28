@@ -5,6 +5,7 @@ type LoadState = "locked" | "loading" | "ready" | "unauthorized" | "error";
 type ActionCounts = { allow: number; observe: number; delay: number; throttle: number; challenge: number; block: number };
 type Recommendation = { code: string; priority: string; message: string };
 type Proportion = { count: number; total: number; rate: number; lower_95: number; upper_95: number };
+type ScoreSummary = { minimum: number; maximum: number; mean: number };
 type LinkedEvaluation = {
   decisions: number; confirmed_labels: number; ambiguous_ground_truth: number;
   confusion: { true_positive: number; false_positive: number; true_negative: number; false_negative: number };
@@ -23,6 +24,7 @@ type Analysis = {
   readiness: { state: string; operator_action: string; automatic_enforcement: boolean; reason_codes: string[] };
   decisions: { total: number; computed_challenge_rate: number };
   outcomes: { total: number; coverage: number; human_confirmed: number; operator_confirmed_abuse: number; challenge_failure_rate: number };
+  scores: { automation_risk: ScoreSummary; abuse_intent_risk: ScoreSummary; account_continuity: ScoreSummary };
   linkage: { confirmed_decision_labels: number; confirmed_label_coverage: Proportion; ambiguous_ground_truth_decisions: number; ambiguous_challenge_decisions: number };
   evaluation_slices: { endpoint_class: string; evaluation_cohort: string; evaluation: LinkedEvaluation }[];
   endpoints: EndpointEvidence[];
@@ -46,6 +48,11 @@ const formatNumber = (value: number) => new Intl.NumberFormat().format(value);
 const formatPercent = (value: number) => new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 1 }).format(value);
 export const formatInterval = (value: Proportion) => value.total === 0 ? "no sample" : `${formatPercent(value.rate)} · 95% ${formatPercent(value.lower_95)}–${formatPercent(value.upper_95)}`;
 export const countComparableCanaries = (values: { comparable: boolean }[]) => values.filter((value) => value.comparable).length;
+export const scoreEvidenceState = (value: ScoreSummary) => value.minimum === 0.5 && value.maximum === 0.5 && value.mean === 0.5
+  ? "No evidence observed · neutral prior"
+  : value.minimum === value.maximum
+    ? "No variation observed"
+    : `Observed range ${formatPercent(value.minimum)}–${formatPercent(value.maximum)}`;
 const formatDuration = (seconds: number) => seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m` : `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 const reasonCopy: Record<string, string> = {
   BASELINE_LOW_RISK: "No configured risk threshold matched.",
@@ -226,6 +233,19 @@ export function App() {
                     <div><strong>{formatNumber(summary.analysis.decisions.total)}</strong><span>analyzed decisions</span></div>
                     <div><strong>{formatPercent(summary.analysis.linkage.confirmed_label_coverage.rate)}</strong><span>linked label coverage</span></div>
                     <div><strong>{formatPercent(summary.analysis.decisions.computed_challenge_rate)}</strong><span>challenge candidate rate</span></div>
+                  </div>
+                  <div className="score-evidence">
+                    <div className="subsection-title"><div><p className="eyebrow">SIGNAL DIMENSIONS</p><h3>What moved the scores</h3></div><span>aggregate evidence</span></div>
+                    {([
+                      ["Automation risk", summary.analysis.scores.automation_risk],
+                      ["Abuse intent", summary.analysis.scores.abuse_intent_risk],
+                      ["Account continuity risk", summary.analysis.scores.account_continuity],
+                    ] as [string, ScoreSummary][]).map(([label, score]) => (
+                      <div className={`score-row ${scoreEvidenceState(score).startsWith("No evidence") ? "neutral" : "observed"}`} key={label}>
+                        <span>{label}</span><strong>{formatPercent(score.mean)}</strong><small>{scoreEvidenceState(score)}</small>
+                      </div>
+                    ))}
+                    <p>A neutral 50% prior is an absence of directional evidence, not a measured 50% probability of abuse.</p>
                   </div>
                   <div className="endpoint-evidence">
                     <h3>Endpoint evidence <span>Wilson 95% intervals</span></h3>

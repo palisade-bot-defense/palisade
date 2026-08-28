@@ -74,6 +74,14 @@ h1 em { color: var(--cobalt); font-style: normal; }
 .analysis-stats strong, .analysis-stats span { display: block; }
 .analysis-stats strong { font-size: 25px; }
 .analysis-stats span { margin-top: 5px; color: var(--copy); font-size: 11px; }
+.score-evidence { padding: 4px 28px 20px; border-top: 1px solid #eeecfa; }
+.score-evidence .subsection-title { padding-top: 20px; }
+.score-row { display: grid; grid-template-columns: minmax(130px, 1fr) 70px minmax(180px, 1.4fr); align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid #eeecfa; }
+.score-row > span { color: #42416d; font-size: 12px; font-weight: 750; }
+.score-row strong { color: var(--cobalt-deep); text-align: right; }
+.score-row small { color: var(--copy); font-size: 11px; }
+.score-row.neutral small { color: #8a5a00; }
+.score-evidence > p { margin: 10px 0 0; padding: 10px 12px; border-radius: 9px; color: var(--copy); background: var(--surface); font-size: 11px; line-height: 1.45; }
 .endpoint-evidence { padding: 22px 28px 4px; border-top: 1px solid #eeecfa; }
 .endpoint-evidence h3 { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 10px; font-size: 15px; }
 .endpoint-evidence h3 span { color: var(--copy); font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; }
@@ -116,4 +124,4 @@ h1 em { color: var(--cobalt); font-style: normal; }
 code { overflow-wrap: anywhere; }
 @media (max-width: 900px) { .login-shell { grid-template-columns: 1fr; gap: 28px; padding: 44px 34px; } .console-heading { align-items: stretch; flex-direction: column; } .runtime-badges { justify-content: flex-start; } .metric-grid { grid-template-columns: repeat(2, 1fr); } .two-column, .control-panel { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .endpoint-row { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 560px) { main { width: min(100% - 24px, 1240px); padding-top: 12px; } header img { width: 150px; } nav { gap: 10px; } .health { display: none; } .login-shell, .console-heading, .control-panel { padding: 26px 20px; border-radius: 22px; } .connection-banner { align-items: flex-start; flex-direction: column; } h1 { font-size: 42px; } .metric-grid, .control-grid, .runtime-contract { grid-template-columns: 1fr; } .analysis-stats, .endpoint-row { grid-template-columns: 1fr; } .page-footer, .panel-footer { flex-direction: column; } }
+@media (max-width: 560px) { main { width: min(100% - 24px, 1240px); padding-top: 12px; } header img { width: 150px; } nav { gap: 10px; } .health { display: none; } .login-shell, .console-heading, .control-panel { padding: 26px 20px; border-radius: 22px; } .connection-banner { align-items: flex-start; flex-direction: column; } h1 { font-size: 42px; } .metric-grid, .control-grid, .runtime-contract { grid-template-columns: 1fr; } .analysis-stats, .endpoint-row, .score-row { grid-template-columns: 1fr; } .score-row strong { text-align: left; } .page-footer, .panel-footer { flex-direction: column; } }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { countComparableCanaries, explainReason, formatInterval } from "./App";
+import { countComparableCanaries, explainReason, formatInterval, scoreEvidenceState } from "./App";
 
 describe("aggregate endpoint evidence", () => {
   it("does not invent an interval for an absent sample", () => {
@@ -15,5 +15,10 @@ describe("aggregate endpoint evidence", () => {
   it("explains known and future stable reason codes without exposing rows", () => {
     expect(explainReason("NAVIGATION_SURFACE_SWEEP")).toContain("endpoint classes");
     expect(explainReason("FUTURE_REASON_CODE")).toContain("versioned rule");
+  });
+
+  it("does not present the neutral prior as measured intent risk", () => {
+    expect(scoreEvidenceState({ minimum: 0.5, maximum: 0.5, mean: 0.5 })).toContain("No evidence observed");
+    expect(scoreEvidenceState({ minimum: 0.2, maximum: 0.8, mean: 0.55 })).toContain("Observed range");
   });
 });

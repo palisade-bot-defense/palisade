@@ -25,6 +25,69 @@ if err != nil { log.Fatal(err) }
 http.ListenAndServeTLS(":443", "cert.pem", "key.pem", guard.Handler(application))
 ```
 
+## Linking application outcomes
+
+Requests that pass PALISADE carry an opaque, request-scoped outcome handle in
+their Go context. Authenticated application code can use it to link a closed
+result to the exact decision without reading a PALISADE session ID:
+
+```go
+func accountPage(w http.ResponseWriter, r *http.Request) {
+    handle, ok := palisadehttp.OutcomeHandleFromRequest(r)
+    if ok && currentAccount(r) != nil {
+        if err := guard.RecordOutcome(r, handle, palisadehttp.Outcome{
+            Kind: "human_confirmed", Provenance: "authenticated_account", Confidence: "confirmed",
+        }); err != nil {
+            // Count or log only the closed failure class; do not log the handle.
+        }
+    }
+    // Render the application response.
+}
+```
+
+The handle contains only the stable decision ID and closed endpoint class; the
+signed PALISADE cookie remains in private request context. `RecordOutcome` sends no URL, query, request
+body, response body, client address or account identifier. The service derives
+the session from the signed cookie and rejects incompatible combinations such
+as `human_confirmed` with `server_observed` provenance. Challenge lifecycle
+outcomes are already recorded by PALISADE and must not be relabeled as human.
+Keep this helper request-local. A deployment that needs a result after the
+request has finished must implement a separate audited, bounded backend
+workflow that preserves the same decision, session and endpoint binding.
+
+## Issuing route-classified sensor proofs
+
+Proof-classified sensor-only shadow deployments can use `IssueEventProof` from
+a same-origin backend route. The application fixes the classification in its
+route table; browser input does not supply it:
+
+```go
+func compareEventProof(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+        http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+    proof, err := guard.IssueEventProof(r, palisadehttp.Classification{
+        Action: "compare", EndpointClass: "compare_noindex",
+    })
+    if err != nil {
+        http.Error(w, "proof unavailable", http.StatusServiceUnavailable)
+        return
+    }
+    w.Header().Set("Cache-Control", "no-store")
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(proof)
+}
+```
+
+The helper reads only `__Host-palisade_session`, sends the adapter bearer key
+server-to-server and returns the bounded proof response. It does not forward
+the request URL, query, Referer, User-Agent, body, other cookies or arbitrary
+headers. Register separate fixed handlers for the closed route classes you
+actually measure. Never accept action or endpoint class values from a request
+body or query parameter, never log the returned proof, and do not use this
+shadow-only measurement bridge as enforcement evidence by itself.
+
 `FailureMode` is mandatory. Choose `fail_open` only when availability is more
 important than protection during a PALISADE outage; bypassed requests receive
 `X-Palisade-Adapter: bypass_unavailable`. Choose `fail_closed` for sensitive

@@ -52,12 +52,27 @@ palisade serve \
 After an event batch is authenticated and ingested, PALISADE mints and consumes
 an internal one-time proof for that configured action, evaluates the fresh
 in-memory event count and queues one closed encrypted shadow decision. The
+decision uses a server-owned contiguous batch counter, not the browser's event
+number, so normal multi-event flushes cannot create request-sequence gaps. The
 browser receives only `202` and the closed `recorded|dropped` status header,
 never scores, evidence, credentials or the server-side classification. Event
 acceptance remains final if the decision queue is full, preventing duplicate
 sequence retries. This bridge is shadow-only, requires the encrypted sink and
 signed session cookie, cannot run with a signed rollout, and must not be used in
 parallel with the origin adapter's authoritative decision stream.
+
+For multiple endpoint classes, replace the two static profile flags with
+`--event-shadow-from-proof`. The backend then calls `POST /v1/token` with
+`action: events` plus a closed `request_action` and `endpoint_class` derived
+from the backend route table. PALISADE signs those fields into the same
+short-lived one-time proof already required by `/v1/events`; the sensor only
+forwards that proof. Proof-classified mode rejects development mode, raw route
+values, missing claim pairs and non-event proofs. It never adds browser-chosen
+classification fields to the event batch. Invalid or cross-mode contexts are
+rejected before ingestion so they cannot advance the event-shadow sequence.
+Go origins can use `palisadehttp.Middleware.IssueEventProof` from a fixed
+same-origin backend route; the helper forwards only the PALISADE session cookie
+and closed server configuration, never the page request target or headers.
 
 ## HTTP integration
 
@@ -105,7 +120,7 @@ The response separates what PALISADE recommends from what it actually applies:
   "reason_codes": ["STEP_UP_REQUIRED", "SHADOW_ACTION_OVERRIDDEN"],
   "evidence": [],
   "policy_version": "default-v4",
-  "model_version": "transparent-baseline-v8",
+  "model_version": "transparent-baseline-v9",
   "expires_at": "2026-08-27T12:00:30Z"
 }
 ```
@@ -119,7 +134,9 @@ trusted coarse measurement slice, not a signal source: detectors and policy do
 not consume it. Use only the closed vocabulary and never derive it from a
 fingerprint, identity, diagnosis or free-form browser metadata. Delayed outcome
 writes must repeat the exact response `decision_id`; PALISADE rejects new
-unlinked outcomes.
+unlinked outcomes. The Go reference middleware exposes an opaque outcome handle
+only after a validated pass decision and can submit a normalized outcome with
+the signed session cookie, so application code does not need the raw session ID.
 
 ## Adding a new source
 

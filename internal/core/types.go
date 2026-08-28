@@ -102,6 +102,18 @@ func ValidEndpointClass(value string) bool {
 	}
 }
 
+// ValidRequestAction accepts only deployment-independent action classes. It
+// deliberately excludes paths, methods and application-specific free text so
+// trusted adapters cannot accidentally turn request metadata into a signal.
+func ValidRequestAction(value string) bool {
+	switch value {
+	case "read", "write", "create", "update", "delete", "search", "compare", "login", "logout", "register", "checkout", "purchase", "other":
+		return true
+	default:
+		return false
+	}
+}
+
 type DetectorInput struct {
 	Request DecisionRequest
 	Session SessionSnapshot
