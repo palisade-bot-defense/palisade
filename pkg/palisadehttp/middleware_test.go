@@ -2,6 +2,7 @@ package palisadehttp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -25,22 +26,26 @@ const (
 )
 
 type fakePalisade struct {
-	t             *testing.T
-	now           time.Time
-	challenge     bool
-	handling      string
-	sessionIssues atomic.Int32
-	tokenIssues   atomic.Int32
-	originChecks  atomic.Int32
-	metadataGets  atomic.Int32
-	verifications atomic.Int32
-	redemptions   atomic.Int32
-	fallbacks     atomic.Int32
-	outcomes      atomic.Int32
-	mu            sync.Mutex
-	originBodies  [][]byte
-	outcomeBodies [][]byte
-	sequences     []uint64
+	t                 *testing.T
+	now               time.Time
+	challenge         bool
+	handling          string
+	originUnavailable bool
+	sessionIssues     atomic.Int32
+	tokenIssues       atomic.Int32
+	originChecks      atomic.Int32
+	metadataGets      atomic.Int32
+	verifications     atomic.Int32
+	redemptions       atomic.Int32
+	fallbacks         atomic.Int32
+	outcomes          atomic.Int32
+	coverages         atomic.Int32
+	mu                sync.Mutex
+	originBodies      [][]byte
+	outcomeBodies     [][]byte
+	sequences         []uint64
+	coverageBodies    [][]byte
+	coverageReports   chan coverageReport
 }
 
 func (f *fakePalisade) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -82,6 +87,10 @@ func (f *fakePalisade) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.mu.Unlock()
 		if payload.SessionID != "" || cookieValue(r, SessionCookieName) != testSessionValue {
 			f.t.Errorf("origin session payload/cookie = %q/%q", payload.SessionID, cookieValue(r, SessionCookieName))
+		}
+		if f.originUnavailable {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
 		}
 		w.Header().Set("X-Palisade-Decision-ID", "decision-1")
 		if f.challenge {
@@ -144,6 +153,23 @@ func (f *fakePalisade) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.outcomeBodies = append(f.outcomeBodies, append([]byte(nil), body...))
 		f.mu.Unlock()
 		w.WriteHeader(http.StatusAccepted)
+	case r.Method == http.MethodPost && r.URL.Path == "/v1/origin-coverage":
+		f.coverages.Add(1)
+		if r.Header.Get("Authorization") != "Bearer adapter-key" {
+			f.t.Errorf("coverage authorization = %q", r.Header.Get("Authorization"))
+		}
+		body, _ := io.ReadAll(r.Body)
+		var report coverageReport
+		if err := json.Unmarshal(body, &report); err != nil {
+			f.t.Errorf("coverage JSON: %v", err)
+		}
+		f.mu.Lock()
+		f.coverageBodies = append(f.coverageBodies, append([]byte(nil), body...))
+		f.mu.Unlock()
+		if f.coverageReports != nil {
+			f.coverageReports <- report
+		}
+		w.WriteHeader(http.StatusAccepted)
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/challenge/"+testChallengeID:
 		f.metadataGets.Add(1)
 		if cookieValue(r, SessionCookieName) != testSessionValue {
@@ -178,6 +204,158 @@ func (f *fakePalisade) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		f.t.Errorf("unexpected PALISADE request: %s %s", r.Method, r.URL.Path)
 		w.WriteHeader(http.StatusNotFound)
+	}
+}
+
+func TestMiddlewareReportsOnlyClosedCompletedRequestCoverage(t *testing.T) {
+	now := time.Date(2026, time.August, 28, 12, 0, 0, 0, time.UTC)
+	fake := &fakePalisade{t: t, now: now, coverageReports: make(chan coverageReport, 2)}
+	service := httptest.NewServer(fake)
+	defer service.Close()
+	middleware, err := New(Config{
+		BaseURL: service.URL, APIKey: "adapter-key", FailureMode: FailClosed,
+		Classifier: StaticClassification("read", "public_content"), CoverageReporting: true,
+		CoverageReportEvery: 1, CoverageReportInterval: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	middleware.now = func() time.Time { return now }
+	handler := middleware.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	request := httptest.NewRequest(http.MethodGet, "https://origin.example/private?secret=must-not-leave", nil)
+	request.Header.Set("Referer", "https://origin.example/account/private")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("protected response = %d", response.Code)
+	}
+	var report coverageReport
+	select {
+	case report = <-fake.coverageReports:
+	case <-time.After(2 * time.Second):
+		t.Fatal("coverage report was not delivered")
+	}
+	if report.SchemaVersion != coverageSchemaVersion || len(report.SourceID) != 32 || report.Sequence != 1 || len(report.Endpoints) != len(coverageEndpointClasses) ||
+		report.Endpoints[0].EndpointClass != "public_content" || report.Endpoints[0].Protected != 1 || report.Endpoints[0].Evaluated != 1 {
+		t.Fatalf("coverage report = %+v", report)
+	}
+	fake.mu.Lock()
+	encoded := append([]byte(nil), fake.coverageBodies[0]...)
+	fake.mu.Unlock()
+	for _, forbidden := range []string{"must-not-leave", "/private", "Referer", "origin.example", "GET"} {
+		if bytes.Contains(encoded, []byte(forbidden)) {
+			t.Fatalf("coverage report exposed %q: %s", forbidden, encoded)
+		}
+	}
+}
+
+func TestMiddlewareFlushCoverageSendsLatestBelowThresholdSnapshot(t *testing.T) {
+	now := time.Date(2026, time.August, 28, 12, 0, 0, 0, time.UTC)
+	fake := &fakePalisade{t: t, now: now, coverageReports: make(chan coverageReport, 3)}
+	service := httptest.NewServer(fake)
+	defer service.Close()
+	middleware, err := New(Config{
+		BaseURL: service.URL, APIKey: "adapter-key", FailureMode: FailClosed,
+		Classifier: StaticClassification("read", "public_content"), CoverageReporting: true,
+		CoverageReportEvery: 100, CoverageReportInterval: time.Minute,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	middleware.now = func() time.Time { return now }
+	handler := middleware.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "https://origin.example/first", nil))
+	var first coverageReport
+	select {
+	case first = <-fake.coverageReports:
+	case <-time.After(2 * time.Second):
+		t.Fatal("initial coverage report was not delivered")
+	}
+	if first.Sequence != 1 || first.Endpoints[0].Protected != 1 {
+		t.Fatalf("initial report = %+v", first)
+	}
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "https://origin.example/second", nil))
+	if err := middleware.FlushCoverage(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var flushed coverageReport
+	select {
+	case flushed = <-fake.coverageReports:
+	case <-time.After(2 * time.Second):
+		t.Fatal("flushed coverage report was not delivered")
+	}
+	if flushed.Sequence != 2 || flushed.Endpoints[0].Protected != 2 || flushed.Endpoints[0].Evaluated != 2 {
+		t.Fatalf("flushed report = %+v", flushed)
+	}
+	if err := middleware.FlushCoverage(nil); !errors.Is(err, ErrInvalidConfig) {
+		t.Fatalf("nil flush context error = %v", err)
+	}
+}
+
+func TestMiddlewareCoverageRejectsMisconfiguration(t *testing.T) {
+	base := Config{BaseURL: "http://127.0.0.1:8080", APIKey: "adapter-key", Classifier: StaticClassification("read", "public_content"), FailureMode: FailClosed}
+	for name, mutate := range map[string]func(*Config){
+		"settings while disabled": func(config *Config) { config.CoverageReportEvery = 1 },
+		"zero interval":           func(config *Config) { config.CoverageReporting = true; config.CoverageReportInterval = time.Nanosecond },
+		"excess count":            func(config *Config) { config.CoverageReporting = true; config.CoverageReportEvery = 100_001 },
+	} {
+		t.Run(name, func(t *testing.T) {
+			config := base
+			mutate(&config)
+			if _, err := New(config); !errors.Is(err, ErrInvalidConfig) {
+				t.Fatalf("coverage config error = %v", err)
+			}
+		})
+	}
+}
+
+func TestMiddlewareCoverageDistinguishesAvailabilityBypassFromRejection(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		failureMode  FailureMode
+		wantStatus   int
+		wantNext     int32
+		wantBypassed uint64
+		wantRejected uint64
+	}{
+		{name: "fail open bypass", failureMode: FailOpen, wantStatus: http.StatusNoContent, wantNext: 1, wantBypassed: 1},
+		{name: "fail closed rejection", failureMode: FailClosed, wantStatus: http.StatusServiceUnavailable, wantRejected: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			now := time.Date(2026, time.August, 28, 12, 0, 0, 0, time.UTC)
+			fake := &fakePalisade{t: t, now: now, originUnavailable: true, coverageReports: make(chan coverageReport, 1)}
+			service := httptest.NewServer(fake)
+			defer service.Close()
+			middleware, err := New(Config{
+				BaseURL: service.URL, APIKey: "adapter-key", FailureMode: test.failureMode,
+				Classifier: StaticClassification("read", "account"), CoverageReporting: true,
+				CoverageReportEvery: 1, CoverageReportInterval: time.Second,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			middleware.now = func() time.Time { return now }
+			var nextCalls atomic.Int32
+			handler := middleware.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				nextCalls.Add(1)
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "https://origin.example/account", nil))
+			if response.Code != test.wantStatus || nextCalls.Load() != test.wantNext {
+				t.Fatalf("response/next = %d/%d", response.Code, nextCalls.Load())
+			}
+			select {
+			case report := <-fake.coverageReports:
+				counter := report.Endpoints[5]
+				if counter.Protected != 1 || counter.Bypassed != test.wantBypassed || counter.Rejected != test.wantRejected {
+					t.Fatalf("coverage disposition = %+v", counter)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("coverage report was not delivered")
+			}
+		})
 	}
 }
 

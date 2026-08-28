@@ -32,12 +32,17 @@ verify those settings after repository or organization transfers.
   state, cryptography helpers and closed validation rules.
 - Integration tests cover the HTTP API, encrypted shadow pipeline, offline
   importer, signed rollout workflow, challenge lifecycle and reference origin
-  middleware.
+  middleware. Origin-coverage tests exercise authenticated cumulative reports,
+  idempotent retries, monotonic counters, restart baselines, the 1,024-source
+  bound and rejection of free-form endpoint data. Adapter tests additionally
+  prove that fail-open, fail-closed and bound challenge-retry completions land
+  in exactly one closed disposition without exporting request fields.
 - Consumer contract tests ensure the server and Go origin adapter agree on
   pass, delay, throttle, challenge and block responses and reject malformed or
   risky shadow responses.
 - Component tests cover privacy-sensitive sensor behavior and truthful
-  aggregate dashboard presentation.
+  aggregate dashboard presentation, including explicit protected-handler scope
+  and outcome-ingestion loss states.
 - Privacy-guard self-tests stage renamed synthetic attack fixtures in isolated
   temporary Git repositories and require fail-closed rejection.
 

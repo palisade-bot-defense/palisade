@@ -70,6 +70,7 @@ type recordingShadow struct {
 	decisionValues   []core.Decision
 	decisionErr      error
 	outcomes         []shadowlog.OutcomeRequest
+	outcomeErr       error
 }
 
 func (r *recordingShadow) RecordDecision(request core.DecisionRequest, decision core.Decision, _ time.Time) error {
@@ -81,7 +82,7 @@ func (r *recordingShadow) RecordDecision(request core.DecisionRequest, decision 
 
 func (r *recordingShadow) RecordOutcome(request shadowlog.OutcomeRequest, _ time.Time) error {
 	r.outcomes = append(r.outcomes, request)
-	return nil
+	return r.outcomeErr
 }
 
 func TestDecisionRejectsUnknownFields(t *testing.T) {
@@ -804,6 +805,17 @@ func TestDecisionAndOutcomeReachShadowRecorder(t *testing.T) {
 	server.Handler().ServeHTTP(unlinkedResponse, unlinked)
 	if unlinkedResponse.Code != http.StatusBadRequest {
 		t.Fatalf("unlinked outcome status = %d", unlinkedResponse.Code)
+	}
+	recorder.outcomeErr = errors.New("synthetic recorder failure")
+	dropped := httptest.NewRequest(http.MethodPost, "/v1/outcome", bytes.NewBufferString(`{"session_id":"session-12345678","decision_id":"decision-dropped","endpoint_class":"compare_noindex","outcome":"unknown","provenance":"unknown","confidence":"unknown"}`))
+	dropped.Header.Set("Authorization", "Bearer key")
+	droppedResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(droppedResponse, dropped)
+	if droppedResponse.Code != http.StatusServiceUnavailable {
+		t.Fatalf("dropped outcome status = %d", droppedResponse.Code)
+	}
+	if flow := server.outcomeFlowSummary(); flow.Accepted != 1 || flow.Rejected != 2 || flow.Dropped != 1 {
+		t.Fatalf("outcome flow = %+v", flow)
 	}
 }
 

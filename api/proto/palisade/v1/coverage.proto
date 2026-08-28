@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package palisade.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/palisade-bot-defense/palisade/gen/palisade/v1;palisadev1";
+
+// OriginCoverageService mirrors the authenticated HTTP measurement contract.
+// The current reference runtime exposes HTTP; this service remains a versioned
+// transport contract for future generated integrations.
+service OriginCoverageService {
+  rpc ReportOriginCoverage(OriginCoverageReport) returns (OriginCoverageAccepted);
+}
+
+message OriginCoverageReport {
+  string schema_version = 1;
+  // Random per-process epoch, never a deployment, account or device identity.
+  string source_id = 2;
+  google.protobuf.Timestamp source_started_at = 3;
+  uint64 sequence = 4;
+  google.protobuf.Timestamp completed_at = 5;
+  // Exactly the nine canonical endpoint classes in canonical order on HTTP.
+  repeated OriginCoverageCounter endpoints = 6;
+}
+
+message OriginCoverageCounter {
+  string endpoint_class = 1;
+  uint64 protected_requests = 2;
+  uint64 evaluated_requests = 3;
+  uint64 bypassed_requests = 4;
+  uint64 rejected_requests = 5;
+  uint64 granted_retries = 6;
+}
+
+message OriginCoverageAccepted {}

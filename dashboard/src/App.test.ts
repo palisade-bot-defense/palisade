@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { collectionRateLabel, collectionStateCopy, countComparableCanaries, explainReason, formatInterval, scoreEvidenceState } from "./App";
+import { collectionRateLabel, collectionStateCopy, countComparableCanaries, explainReason, formatInterval, originCoverageCopy, outcomeFlowCopy, scoreEvidenceState } from "./App";
 
 describe("aggregate endpoint evidence", () => {
   it("does not invent an interval for an absent sample", () => {
@@ -41,5 +41,23 @@ describe("aggregate endpoint evidence", () => {
     };
     expect(collectionRateLabel({ ...base, state: "no_samples" })).toBe("no accepted batch sample");
     expect(collectionStateCopy({ ...base, state: "degraded" })).toContain("investigate");
+  });
+
+  it("bounds authenticated coverage to the protected handler", () => {
+    const coverage = {
+      state: "collecting" as const, scope: "protected_handler_requests" as const,
+      traffic_denominator: "authenticated_origin_reports" as const, sources: 1,
+      observed_since: "2026-08-28T12:00:00Z", last_reported_at: "2026-08-28T12:01:00Z",
+      protected_requests: 10, evaluated_requests: 9, bypassed_requests: 0, rejected_requests: 0,
+      granted_retries: 1, decision_coverage_rate: 1, endpoints: [],
+    };
+    expect(originCoverageCopy(coverage)).toContain("configured protected handler");
+    expect(originCoverageCopy({ ...coverage, state: "unavailable" })).toContain("No authenticated");
+    expect(originCoverageCopy({ ...coverage, state: "degraded", bypassed_requests: 1 })).toContain("bypassed");
+  });
+
+  it("does not present accepted outcome events as ground-truth labels", () => {
+    expect(outcomeFlowCopy({ state: "collecting", accepted: 10, rejected: 0, dropped: 0 })).toContain("events");
+    expect(outcomeFlowCopy({ state: "degraded", accepted: 10, rejected: 1, dropped: 0 })).toContain("incomplete");
   });
 });

@@ -189,6 +189,24 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /v1/origin-coverage:
+    post:
+      summary: Report cumulative completed-request coverage from a trusted origin adapter
+      description: Backend-authenticated, process-local measurement contract. Each random source epoch reports only cumulative counts for the nine closed endpoint classes. Reports contain no URL, path, method, header, client address, account identifier or request row. PALISADE rejects source replays, sequence conflicts, decreasing counters and unbalanced dispositions. This measures only requests routed through the configured protected handler, never all website traffic.
+      operationId: reportOriginCoverage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OriginCoverageReport" }
+      responses:
+        "202": { description: Coverage snapshot accepted or idempotently replayed. }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /v1/challenge/{challenge_id}:
     get:
       summary: Retrieve a session-bound accessible challenge
@@ -345,9 +363,9 @@ components:
     AdminSummary:
       type: object
       additionalProperties: false
-      required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, collection, analysis_status, analysis]
+      required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, collection, origin_coverage, outcome_flow, analysis_status, analysis]
       properties:
-        schema_version: { type: string, const: palisade.admin-summary.v6 }
+        schema_version: { type: string, const: palisade.admin-summary.v7 }
         generated_at: { type: string, format: date-time }
         uptime_seconds: { type: integer, minimum: 0 }
         runtime:
@@ -424,6 +442,38 @@ components:
                     type: string
                     enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]
                   count: { type: integer, minimum: 1 }
+        origin_coverage:
+          type: object
+          description: Authenticated cumulative counts for completed requests routed through configured PALISADE reference middleware instances. This is protected-handler coverage, not a claim about total website traffic.
+          additionalProperties: false
+          required: [state, scope, traffic_denominator, sources, observed_since, last_reported_at, protected_requests, evaluated_requests, bypassed_requests, rejected_requests, granted_retries, decision_coverage_rate, endpoints]
+          properties:
+            state: { type: string, enum: [unavailable, no_samples, collecting, degraded] }
+            scope: { type: string, const: protected_handler_requests }
+            traffic_denominator: { type: string, const: authenticated_origin_reports }
+            sources: { type: integer, minimum: 0, maximum: 1024 }
+            observed_since: { type: [string, "null"], format: date-time }
+            last_reported_at: { type: [string, "null"], format: date-time }
+            protected_requests: { type: integer, minimum: 0 }
+            evaluated_requests: { type: integer, minimum: 0 }
+            bypassed_requests: { type: integer, minimum: 0 }
+            rejected_requests: { type: integer, minimum: 0 }
+            granted_retries: { type: integer, minimum: 0 }
+            decision_coverage_rate: { type: number, minimum: 0, maximum: 1 }
+            endpoints:
+              type: array
+              maxItems: 9
+              items: { $ref: "#/components/schemas/OriginCoverageCounter" }
+        outcome_flow:
+          type: object
+          description: Process-local outcome event ingestion health. Accepted events are not necessarily ground-truth labels and the counts are never converted into a false-positive metric here.
+          additionalProperties: false
+          required: [state, accepted, rejected, dropped]
+          properties:
+            state: { type: string, enum: [disabled, no_samples, collecting, degraded] }
+            accepted: { type: integer, minimum: 0 }
+            rejected: { type: integer, minimum: 0 }
+            dropped: { type: integer, minimum: 0 }
         analysis_status:
           type: object
           additionalProperties: false
@@ -527,6 +577,35 @@ components:
         confidence:
           type: string
           enum: [confirmed, unknown]
+    OriginCoverageReport:
+      type: object
+      additionalProperties: false
+      required: [schema_version, source_id, source_started_at, sequence, completed_at, endpoints]
+      properties:
+        schema_version: { type: string, const: palisade.origin-coverage.v1 }
+        source_id: { type: string, minLength: 32, maxLength: 32, pattern: "^[a-f0-9]{32}$", description: Random per-process epoch; not a deployment, account or device identifier. }
+        source_started_at: { type: string, format: date-time, description: UTC whole-second timestamp for the first completion counted by this source epoch. }
+        sequence: { type: integer, minimum: 1 }
+        completed_at: { type: string, format: date-time }
+        endpoints:
+          type: array
+          description: Exactly the nine canonical endpoint classes in the documented enum order; duplicates or reordering are rejected.
+          minItems: 9
+          maxItems: 9
+          items: { $ref: "#/components/schemas/OriginCoverageCounter" }
+    OriginCoverageCounter:
+      type: object
+      additionalProperties: false
+      required: [endpoint_class, protected_requests, evaluated_requests, bypassed_requests, rejected_requests, granted_retries]
+      properties:
+        endpoint_class:
+          type: string
+          enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]
+        protected_requests: { type: integer, minimum: 0, maximum: 1000000000000000 }
+        evaluated_requests: { type: integer, minimum: 0, maximum: 1000000000000000 }
+        bypassed_requests: { type: integer, minimum: 0, maximum: 1000000000000000 }
+        rejected_requests: { type: integer, minimum: 0, maximum: 1000000000000000 }
+        granted_retries: { type: integer, minimum: 0, maximum: 1000000000000000 }
     BrowserEvent:
       type: object
       additionalProperties: false
