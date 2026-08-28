@@ -372,6 +372,12 @@ func TestBackendIssuedEventContextClassifiesDynamicShadowDecision(t *testing.T) 
 	if engine.request.SessionID != claims.SessionID || engine.request.Action != "compare" || engine.request.EndpointClass != "compare_noindex" || recorder.decisions != 1 {
 		t.Fatalf("dynamic event classification request=%+v decisions=%d", engine.request, recorder.decisions)
 	}
+	collection := server.collectionSummary()
+	if collection.ContextProofsIssued != 1 || collection.AcceptedEventBatches != 1 || collection.RecordedShadowDecisions != 1 ||
+		collection.RejectedBeforeIngest != 0 || collection.DroppedAfterIngest != 0 || collection.BatchRecordingRate != 1 ||
+		len(collection.EndpointContextProofs) != 1 || collection.EndpointContextProofs[0].EndpointClass != "compare_noindex" {
+		t.Fatalf("dynamic event collection = %+v", collection)
+	}
 }
 
 func TestDynamicEventContextFailsClosedWithoutTrustedClassification(t *testing.T) {
@@ -415,6 +421,9 @@ func TestDynamicEventContextFailsClosedWithoutTrustedClassification(t *testing.T
 	if response.Code != http.StatusUnauthorized || len(engine.requests) != 0 {
 		t.Fatalf("unclassified event response=%d headers=%v requests=%d", response.Code, response.Header(), len(engine.requests))
 	}
+	if collection := server.collectionSummary(); collection.RejectedBeforeIngest != 1 || collection.AcceptedEventBatches != 0 {
+		t.Fatalf("unclassified event collection = %+v", collection)
+	}
 
 	clientContext := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(`{"sensorVersion":"0.2.0","request_action":"read","endpoint_class":"public_content","events":[{"sequence":2,"elapsedBucketMs":50,"kind":"navigation","valueBucket":1}]}`))
 	clientContextResponse := httptest.NewRecorder()
@@ -449,6 +458,9 @@ func TestStaticEventShadowRejectsContextBearingProofBeforeIngest(t *testing.T) {
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusUnauthorized || store.Count("session-12345678", time.Now().UTC()) != 0 || len(engine.requests) != 0 {
 		t.Fatalf("cross-mode context status=%d events=%d requests=%d", response.Code, store.Count("session-12345678", time.Now().UTC()), len(engine.requests))
+	}
+	if collection := server.collectionSummary(); collection.RejectedBeforeIngest != 1 || collection.AcceptedEventBatches != 0 {
+		t.Fatalf("cross-mode collection = %+v", collection)
 	}
 }
 

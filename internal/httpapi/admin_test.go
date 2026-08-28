@@ -63,7 +63,8 @@ func TestAdminSurfaceIsSeparateAuthenticatedAndAggregateOnly(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &summary); err != nil {
 		t.Fatal(err)
 	}
-	if summary.SchemaVersion != "palisade.admin-summary.v5" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Delay != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" ||
+	if summary.SchemaVersion != "palisade.admin-summary.v6" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Delay != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" ||
+		summary.Collection.State != "disabled" || summary.Collection.TrafficDenominator != "external_total_unavailable" ||
 		len(summary.Traffic.Reasons) != 2 || summary.Traffic.Reasons[0].Code != "HONEYPOT_INTERACTION" || summary.Traffic.Reasons[0].Count != 1 || summary.Traffic.Reasons[1].Code != "STEP_UP_REQUIRED" || summary.Traffic.Reasons[1].Count != 1 {
 		t.Fatalf("unexpected aggregate summary: %+v", summary)
 	}
@@ -71,6 +72,53 @@ func TestAdminSurfaceIsSeparateAuthenticatedAndAggregateOnly(t *testing.T) {
 		if bytes.Contains(response.Body.Bytes(), []byte(forbidden)) {
 			t.Fatalf("admin response exposed %q: %s", forbidden, response.Body.String())
 		}
+	}
+}
+
+func TestAdminCollectionFunnelIsBoundedAndDoesNotInventTrafficCoverage(t *testing.T) {
+	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
+	server := New(fakeEngine{}, tokens, "api-key", slog.Default()).WithAdmin(AdminConfig{
+		Key: "admin-key", EventShadowEnabled: true, EventShadowFromProof: true,
+	})
+	server.counters.contextProofs.Add(3)
+	server.counters.endpointContexts.increment("compare_noindex")
+	server.counters.endpointContexts.increment("compare_noindex")
+	server.counters.endpointContexts.increment("public_content")
+	server.counters.endpointContexts.increment("/raw/path")
+	server.counters.eventBatches.Add(2)
+	server.counters.eventShadowRecorded.Add(1)
+	server.counters.eventShadowRejected.Add(1)
+	server.eventShadowDrops.Add(1)
+
+	summary := server.adminSummary(time.Now().UTC())
+	collection := summary.Collection
+	if collection.State != "degraded" || collection.TrafficDenominator != "external_total_unavailable" ||
+		collection.ContextProofsIssued != 3 || collection.AcceptedEventBatches != 2 || collection.RecordedShadowDecisions != 1 ||
+		collection.RejectedBeforeIngest != 1 || collection.DroppedAfterIngest != 1 || collection.BatchRecordingRate != 0.5 ||
+		len(collection.EndpointContextProofs) != 2 || collection.EndpointContextProofs[0].EndpointClass != "public_content" || collection.EndpointContextProofs[0].Count != 1 ||
+		collection.EndpointContextProofs[1].EndpointClass != "compare_noindex" || collection.EndpointContextProofs[1].Count != 2 {
+		t.Fatalf("collection summary = %+v", collection)
+	}
+	encoded, err := json.Marshal(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(encoded, []byte("/raw/path")) || bytes.Contains(encoded, []byte("healthy")) {
+		t.Fatalf("collection summary exposed raw or invented health: %s", encoded)
+	}
+}
+
+func TestAdminCollectionProofWithoutAcceptedBatchIsNotCollecting(t *testing.T) {
+	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
+	server := New(fakeEngine{}, tokens, "api-key", slog.Default()).WithAdmin(AdminConfig{
+		EventShadowEnabled: true, EventShadowFromProof: true,
+	})
+	server.counters.contextProofs.Add(1)
+	server.counters.endpointContexts.increment("public_content")
+
+	collection := server.collectionSummary()
+	if collection.State != "no_samples" || collection.ContextProofsIssued != 1 || collection.AcceptedEventBatches != 0 {
+		t.Fatalf("proof-only collection must remain no_samples: %+v", collection)
 	}
 }
 

@@ -26,6 +26,9 @@ uses a constant-time bearer comparison and sends `Cache-Control: no-store`.
 - bounded aggregate reason-code counts explaining why decisions were reached;
 - successful encrypted decision/outcome writes and explicit drop counters;
 - whether the encrypted sink and event-triggered shadow evaluation are active;
+- the internal event-shadow collection funnel from route-classified proofs to
+  accepted batches and recorded decisions, including pre-ingest rejections,
+  post-ingest drops and bounded counts for the nine closed endpoint classes;
 - an optional aggregate v3 analysis report with linked endpoint/cohort Wilson
   95% intervals and same-endpoint shadow/canary comparisons reloaded from an
   atomic local feed.
@@ -38,6 +41,19 @@ challenge completion only from uniquely linked decision/outcome evidence. Empty
 denominators display as `no sample`; ambiguous, unresolved and mismatched
 evidence stays visible rather than being treated as success. Canary differences
 remain descriptive, not causal.
+
+The collection funnel is deliberately narrower than website traffic coverage.
+It can report what happened inside this PALISADE process after a trusted origin
+requested a classified event proof: proofs issued, event batches accepted and
+shadow decisions recorded. It has no authenticated count of all requests that
+reached the protected site, so `traffic_denominator` is always
+`external_total_unavailable`. The Console therefore never turns these counters
+into a site-wide evaluation percentage or a `healthy` state. `collecting` starts
+only after an event batch was accepted; proofs without an accepted batch remain
+`no_samples`. Any rejected proof/context or post-ingest recording drop changes
+the process-local state to `degraded` until restart. A real coverage ratio needs
+a separate, authenticated origin-denominator contract and is outside this
+release.
 
 The control center exposes only real tab-local controls: manual refresh,
 bounded polling intervals, pause/resume and lock. It also shows the effective

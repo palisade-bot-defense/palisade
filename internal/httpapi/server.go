@@ -131,17 +131,24 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	if s.requireEventProof {
 		proof := r.Header.Get("X-Palisade-Proof")
 		if proof == "" {
+			if s.eventShadow != nil {
+				s.counters.eventShadowRejected.Add(1)
+			}
 			writeError(w, http.StatusUnauthorized, "event_proof_required")
 			return
 		}
 		eventProofClaims, err = s.tokens.VerifyAndConsume(proof, batch.SessionID, "events", now)
 		if err != nil {
+			if s.eventShadow != nil {
+				s.counters.eventShadowRejected.Add(1)
+			}
 			writeError(w, http.StatusUnauthorized, "invalid_event_proof")
 			return
 		}
 	}
 	if s.eventShadow != nil {
 		if _, _, err := s.eventShadow.classification(eventProofClaims); err != nil {
+			s.counters.eventShadowRejected.Add(1)
 			writeError(w, http.StatusUnauthorized, "invalid_event_proof")
 			return
 		}
@@ -243,6 +250,10 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_token_request")
 		return
+	}
+	if contextRequested {
+		s.counters.contextProofs.Add(1)
+		s.counters.endpointContexts.increment(request.EndpointClass)
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"proof_token": raw, "expires_in": request.TTLSeconds})
 }

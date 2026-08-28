@@ -18,15 +18,16 @@ import (
 // AdminConfig contains only immutable, non-secret runtime metadata and the
 // credential used by the loopback-only administrative listener.
 type AdminConfig struct {
-	Key                string
-	StartedAt          time.Time
-	Mode               core.RuntimeMode
-	RolloutID          string
-	PolicyVersion      string
-	ModelVersion       string
-	ShadowLogEnabled   bool
-	EventShadowEnabled bool
-	AnalysisFeed       *analysisfeed.Feed
+	Key                  string
+	StartedAt            time.Time
+	Mode                 core.RuntimeMode
+	RolloutID            string
+	PolicyVersion        string
+	ModelVersion         string
+	ShadowLogEnabled     bool
+	EventShadowEnabled   bool
+	EventShadowFromProof bool
+	AnalysisFeed         *analysisfeed.Feed
 }
 
 type actionCounters struct {
@@ -39,15 +40,19 @@ type actionCounters struct {
 }
 
 type runtimeCounters struct {
-	eventBatches      atomic.Uint64
-	events            atomic.Uint64
-	decisions         atomic.Uint64
-	originChecks      atomic.Uint64
-	recordedDecisions atomic.Uint64
-	recordedOutcomes  atomic.Uint64
-	enforced          actionCounters
-	computed          actionCounters
-	reasons           reasonCounters
+	eventBatches        atomic.Uint64
+	events              atomic.Uint64
+	decisions           atomic.Uint64
+	originChecks        atomic.Uint64
+	recordedDecisions   atomic.Uint64
+	recordedOutcomes    atomic.Uint64
+	contextProofs       atomic.Uint64
+	eventShadowRecorded atomic.Uint64
+	eventShadowRejected atomic.Uint64
+	endpointContexts    endpointCounters
+	enforced            actionCounters
+	computed            actionCounters
+	reasons             reasonCounters
 }
 
 const maxAdminReasonCodes = 64
@@ -70,6 +75,7 @@ type AdminSummary struct {
 	Capabilities   AdminCapabilities      `json:"capabilities"`
 	Traffic        AdminTraffic           `json:"traffic"`
 	Recording      AdminRecording         `json:"recording"`
+	Collection     AdminCollection        `json:"collection"`
 	AnalysisStatus AdminAnalysisStatus    `json:"analysis_status"`
 	Analysis       *shadowanalysis.Report `json:"analysis"`
 }
@@ -82,9 +88,10 @@ type AdminRuntime struct {
 }
 
 type AdminCapabilities struct {
-	ShadowLog      bool `json:"shadow_log"`
-	EventShadow    bool `json:"event_shadow"`
-	AnalysisReport bool `json:"analysis_report"`
+	ShadowLog                bool `json:"shadow_log"`
+	EventShadow              bool `json:"event_shadow"`
+	EventShadowProofContexts bool `json:"event_shadow_proof_contexts"`
+	AnalysisReport           bool `json:"analysis_report"`
 }
 
 type AdminTraffic struct {
@@ -111,6 +118,27 @@ type AdminRecording struct {
 	Outcomes           uint64 `json:"outcomes"`
 	Dropped            uint64 `json:"dropped"`
 	EventShadowDropped uint64 `json:"event_shadow_dropped"`
+}
+
+type AdminCollection struct {
+	State                   string               `json:"state"`
+	TrafficDenominator      string               `json:"traffic_denominator"`
+	ContextProofsIssued     uint64               `json:"context_proofs_issued"`
+	AcceptedEventBatches    uint64               `json:"accepted_event_batches"`
+	RecordedShadowDecisions uint64               `json:"recorded_shadow_decisions"`
+	RejectedBeforeIngest    uint64               `json:"rejected_before_ingest"`
+	DroppedAfterIngest      uint64               `json:"dropped_after_ingest"`
+	BatchRecordingRate      float64              `json:"batch_recording_rate"`
+	EndpointContextProofs   []AdminEndpointCount `json:"endpoint_context_proofs"`
+}
+
+type AdminEndpointCount struct {
+	EndpointClass string `json:"endpoint_class"`
+	Count         uint64 `json:"count"`
+}
+
+type endpointCounters struct {
+	values [9]atomic.Uint64
 }
 
 type AdminAnalysisStatus struct {
@@ -172,7 +200,7 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 		}
 	}
 	return AdminSummary{
-		SchemaVersion: "palisade.admin-summary.v5",
+		SchemaVersion: "palisade.admin-summary.v6",
 		GeneratedAt:   now,
 		UptimeSeconds: uptime,
 		Runtime: AdminRuntime{
@@ -180,7 +208,8 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 			PolicyVersion: s.admin.PolicyVersion, ModelVersion: s.admin.ModelVersion,
 		},
 		Capabilities: AdminCapabilities{
-			ShadowLog: s.admin.ShadowLogEnabled, EventShadow: s.admin.EventShadowEnabled, AnalysisReport: analysis != nil,
+			ShadowLog: s.admin.ShadowLogEnabled, EventShadow: s.admin.EventShadowEnabled,
+			EventShadowProofContexts: s.admin.EventShadowFromProof, AnalysisReport: analysis != nil,
 		},
 		Traffic: AdminTraffic{
 			AcceptedEventBatches: s.counters.eventBatches.Load(), AcceptedEvents: s.counters.events.Load(),
@@ -191,9 +220,65 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 			Decisions: s.counters.recordedDecisions.Load(), Outcomes: s.counters.recordedOutcomes.Load(),
 			Dropped: s.shadowDrops.Load(), EventShadowDropped: s.eventShadowDrops.Load(),
 		},
+		Collection:     s.collectionSummary(),
 		AnalysisStatus: analysisStatus,
 		Analysis:       analysis,
 	}
+}
+
+func (s *Server) collectionSummary() AdminCollection {
+	accepted := s.counters.eventBatches.Load()
+	recorded := s.counters.eventShadowRecorded.Load()
+	rejected := s.counters.eventShadowRejected.Load()
+	dropped := s.eventShadowDrops.Load()
+	state := "disabled"
+	if s.admin.EventShadowEnabled {
+		state = "no_samples"
+		if accepted > 0 {
+			state = "collecting"
+		}
+		if rejected > 0 || dropped > 0 {
+			state = "degraded"
+		}
+	}
+	rate := 0.0
+	if accepted > 0 {
+		rate = math.Min(1, float64(recorded)/float64(accepted))
+	}
+	return AdminCollection{
+		State: state, TrafficDenominator: "external_total_unavailable",
+		ContextProofsIssued: s.counters.contextProofs.Load(), AcceptedEventBatches: accepted,
+		RecordedShadowDecisions: recorded, RejectedBeforeIngest: rejected, DroppedAfterIngest: dropped,
+		BatchRecordingRate: rate, EndpointContextProofs: s.counters.endpointContexts.snapshot(),
+	}
+}
+
+func (c *endpointCounters) increment(endpoint string) {
+	index := endpointIndex(endpoint)
+	if index >= 0 {
+		c.values[index].Add(1)
+	}
+}
+
+func (c *endpointCounters) snapshot() []AdminEndpointCount {
+	result := make([]AdminEndpointCount, 0, len(c.values))
+	for index, endpoint := range adminEndpointClasses {
+		if count := c.values[index].Load(); count > 0 {
+			result = append(result, AdminEndpointCount{EndpointClass: endpoint, Count: count})
+		}
+	}
+	return result
+}
+
+var adminEndpointClasses = [...]string{"public_content", "compare_index", "compare_noindex", "challenge_worker", "other_public", "account", "login", "checkout", "other"}
+
+func endpointIndex(endpoint string) int {
+	for index, candidate := range adminEndpointClasses {
+		if endpoint == candidate {
+			return index
+		}
+	}
+	return -1
 }
 
 func (s *Server) adminAuthorized(r *http.Request) bool {

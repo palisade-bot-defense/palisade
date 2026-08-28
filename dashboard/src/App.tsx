@@ -6,6 +6,17 @@ type ActionCounts = { allow: number; observe: number; delay: number; throttle: n
 type Recommendation = { code: string; priority: string; message: string };
 type Proportion = { count: number; total: number; rate: number; lower_95: number; upper_95: number };
 type ScoreSummary = { minimum: number; maximum: number; mean: number };
+export type Collection = {
+  state: "disabled" | "no_samples" | "collecting" | "degraded";
+  traffic_denominator: "external_total_unavailable";
+  context_proofs_issued: number;
+  accepted_event_batches: number;
+  recorded_shadow_decisions: number;
+  rejected_before_ingest: number;
+  dropped_after_ingest: number;
+  batch_recording_rate: number;
+  endpoint_context_proofs: { endpoint_class: string; count: number }[];
+};
 type LinkedEvaluation = {
   decisions: number; confirmed_labels: number; ambiguous_ground_truth: number;
   confusion: { true_positive: number; false_positive: number; true_negative: number; false_negative: number };
@@ -36,9 +47,10 @@ type Summary = {
   generated_at: string;
   uptime_seconds: number;
   runtime: { mode: string; rollout_id?: string; policy_version: string; model_version: string };
-  capabilities: { shadow_log: boolean; event_shadow: boolean; analysis_report: boolean };
+  capabilities: { shadow_log: boolean; event_shadow: boolean; event_shadow_proof_contexts: boolean; analysis_report: boolean };
   traffic: { accepted_event_batches: number; accepted_events: number; decisions: number; origin_checks: number; enforced: ActionCounts; computed: ActionCounts; reasons: { code: string; count: number }[] };
   recording: { decisions: number; outcomes: number; dropped: number; event_shadow_dropped: number };
+  collection: Collection;
   analysis_status: { state: "not_configured" | "ready" | "invalid_update"; loaded_at: string | null; last_attempt_at: string | null };
   analysis: Analysis | null;
 };
@@ -53,6 +65,15 @@ export const scoreEvidenceState = (value: ScoreSummary) => value.minimum === 0.5
   : value.minimum === value.maximum
     ? "No variation observed"
     : `Observed range ${formatPercent(value.minimum)}–${formatPercent(value.maximum)}`;
+export const collectionRateLabel = (collection: Collection) => collection.accepted_event_batches === 0
+  ? "no accepted batch sample"
+  : `${formatPercent(collection.batch_recording_rate)} of accepted batches recorded`;
+export const collectionStateCopy = (collection: Collection) => {
+  if (collection.state === "disabled") return "Event-shadow collection is disabled.";
+  if (collection.state === "no_samples") return "Collection is enabled, but no accepted event batch has been observed.";
+  if (collection.state === "degraded") return "Collection loss or a pre-ingest rejection was observed; investigate before interpreting results.";
+  return "The internal PALISADE collection funnel is active. This is not a site-traffic coverage claim.";
+};
 const formatDuration = (seconds: number) => seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m` : `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 const reasonCopy: Record<string, string> = {
   BASELINE_LOW_RISK: "No configured risk threshold matched.",
@@ -194,6 +215,7 @@ export function App() {
               <StatusPill enabled={summary.runtime.mode === "shadow"}>{summary.runtime.mode} mode</StatusPill>
               <StatusPill enabled={summary.capabilities.shadow_log}>encrypted log</StatusPill>
               <StatusPill enabled={summary.capabilities.event_shadow}>event analysis</StatusPill>
+              <StatusPill enabled={summary.capabilities.event_shadow_proof_contexts}>route proof contexts</StatusPill>
               <StatusPill enabled={summary.capabilities.analysis_report}>aggregate report</StatusPill>
             </div>
           </section>
@@ -203,6 +225,30 @@ export function App() {
             <article><span>Accepted browser events</span><strong>{formatNumber(summary.traffic.accepted_events)}</strong><small>{formatNumber(summary.traffic.accepted_event_batches)} bounded batches</small></article>
             <article><span>Encrypted records</span><strong>{formatNumber(summary.recording.decisions + summary.recording.outcomes)}</strong><small>{formatNumber(summary.recording.outcomes)} outcomes</small></article>
             <article className={summary.recording.dropped + summary.recording.event_shadow_dropped > 0 ? "alert" : ""}><span>Dropped records</span><strong>{formatNumber(summary.recording.dropped + summary.recording.event_shadow_dropped)}</strong><small>measurement loss, never hidden</small></article>
+          </section>
+
+          <section className={`collection-panel ${summary.collection.state}`} aria-labelledby="collection-title">
+            <div className="collection-heading">
+              <div><p className="eyebrow">MEASUREMENT COMPLETENESS</p><h2 id="collection-title">Collection funnel</h2></div>
+              <span>{summary.collection.state.replaceAll("_", " ")}</span>
+            </div>
+            <div className="collection-flow" aria-label="Event shadow collection funnel">
+              <div><strong>{formatNumber(summary.collection.context_proofs_issued)}</strong><span>route-classified proofs</span></div>
+              <i aria-hidden="true">→</i>
+              <div><strong>{formatNumber(summary.collection.accepted_event_batches)}</strong><span>accepted batches</span></div>
+              <i aria-hidden="true">→</i>
+              <div><strong>{formatNumber(summary.collection.recorded_shadow_decisions)}</strong><span>recorded decisions</span></div>
+            </div>
+            <div className="collection-copy">
+              <p><strong>{collectionRateLabel(summary.collection)}</strong><br />{collectionStateCopy(summary.collection)}</p>
+              <p className="denominator-warning"><strong>Total site traffic: unavailable.</strong><br />PALISADE has no authenticated external request denominator, so this console does not claim what share of website traffic was evaluated.</p>
+            </div>
+            <div className="collection-detail">
+              <span>{formatNumber(summary.collection.rejected_before_ingest)} rejected before ingestion</span>
+              <span>{formatNumber(summary.collection.dropped_after_ingest)} dropped after ingestion</span>
+              {summary.collection.endpoint_context_proofs.map((endpoint) => <span key={endpoint.endpoint_class}><code>{endpoint.endpoint_class}</code> {formatNumber(endpoint.count)} proofs</span>)}
+              {summary.collection.endpoint_context_proofs.length === 0 && <span>No route-classified proof sample yet.</span>}
+            </div>
           </section>
 
           <section className="two-column">

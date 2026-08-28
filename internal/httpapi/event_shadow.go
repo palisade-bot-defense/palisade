@@ -81,6 +81,7 @@ func (s *Server) recordEventShadowDecision(ctx context.Context, batch events.Bat
 		return fmt.Errorf("record accepted event batch decision: %w", err)
 	}
 	s.counters.recordedDecisions.Add(1)
+	s.counters.eventShadowRecorded.Add(1)
 	return nil
 }
 

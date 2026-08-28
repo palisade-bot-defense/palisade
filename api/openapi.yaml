@@ -345,9 +345,9 @@ components:
     AdminSummary:
       type: object
       additionalProperties: false
-      required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, analysis_status, analysis]
+      required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, collection, analysis_status, analysis]
       properties:
-        schema_version: { type: string, const: palisade.admin-summary.v5 }
+        schema_version: { type: string, const: palisade.admin-summary.v6 }
         generated_at: { type: string, format: date-time }
         uptime_seconds: { type: integer, minimum: 0 }
         runtime:
@@ -362,10 +362,11 @@ components:
         capabilities:
           type: object
           additionalProperties: false
-          required: [shadow_log, event_shadow, analysis_report]
+          required: [shadow_log, event_shadow, event_shadow_proof_contexts, analysis_report]
           properties:
             shadow_log: { type: boolean }
             event_shadow: { type: boolean }
+            event_shadow_proof_contexts: { type: boolean }
             analysis_report: { type: boolean }
         traffic:
           type: object
@@ -397,6 +398,32 @@ components:
             outcomes: { type: integer, minimum: 0 }
             dropped: { type: integer, minimum: 0 }
             event_shadow_dropped: { type: integer, minimum: 0 }
+        collection:
+          type: object
+          description: Process-local PALISADE collection funnel only. It never claims a share of total site traffic because an authenticated external request denominator is not part of this contract.
+          additionalProperties: false
+          required: [state, traffic_denominator, context_proofs_issued, accepted_event_batches, recorded_shadow_decisions, rejected_before_ingest, dropped_after_ingest, batch_recording_rate, endpoint_context_proofs]
+          properties:
+            state: { type: string, enum: [disabled, no_samples, collecting, degraded] }
+            traffic_denominator: { type: string, const: external_total_unavailable }
+            context_proofs_issued: { type: integer, minimum: 0 }
+            accepted_event_batches: { type: integer, minimum: 0 }
+            recorded_shadow_decisions: { type: integer, minimum: 0 }
+            rejected_before_ingest: { type: integer, minimum: 0 }
+            dropped_after_ingest: { type: integer, minimum: 0 }
+            batch_recording_rate: { type: number, minimum: 0, maximum: 1 }
+            endpoint_context_proofs:
+              type: array
+              maxItems: 9
+              items:
+                type: object
+                additionalProperties: false
+                required: [endpoint_class, count]
+                properties:
+                  endpoint_class:
+                    type: string
+                    enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]
+                  count: { type: integer, minimum: 1 }
         analysis_status:
           type: object
           additionalProperties: false

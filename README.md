@@ -112,6 +112,13 @@ The default rotation limits are 64 MiB or one hour; default retention is seven d
 
 The browser sensor defaults to—and enforces a minimum of—one bounded flush every 15 seconds. Its proof callback is called with the literal action `events`; minting that proof for `read` or another action is rejected. Accepted batches receive `202`. With event-triggered shadow evaluation enabled, `X-Palisade-Shadow-Evaluation` reports `recorded` or `dropped`; a dropped evaluation never causes the already accepted batch to be retried.
 
+The local Operator Console shows the privacy-safe, process-local collection
+funnel from closed route-context proofs through accepted event batches to
+recorded shadow decisions, with rejected and dropped counts visible. It does
+not claim site-traffic coverage: PALISADE has no authenticated denominator for
+all requests reaching the protected origin. See the
+[Operator Console guide](docs/OPERATOR_CONSOLE.md).
+
 ## Architecture
 
 PALISADE starts as a modular monolith so detector APIs, policy behavior and replay fixtures can stabilize before services are split. The hot path stays in Go. TypeScript is limited to the browser sensor and static dashboard; Python is reserved for offline research and evaluation.
