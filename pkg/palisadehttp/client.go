@@ -32,6 +32,7 @@ type Middleware struct {
 	now          func() time.Time
 	state        *boundedState
 	transport    transportNormalizer
+	coverage     *coverageReporter
 }
 
 type apiStatusError struct {
@@ -91,6 +92,10 @@ func New(config Config) (*Middleware, error) {
 	if config.Logger == nil {
 		config.Logger = slog.Default()
 	}
+	coverage, err := newCoverageReporter(config)
+	if err != nil {
+		return nil, err
+	}
 	transport, err := newTransportNormalizer(config)
 	if err != nil {
 		return nil, err
@@ -120,7 +125,7 @@ func New(config Config) (*Middleware, error) {
 		baseURL: baseURL, apiKey: config.APIKey, client: client, classifier: config.Classifier, signals: config.Signals,
 		failureMode: config.FailureMode, prefix: config.Prefix, fallbackPath: config.FallbackPath,
 		logger: config.Logger, now: time.Now,
-		state: state, transport: transport,
+		state: state, transport: transport, coverage: coverage,
 	}, nil
 }
 

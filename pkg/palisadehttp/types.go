@@ -11,15 +11,17 @@ import (
 )
 
 const (
-	SessionCookieName    = "__Host-palisade_session"
-	RedemptionCookieName = "__Host-palisade_redemption"
-	PendingCookieName    = "__Host-palisade_pending"
-	DefaultPrefix        = "/__palisade"
-	DefaultMaxSessions   = 100_000
-	DefaultMaxGrants     = 100_000
-	DefaultStateTTL      = 10 * time.Minute
-	DefaultGrantTTL      = 30 * time.Second
-	DefaultPendingTTL    = 15 * time.Minute
+	SessionCookieName       = "__Host-palisade_session"
+	RedemptionCookieName    = "__Host-palisade_redemption"
+	PendingCookieName       = "__Host-palisade_pending"
+	DefaultPrefix           = "/__palisade"
+	DefaultMaxSessions      = 100_000
+	DefaultMaxGrants        = 100_000
+	DefaultStateTTL         = 10 * time.Minute
+	DefaultGrantTTL         = 30 * time.Second
+	DefaultPendingTTL       = 15 * time.Minute
+	DefaultCoverageEvery    = uint64(100)
+	DefaultCoverageInterval = 30 * time.Second
 )
 
 var (
@@ -27,6 +29,7 @@ var (
 	ErrInvalidClassification = errors.New("invalid PALISADE request classification")
 	ErrInvalidSignals        = errors.New("invalid PALISADE normalized signals")
 	ErrInvalidOutcome        = errors.New("invalid PALISADE normalized outcome")
+	ErrCoverageBusy          = errors.New("PALISADE coverage report is already in flight")
 	ErrSessionRequired       = errors.New("PALISADE session cookie is required")
 	ErrStateCapacity         = errors.New("PALISADE adapter state capacity exceeded")
 	ErrInvalidPending        = errors.New("invalid PALISADE pending challenge")
@@ -77,6 +80,12 @@ type Config struct {
 	GrantTTL     time.Duration
 	PendingTTL   time.Duration
 	Logger       *slog.Logger
+	// CoverageReporting sends only cumulative counts for completed requests
+	// handled by this middleware. It never reports URLs, methods, identifiers or
+	// request fields and is disabled unless explicitly enabled.
+	CoverageReporting      bool
+	CoverageReportEvery    uint64
+	CoverageReportInterval time.Duration
 	// TrustedProxyCIDRs authorizes only the direct TCP peers that may supply the
 	// two configured normalization headers. Raw addresses never leave the adapter.
 	TrustedProxyCIDRs     []string

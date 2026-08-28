@@ -49,6 +49,8 @@ type runtimeCounters struct {
 	contextProofs       atomic.Uint64
 	eventShadowRecorded atomic.Uint64
 	eventShadowRejected atomic.Uint64
+	outcomeRejected     atomic.Uint64
+	outcomeDropped      atomic.Uint64
 	endpointContexts    endpointCounters
 	enforced            actionCounters
 	computed            actionCounters
@@ -76,6 +78,8 @@ type AdminSummary struct {
 	Traffic        AdminTraffic           `json:"traffic"`
 	Recording      AdminRecording         `json:"recording"`
 	Collection     AdminCollection        `json:"collection"`
+	OriginCoverage AdminOriginCoverage    `json:"origin_coverage"`
+	OutcomeFlow    AdminOutcomeFlow       `json:"outcome_flow"`
 	AnalysisStatus AdminAnalysisStatus    `json:"analysis_status"`
 	Analysis       *shadowanalysis.Report `json:"analysis"`
 }
@@ -135,6 +139,38 @@ type AdminCollection struct {
 type AdminEndpointCount struct {
 	EndpointClass string `json:"endpoint_class"`
 	Count         uint64 `json:"count"`
+}
+
+type AdminOriginCoverage struct {
+	State              string                        `json:"state"`
+	Scope              string                        `json:"scope"`
+	TrafficDenominator string                        `json:"traffic_denominator"`
+	Sources            uint64                        `json:"sources"`
+	ObservedSince      *time.Time                    `json:"observed_since"`
+	LastReportedAt     *time.Time                    `json:"last_reported_at"`
+	ProtectedRequests  uint64                        `json:"protected_requests"`
+	EvaluatedRequests  uint64                        `json:"evaluated_requests"`
+	BypassedRequests   uint64                        `json:"bypassed_requests"`
+	RejectedRequests   uint64                        `json:"rejected_requests"`
+	GrantedRetries     uint64                        `json:"granted_retries"`
+	DecisionCoverage   float64                       `json:"decision_coverage_rate"`
+	Endpoints          []AdminOriginCoverageEndpoint `json:"endpoints"`
+}
+
+type AdminOriginCoverageEndpoint struct {
+	EndpointClass  string `json:"endpoint_class"`
+	Protected      uint64 `json:"protected_requests"`
+	Evaluated      uint64 `json:"evaluated_requests"`
+	Bypassed       uint64 `json:"bypassed_requests"`
+	Rejected       uint64 `json:"rejected_requests"`
+	GrantedRetries uint64 `json:"granted_retries"`
+}
+
+type AdminOutcomeFlow struct {
+	State    string `json:"state"`
+	Accepted uint64 `json:"accepted"`
+	Rejected uint64 `json:"rejected"`
+	Dropped  uint64 `json:"dropped"`
 }
 
 type endpointCounters struct {
@@ -200,7 +236,7 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 		}
 	}
 	return AdminSummary{
-		SchemaVersion: "palisade.admin-summary.v6",
+		SchemaVersion: "palisade.admin-summary.v7",
 		GeneratedAt:   now,
 		UptimeSeconds: uptime,
 		Runtime: AdminRuntime{
@@ -221,9 +257,61 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 			Dropped: s.shadowDrops.Load(), EventShadowDropped: s.eventShadowDrops.Load(),
 		},
 		Collection:     s.collectionSummary(),
+		OriginCoverage: s.originCoverageSummary(),
+		OutcomeFlow:    s.outcomeFlowSummary(),
 		AnalysisStatus: analysisStatus,
 		Analysis:       analysis,
 	}
+}
+
+func (s *Server) originCoverageSummary() AdminOriginCoverage {
+	snapshot := s.originCoverage.snapshot()
+	result := AdminOriginCoverage{
+		State: "unavailable", Scope: "protected_handler_requests", TrafficDenominator: "authenticated_origin_reports",
+		Sources: snapshot.Sources, ObservedSince: snapshot.ObservedSince, LastReportedAt: snapshot.LastReportedAt,
+		Endpoints: make([]AdminOriginCoverageEndpoint, 0, len(snapshot.Endpoints)),
+	}
+	for _, counter := range snapshot.Endpoints {
+		result.ProtectedRequests += counter.Protected
+		result.EvaluatedRequests += counter.Evaluated
+		result.BypassedRequests += counter.Bypassed
+		result.RejectedRequests += counter.Rejected
+		result.GrantedRetries += counter.GrantedRetries
+		if counter.Protected > 0 {
+			result.Endpoints = append(result.Endpoints, AdminOriginCoverageEndpoint{
+				EndpointClass: counter.EndpointClass, Protected: counter.Protected, Evaluated: counter.Evaluated,
+				Bypassed: counter.Bypassed, Rejected: counter.Rejected, GrantedRetries: counter.GrantedRetries,
+			})
+		}
+	}
+	if result.Sources > 0 {
+		result.State = "no_samples"
+	}
+	if result.ProtectedRequests > 0 {
+		result.State = "collecting"
+		result.DecisionCoverage = math.Min(1, float64(result.EvaluatedRequests+result.GrantedRetries)/float64(result.ProtectedRequests))
+	}
+	if result.BypassedRequests > 0 || result.RejectedRequests > 0 {
+		result.State = "degraded"
+	}
+	return result
+}
+
+func (s *Server) outcomeFlowSummary() AdminOutcomeFlow {
+	result := AdminOutcomeFlow{
+		State: "disabled", Accepted: s.counters.recordedOutcomes.Load(),
+		Rejected: s.counters.outcomeRejected.Load(), Dropped: s.counters.outcomeDropped.Load(),
+	}
+	if s.admin.ShadowLogEnabled {
+		result.State = "no_samples"
+		if result.Accepted > 0 {
+			result.State = "collecting"
+		}
+		if result.Rejected > 0 || result.Dropped > 0 {
+			result.State = "degraded"
+		}
+	}
+	return result
 }
 
 func (s *Server) collectionSummary() AdminCollection {

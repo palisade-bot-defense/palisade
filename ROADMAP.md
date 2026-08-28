@@ -38,7 +38,12 @@ backed by the bounded event store. Missing sensor data remains neutral, and
 forged request counts are covered by regression tests. Navigation state is a
 fixed nine-bit endpoint-class graph with capacity eviction; broad sweeps are
 low-confidence shadow evidence and decoy interaction is isolated as its own
-detector. Broader poisoning and proxy-misconfiguration tests remain open.
+detector. Authenticated cumulative reports now measure only completed requests
+inside configured reference middleware, with closed endpoint/disposition
+counters, monotonic replay protection and an explicit protected-handler scope;
+they do not claim total website coverage. Outcome ingestion rejection and write
+loss are exposed separately from usable ground-truth labels. Broader poisoning
+and proxy-misconfiguration tests remain open.
 
 Exit gate: improvements hold on a time-separated test set and unseen attack families, not only random train/test splits.
 

@@ -17,6 +17,22 @@ export type Collection = {
   batch_recording_rate: number;
   endpoint_context_proofs: { endpoint_class: string; count: number }[];
 };
+export type OriginCoverage = {
+  state: "unavailable" | "no_samples" | "collecting" | "degraded";
+  scope: "protected_handler_requests";
+  traffic_denominator: "authenticated_origin_reports";
+  sources: number;
+  observed_since: string | null;
+  last_reported_at: string | null;
+  protected_requests: number;
+  evaluated_requests: number;
+  bypassed_requests: number;
+  rejected_requests: number;
+  granted_retries: number;
+  decision_coverage_rate: number;
+  endpoints: { endpoint_class: string; protected_requests: number; evaluated_requests: number; bypassed_requests: number; rejected_requests: number; granted_retries: number }[];
+};
+export type OutcomeFlow = { state: "disabled" | "no_samples" | "collecting" | "degraded"; accepted: number; rejected: number; dropped: number };
 type LinkedEvaluation = {
   decisions: number; confirmed_labels: number; ambiguous_ground_truth: number;
   confusion: { true_positive: number; false_positive: number; true_negative: number; false_negative: number };
@@ -51,6 +67,8 @@ type Summary = {
   traffic: { accepted_event_batches: number; accepted_events: number; decisions: number; origin_checks: number; enforced: ActionCounts; computed: ActionCounts; reasons: { code: string; count: number }[] };
   recording: { decisions: number; outcomes: number; dropped: number; event_shadow_dropped: number };
   collection: Collection;
+  origin_coverage: OriginCoverage;
+  outcome_flow: OutcomeFlow;
   analysis_status: { state: "not_configured" | "ready" | "invalid_update"; loaded_at: string | null; last_attempt_at: string | null };
   analysis: Analysis | null;
 };
@@ -73,6 +91,18 @@ export const collectionStateCopy = (collection: Collection) => {
   if (collection.state === "no_samples") return "Collection is enabled, but no accepted event batch has been observed.";
   if (collection.state === "degraded") return "Collection loss or a pre-ingest rejection was observed; investigate before interpreting results.";
   return "The internal PALISADE collection funnel is active. This is not a site-traffic coverage claim.";
+};
+export const originCoverageCopy = (coverage: OriginCoverage) => {
+  if (coverage.state === "unavailable") return "No authenticated reference-adapter report has arrived.";
+  if (coverage.state === "no_samples") return "A source is registered, but its process-local measurement window has no completed request sample.";
+  if (coverage.state === "degraded") return "A protected request bypassed evaluation or was rejected by the adapter; investigate before rollout.";
+  return "Authenticated coverage for requests that completed inside the configured protected handler.";
+};
+export const outcomeFlowCopy = (flow: OutcomeFlow) => {
+  if (flow.state === "disabled") return "Encrypted outcome recording is disabled.";
+  if (flow.state === "no_samples") return "Outcome recording is enabled, but no normalized outcome event has arrived.";
+  if (flow.state === "degraded") return "An authorized outcome was rejected or could not be written; linkage evidence is incomplete.";
+  return "Normalized outcome events are reaching the encrypted local sink.";
 };
 const formatDuration = (seconds: number) => seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m` : `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 const reasonCopy: Record<string, string> = {
@@ -249,6 +279,38 @@ export function App() {
               {summary.collection.endpoint_context_proofs.map((endpoint) => <span key={endpoint.endpoint_class}><code>{endpoint.endpoint_class}</code> {formatNumber(endpoint.count)} proofs</span>)}
               {summary.collection.endpoint_context_proofs.length === 0 && <span>No route-classified proof sample yet.</span>}
             </div>
+          </section>
+
+          <section className="operational-funnels" aria-label="Origin coverage and outcome ingestion">
+            <article className={`funnel-card ${summary.origin_coverage.state}`}>
+              <div className="collection-heading"><div><p className="eyebrow">PROTECTED HANDLER</p><h2>Origin coverage</h2></div><span>{summary.origin_coverage.state.replaceAll("_", " ")}</span></div>
+              <strong className="funnel-primary">{summary.origin_coverage.protected_requests === 0 ? "no sample" : formatPercent(summary.origin_coverage.decision_coverage_rate)}</strong>
+              <p>{originCoverageCopy(summary.origin_coverage)}</p>
+              <div className="funnel-metrics">
+                <span><b>{formatNumber(summary.origin_coverage.protected_requests)}</b> completed protected requests</span>
+                <span><b>{formatNumber(summary.origin_coverage.evaluated_requests)}</b> fresh evaluations</span>
+                <span><b>{formatNumber(summary.origin_coverage.granted_retries)}</b> bound challenge retries</span>
+                <span className={summary.origin_coverage.bypassed_requests > 0 ? "loss" : ""}><b>{formatNumber(summary.origin_coverage.bypassed_requests)}</b> availability bypasses</span>
+                <span className={summary.origin_coverage.rejected_requests > 0 ? "loss" : ""}><b>{formatNumber(summary.origin_coverage.rejected_requests)}</b> adapter rejections</span>
+              </div>
+              <div className="collection-detail">
+                {summary.origin_coverage.endpoints.map((endpoint) => <span key={endpoint.endpoint_class}><code>{endpoint.endpoint_class}</code> {formatNumber(endpoint.protected_requests)} completed</span>)}
+                {summary.origin_coverage.endpoints.length === 0 && <span>No closed endpoint sample in this window.</span>}
+              </div>
+              <p className="scope-warning"><strong>Scope boundary:</strong> only requests routed through configured PALISADE middleware. This is not total website traffic.</p>
+            </article>
+
+            <article className={`funnel-card ${summary.outcome_flow.state}`}>
+              <div className="collection-heading"><div><p className="eyebrow">GROUND-TRUTH PIPELINE</p><h2>Outcome ingestion</h2></div><span>{summary.outcome_flow.state.replaceAll("_", " ")}</span></div>
+              <strong className="funnel-primary">{formatNumber(summary.outcome_flow.accepted)}</strong>
+              <p>{outcomeFlowCopy(summary.outcome_flow)}</p>
+              <div className="outcome-flow">
+                <div><strong>{formatNumber(summary.outcome_flow.accepted)}</strong><span>accepted events</span></div>
+                <div className={summary.outcome_flow.rejected > 0 ? "loss" : ""}><strong>{formatNumber(summary.outcome_flow.rejected)}</strong><span>rejected events</span></div>
+                <div className={summary.outcome_flow.dropped > 0 ? "loss" : ""}><strong>{formatNumber(summary.outcome_flow.dropped)}</strong><span>write failures</span></div>
+              </div>
+              <p className="scope-warning"><strong>Evidence boundary:</strong> outcome events are not automatically human or abuse labels. Only the linked aggregate analysis determines usable ground truth.</p>
+            </article>
           </section>
 
           <section className="two-column">

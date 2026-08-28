@@ -55,6 +55,7 @@ For a sensor-only shadow deployment, a static `--event-shadow-action` plus `--ev
 | `POST /v1/token` | Authenticated, short-lived action proof issuance |
 | `POST /v1/decision` | Explainable risk decision |
 | `POST /v1/origin-check` | Score once and return the bounded HTTP enforcement result for origin middleware |
+| `POST /v1/origin-coverage` | Accept authenticated cumulative protected-handler counts from reference adapters |
 | `GET /v1/challenge/{id}` | Retrieve the signed-session-bound accessible step-up metadata |
 | `POST /v1/challenge/verify` | Exchange a ready challenge for a short-lived redemption capability |
 | `POST /v1/challenge/redeem` | Consume that capability exactly once for its bound action and endpoint class |
@@ -71,6 +72,14 @@ The signed cookie prevents clients from inventing a trusted session identifier, 
 The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contracts live under [`api/proto`](api/proto). The [signal-source guide](docs/SIGNAL_SOURCES.md) contains trust boundaries, request examples and the checked detector extension procedure. The [native challenge guide](docs/CHALLENGE.md) documents the origin handshake, accessibility contract, exact one-time binding and single-instance limit.
 
 Applications built with Go `net/http` can use the included [`pkg/palisadehttp`](pkg/palisadehttp) reference middleware. It creates signed continuity sessions, submits only normalized signals, applies pass/delay/throttle/challenge/block results, renders the same-origin accessible challenge and grants exactly one retry for the original method and request target. It also provides a backend-only route-classified sensor-proof helper and, after a validated pass, an opaque request-scoped outcome handle for linking a closed result to the exact decision without handling a raw PALISADE session ID. Its availability policy is an explicit deployment choice. See the [origin-adapter guide](docs/ORIGIN_ADAPTER.md).
+
+The reference middleware can explicitly enable privacy-safe coverage reporting.
+It sends cumulative counts for completed requests in the protected handler,
+split only by PALISADE's nine endpoint classes and closed handling outcomes.
+The Operator Console displays evaluated requests, bound challenge retries,
+availability bypasses and adapter rejections. This is not total website
+traffic: CDN, proxy and routes outside the middleware remain outside the
+denominator.
 
 ## Local encrypted shadow logging
 

@@ -29,6 +29,11 @@ uses a constant-time bearer comparison and sends `Cache-Control: no-store`.
 - the internal event-shadow collection funnel from route-classified proofs to
   accepted batches and recorded decisions, including pre-ingest rejections,
   post-ingest drops and bounded counts for the nine closed endpoint classes;
+- authenticated protected-handler coverage from reference origin adapters,
+  including evaluated requests, bound challenge retries, availability bypasses
+  and adapter rejections per closed endpoint class;
+- accepted, rejected and dropped outcome-event ingestion counts, without
+  presenting event volume as ground-truth label coverage;
 - an optional aggregate v3 analysis report with linked endpoint/cohort Wilson
   95% intervals and same-endpoint shadow/canary comparisons reloaded from an
   atomic local feed.
@@ -52,8 +57,25 @@ into a site-wide evaluation percentage or a `healthy` state. `collecting` starts
 only after an event batch was accepted; proofs without an accepted batch remain
 `no_samples`. Any rejected proof/context or post-ingest recording drop changes
 the process-local state to `degraded` until restart. A real coverage ratio needs
-a separate, authenticated origin-denominator contract and is outside this
-release.
+the separate authenticated origin-denominator contract described below; event
+collection counters alone never provide it.
+
+When the Go reference adapter explicitly enables `CoverageReporting`, it sends
+cumulative completed-request counters to `POST /v1/origin-coverage` with the
+backend API key. The Console then shows `authenticated_origin_reports` as the
+denominator and `protected_handler_requests` as the immutable scope. Fresh
+evaluations plus bound challenge retries count as covered handling; availability
+bypasses and adapter rejections make the state `degraded`. The report source is
+a random per-process epoch, reports are monotonic and idempotent, and the server
+keeps at most 1,024 epochs in memory. This still says nothing about requests
+that never traversed the configured middleware, so the UI continues to state
+that total website traffic is unavailable.
+
+The outcome funnel counts only authorized ingestion attempts after the API-key
+boundary. Invalid payload/session/provenance combinations are `rejected`;
+validated events that cannot reach the encrypted sink are `dropped`. Successful
+writes are `accepted`, but are not described as human or abuse labels. Linked
+label coverage remains exclusively in the validated local analysis report.
 
 The control center exposes only real tab-local controls: manual refresh,
 bounded polling intervals, pause/resume and lock. It also shows the effective

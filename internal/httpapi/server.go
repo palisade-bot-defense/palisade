@@ -47,12 +47,13 @@ type Server struct {
 	shadowDrops       atomic.Uint64
 	eventShadow       *EventShadowProfile
 	eventShadowDrops  atomic.Uint64
+	originCoverage    *originCoverageStore
 	admin             AdminConfig
 	counters          runtimeCounters
 }
 
 func New(engine DecisionEngine, tokens *token.Service, apiKey string, logger *slog.Logger) *Server {
-	return &Server{engine: engine, tokens: tokens, apiKey: apiKey, logger: logger}
+	return &Server{engine: engine, tokens: tokens, apiKey: apiKey, logger: logger, originCoverage: newOriginCoverageStore(time.Now().UTC())}
 }
 
 func (s *Server) WithEventStore(store *events.Store) *Server {
@@ -102,6 +103,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/events", s.handleEvents)
 	mux.HandleFunc("POST /v1/decision", s.handleDecision)
 	mux.HandleFunc("POST /v1/origin-check", s.handleOriginCheck)
+	mux.HandleFunc("POST /v1/origin-coverage", s.handleOriginCoverage)
 	mux.HandleFunc("POST /v1/outcome", s.handleOutcome)
 	mux.HandleFunc("GET /v1/challenge/{challenge_id}", s.handleChallengeView)
 	mux.HandleFunc("POST /v1/challenge/verify", s.handleChallengeVerify)
@@ -315,6 +317,30 @@ func (s *Server) handleOriginCheck(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(status)
 }
 
+func (s *Server) handleOriginCoverage(w http.ResponseWriter, r *http.Request) {
+	if !s.authorized(r) {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	var report originCoverageReport
+	if err := decodeJSON(w, r, &report); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_origin_coverage")
+		return
+	}
+	if err := s.originCoverage.observe(report, time.Now().UTC()); err != nil {
+		switch {
+		case errors.Is(err, errOriginCoverageConflict):
+			writeError(w, http.StatusConflict, "origin_coverage_conflict")
+		case errors.Is(err, errOriginCoverageCapacity):
+			writeError(w, http.StatusServiceUnavailable, "origin_coverage_capacity")
+		default:
+			writeError(w, http.StatusBadRequest, "invalid_origin_coverage")
+		}
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (s *Server) handleChallengeView(w http.ResponseWriter, r *http.Request) {
 	sessionID, ok := s.challengeSession(w, r)
 	if !ok {
@@ -433,6 +459,7 @@ func (s *Server) writeChallengeError(w http.ResponseWriter, err error, challenge
 
 func (s *Server) recordChallengeOutcome(outcome challenge.Outcome) {
 	if s.shadowRecorder == nil {
+		s.counters.outcomeDropped.Add(1)
 		s.recordShadowDrop()
 		return
 	}
@@ -441,6 +468,7 @@ func (s *Server) recordChallengeOutcome(outcome challenge.Outcome) {
 		Outcome: outcome.Kind, Provenance: "server_observed", Confidence: "confirmed",
 	}
 	if err := s.shadowRecorder.RecordOutcome(request, time.Now().UTC()); err != nil {
+		s.counters.outcomeDropped.Add(1)
 		s.recordShadowDrop()
 		return
 	}
@@ -549,26 +577,31 @@ func (s *Server) handleOutcome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.shadowRecorder == nil {
+		s.counters.outcomeDropped.Add(1)
 		writeError(w, http.StatusServiceUnavailable, "shadow_log_unavailable")
 		return
 	}
 	var request shadowlog.OutcomeRequest
 	if err := decodeJSON(w, r, &request); err != nil {
+		s.counters.outcomeRejected.Add(1)
 		writeError(w, http.StatusBadRequest, "invalid_outcome")
 		return
 	}
 	now := time.Now().UTC()
 	sessionID, _, err := s.resolveSession(r, request.SessionID, now)
 	if err != nil {
+		s.counters.outcomeRejected.Add(1)
 		writeError(w, http.StatusUnauthorized, "invalid_session")
 		return
 	}
 	request.SessionID = sessionID
 	if request.Validate() != nil {
+		s.counters.outcomeRejected.Add(1)
 		writeError(w, http.StatusBadRequest, "invalid_outcome")
 		return
 	}
 	if err := s.shadowRecorder.RecordOutcome(request, now); err != nil {
+		s.counters.outcomeDropped.Add(1)
 		writeError(w, http.StatusServiceUnavailable, "shadow_log_unavailable")
 		return
 	}

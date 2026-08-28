@@ -63,14 +63,34 @@ func TestAdminSurfaceIsSeparateAuthenticatedAndAggregateOnly(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &summary); err != nil {
 		t.Fatal(err)
 	}
-	if summary.SchemaVersion != "palisade.admin-summary.v6" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Delay != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" ||
+	if summary.SchemaVersion != "palisade.admin-summary.v7" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Delay != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" ||
 		summary.Collection.State != "disabled" || summary.Collection.TrafficDenominator != "external_total_unavailable" ||
+		summary.OriginCoverage.State != "unavailable" || summary.OutcomeFlow.State != "disabled" ||
 		len(summary.Traffic.Reasons) != 2 || summary.Traffic.Reasons[0].Code != "HONEYPOT_INTERACTION" || summary.Traffic.Reasons[0].Count != 1 || summary.Traffic.Reasons[1].Code != "STEP_UP_REQUIRED" || summary.Traffic.Reasons[1].Count != 1 {
 		t.Fatalf("unexpected aggregate summary: %+v", summary)
 	}
 	for _, forbidden := range []string{"session-12345678", "api-key", "admin-key", "proof_token", "decision_id"} {
 		if bytes.Contains(response.Body.Bytes(), []byte(forbidden)) {
 			t.Fatalf("admin response exposed %q: %s", forbidden, response.Body.String())
+		}
+	}
+}
+
+func TestAdminOutcomeFlowExposesRejectionsAndDropsWithoutInventingLabels(t *testing.T) {
+	tokens, _ := token.NewService([]byte("0123456789abcdef0123456789abcdef"), token.NewMemoryNonceStore())
+	server := New(fakeEngine{}, tokens, "api-key", slog.Default()).WithAdmin(AdminConfig{ShadowLogEnabled: true})
+	server.counters.recordedOutcomes.Add(3)
+	server.counters.outcomeRejected.Add(2)
+	server.counters.outcomeDropped.Add(1)
+
+	flow := server.outcomeFlowSummary()
+	if flow.State != "degraded" || flow.Accepted != 3 || flow.Rejected != 2 || flow.Dropped != 1 {
+		t.Fatalf("outcome flow = %+v", flow)
+	}
+	encoded, _ := json.Marshal(flow)
+	for _, forbidden := range []string{"human", "abuse", "healthy", "decision_id", "session_id"} {
+		if bytes.Contains(encoded, []byte(forbidden)) {
+			t.Fatalf("outcome flow invented or exposed %q: %s", forbidden, encoded)
 		}
 	}
 }

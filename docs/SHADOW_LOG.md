@@ -107,6 +107,13 @@ Accepted outcome combinations are:
 
 `POST /v1/outcome` is backend-only and requires the configured bearer API key plus the exact `decision_id`. When strict session-cookie binding is enabled, the submitted session must also match the signed cookie. A solved challenge is only `challenge_passed`, never `human_confirmed`. Native challenge outcomes inherit the originating decision ID automatically.
 
+The Operator Console exposes process-local outcome ingestion health separately
+from analysis: successful encrypted writes, authorized invalid submissions and
+validated writes lost to an unavailable sink. Unauthorized internet noise is
+not included. These counters diagnose the feedback path but never infer label
+kind, false-positive rate or human status; those require uniquely linked,
+provenance-valid records in the local aggregate analysis.
+
 ## Storage and cryptography
 
 - The master key is 32–4096 raw bytes in a regular owner-only file. The file, its parent and the log directory must be outside every Git worktree and inaccessible to group/other users.

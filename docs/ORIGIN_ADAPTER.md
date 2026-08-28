@@ -12,6 +12,7 @@ guard, err := palisadehttp.New(palisadehttp.Config{
     BaseURL: "http://127.0.0.1:8080",
     APIKey: os.Getenv("PALISADE_API_KEY"),
     FailureMode: palisadehttp.FailClosed,
+    CoverageReporting: true,
     FallbackPath: "/support/verification",
     Classifier: func(r *http.Request) (palisadehttp.Classification, error) {
         if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/articles/") {
@@ -24,6 +25,37 @@ if err != nil { log.Fatal(err) }
 
 http.ListenAndServeTLS(":443", "cert.pem", "key.pem", guard.Handler(application))
 ```
+
+With `CoverageReporting` enabled, the middleware asynchronously reports only
+cumulative counts for completed requests routed through `guard.Handler`. The
+first completion is reported immediately; later snapshots are coalesced to 100
+additional completions or 30 seconds of continued traffic by default. A random
+128-bit source epoch is created in memory for each middleware process. It is
+not a customer, host, account or browser identifier. Reports contain the nine
+closed endpoint classes and exactly one terminal disposition per request:
+freshly evaluated, availability-bypassed, adapter-rejected or a bound
+challenge retry. They contain no method, path, URL, query, headers, client
+address, account value or request row.
+
+PALISADE authenticates reports with the adapter API key, accepts idempotent
+retries, and rejects changed replays, decreasing counters and unbalanced
+totals. Reports from an adapter process that predates the current PALISADE
+process are baselined on first receipt, so earlier history is not mixed into a
+new runtime window. The in-memory server store is bounded to 1,024 source
+epochs and resets on PALISADE restart. Coverage delivery is measurement-only:
+failure never changes the request handling selected by `FailureMode`. With
+continued traffic, the adapter reoffers the exact pending snapshot on the first
+completed request after its bounded retry interval.
+
+During graceful shutdown, call `guard.FlushCoverage(ctx)` with a short bounded
+context after the application listener stops accepting new requests. It sends
+the latest below-threshold snapshot synchronously. A concurrent automatic send
+returns `ErrCoverageBusy`; retry only within the same bounded shutdown window.
+
+This is **protected-handler coverage**, not website coverage. Requests outside
+`guard.Handler`, at an upstream CDN or rejected before reaching the Go origin
+are not in its denominator. The Operator Console preserves that scope instead
+of presenting the number as a share of all site traffic.
 
 ## Linking application outcomes
 
@@ -54,6 +86,11 @@ outcomes are already recorded by PALISADE and must not be relabeled as human.
 Keep this helper request-local. A deployment that needs a result after the
 request has finished must implement a separate audited, bounded backend
 workflow that preserves the same decision, session and endpoint binding.
+
+The Operator Console separately reports accepted, rejected and dropped outcome
+events. Those are ingestion-health counters only. An accepted event is not
+automatically a confirmed-human or confirmed-abuse label; only the linked local
+aggregate analysis applies provenance rules and computes label coverage.
 
 ## Issuing route-classified sensor proofs
 

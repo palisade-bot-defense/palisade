@@ -16,14 +16,21 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		if m.handleAdapterRoute(w, r) {
 			return
 		}
+		coverageEndpoint := "other"
+		coverageDisposition := coverageRejected
+		if m.coverage != nil {
+			defer func() { m.recordOriginCoverage(coverageEndpoint, coverageDisposition) }()
+		}
 		classification, err := m.classifier(r)
 		if err != nil || !validClassification(classification) {
 			m.logger.Error("PALISADE request classification failed")
 			writeAdapterError(w, http.StatusInternalServerError, "palisade_classification_failed")
 			return
 		}
+		coverageEndpoint = classification.EndpointClass
 		now := m.now().UTC()
 		if m.state.consumeGrant(r, classification, now) {
+			coverageDisposition = coverageGrantedRetry
 			clearRedemptionCookie(w)
 			w.Header().Set("X-Palisade-Adapter", "redeemed")
 			next.ServeHTTP(w, r)
@@ -47,12 +54,18 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 
 		cookie, incoming, err := m.sessionCookie(r)
 		if err != nil {
+			if m.failureMode == FailOpen {
+				coverageDisposition = coverageBypassed
+			}
 			m.handleUnavailable(w, r, next, "session", err)
 			return
 		}
 		if !incoming {
 			cookie, err = m.issueSession(r.Context())
 			if err != nil {
+				if m.failureMode == FailOpen {
+					coverageDisposition = coverageBypassed
+				}
 				m.handleUnavailable(w, r, next, "session", err)
 				return
 			}
@@ -68,19 +81,29 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 			}
 		}
 		if err != nil {
+			if m.failureMode == FailOpen {
+				coverageDisposition = coverageBypassed
+			}
 			m.handleUnavailable(w, r, next, "proof", err)
 			return
 		}
 		sequence, err := m.state.nextSequence(cookie.Value, now)
 		if err != nil {
+			if m.failureMode == FailOpen {
+				coverageDisposition = coverageBypassed
+			}
 			m.handleUnavailable(w, r, next, "sequence", err)
 			return
 		}
 		result, err := m.checkOrigin(r.Context(), cookie, classification, signals, sequence, proof)
 		if err != nil {
+			if m.failureMode == FailOpen {
+				coverageDisposition = coverageBypassed
+			}
 			m.handleUnavailable(w, r, next, "origin_check", err)
 			return
 		}
+		coverageDisposition = coverageEvaluated
 		switch result.status {
 		case http.StatusNoContent:
 			w.Header().Set("X-Palisade-Adapter", "pass")
