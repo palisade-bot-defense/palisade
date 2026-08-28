@@ -43,6 +43,7 @@ func (e apiStatusError) Error() string { return fmt.Sprintf("%s returned HTTP %d
 
 type originResult struct {
 	status      int
+	decisionID  string
 	action      string
 	handling    string
 	mode        string
@@ -256,7 +257,8 @@ func (m *Middleware) checkOrigin(ctx context.Context, cookie http.Cookie, classi
 		mode: response.Header.Get("X-Palisade-Mode"), rolloutID: response.Header.Get("X-Palisade-Rollout-ID"),
 		challengeID: response.Header.Get("X-Palisade-Challenge-ID"), location: response.Header.Get("Location"),
 	}
-	if !stableValue(response.Header.Get("X-Palisade-Decision-ID")) || (result.mode != "shadow" && result.mode != "canary" && result.mode != "enforce") {
+	result.decisionID = response.Header.Get("X-Palisade-Decision-ID")
+	if !stableValue(result.decisionID) || (result.mode != "shadow" && result.mode != "canary" && result.mode != "enforce") {
 		return originResult{}, ErrInvalidResponse
 	}
 	if result.rolloutID != "" && !stableValue(result.rolloutID) {
@@ -320,7 +322,7 @@ func (m *Middleware) postJSON(ctx context.Context, apiPath string, payload any, 
 	defer response.Body.Close()
 	if target == nil {
 		contents, readErr := readBounded(response.Body, maxServiceBody)
-		if readErr != nil || (response.StatusCode == http.StatusNoContent && len(bytes.TrimSpace(contents)) != 0) {
+		if readErr != nil || (response.StatusCode >= 200 && response.StatusCode < 300 && len(bytes.TrimSpace(contents)) != 0) {
 			return 0, ErrInvalidResponse
 		}
 		return response.StatusCode, nil

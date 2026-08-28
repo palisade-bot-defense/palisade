@@ -26,6 +26,7 @@ var (
 	ErrInvalidConfig         = errors.New("invalid PALISADE HTTP adapter configuration")
 	ErrInvalidClassification = errors.New("invalid PALISADE request classification")
 	ErrInvalidSignals        = errors.New("invalid PALISADE normalized signals")
+	ErrInvalidOutcome        = errors.New("invalid PALISADE normalized outcome")
 	ErrStateCapacity         = errors.New("PALISADE adapter state capacity exceeded")
 	ErrInvalidPending        = errors.New("invalid PALISADE pending challenge")
 	ErrInvalidResponse       = errors.New("invalid PALISADE service response")

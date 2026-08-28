@@ -27,11 +27,11 @@ func NewEventShadowProfile(action, endpointClass string) (EventShadowProfile, er
 	return EventShadowProfile{action: action, endpointClass: endpointClass}, nil
 }
 
-func (s *Server) recordEventShadowDecision(ctx context.Context, batch events.Batch, verifiedSession, userAgentPresent bool, now time.Time) error {
+func (s *Server) recordEventShadowDecision(ctx context.Context, batch events.Batch, receipt events.IngestReceipt, verifiedSession, userAgentPresent bool, now time.Time) error {
 	if s.eventShadow == nil {
 		return nil
 	}
-	if s.shadowRecorder == nil || s.tokens == nil || len(batch.Events) == 0 {
+	if s.shadowRecorder == nil || s.tokens == nil || len(batch.Events) == 0 || receipt.BatchSequence == 0 {
 		return errors.New("event shadow evaluation dependencies unavailable")
 	}
 	proof, err := s.tokens.Issue(batch.SessionID, s.eventShadow.action, time.Minute, now)
@@ -42,11 +42,15 @@ func (s *Server) recordEventShadowDecision(ctx context.Context, batch events.Bat
 		SessionID:     batch.SessionID,
 		Action:        s.eventShadow.action,
 		EndpointClass: s.eventShadow.endpointClass,
-		Sequence:      batch.Events[len(batch.Events)-1].Sequence,
-		ProofToken:    proof,
+		// A decision sequence counts accepted HTTP batches. The browser event
+		// sequence counts events within those batches and can legitimately jump
+		// by dozens between flushes; treating that jump as missing requests
+		// produced false SEQUENCE_GAP_HIGH evidence in the first shadow pilot.
+		Sequence:   receipt.BatchSequence,
+		ProofToken: proof,
 		Observations: core.Observations{
 			UserAgentPresent:      userAgentPresent,
-			BrowserEventCount:     s.events.Count(batch.SessionID, now),
+			BrowserEventCount:     receipt.TotalAcceptedEvents,
 			BrowserEventsVerified: true,
 			ServerSessionVerified: verifiedSession,
 		},

@@ -138,14 +138,15 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := s.events.Ingest(batch, now); err != nil {
+	receipt, err := s.events.IngestWithReceipt(batch, now)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_event_batch")
 		return
 	}
 	s.counters.eventBatches.Add(1)
 	s.counters.events.Add(uint64(len(batch.Events)))
 	if s.eventShadow != nil {
-		if err := s.recordEventShadowDecision(r.Context(), batch, verifiedSession, r.UserAgent() != "", now); err != nil {
+		if err := s.recordEventShadowDecision(r.Context(), batch, receipt, verifiedSession, r.UserAgent() != "", now); err != nil {
 			s.recordEventShadowDrop(err)
 			w.Header().Set("X-Palisade-Shadow-Evaluation", "dropped")
 		} else {
@@ -520,15 +521,22 @@ func (s *Server) handleOutcome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request shadowlog.OutcomeRequest
-	if err := decodeJSON(w, r, &request); err != nil || request.Validate() != nil {
+	if err := decodeJSON(w, r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_outcome")
 		return
 	}
-	if _, err := s.verifySession(r, request.SessionID, time.Now().UTC()); err != nil {
+	now := time.Now().UTC()
+	sessionID, _, err := s.resolveSession(r, request.SessionID, now)
+	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid_session")
 		return
 	}
-	if err := s.shadowRecorder.RecordOutcome(request, time.Now().UTC()); err != nil {
+	request.SessionID = sessionID
+	if request.Validate() != nil {
+		writeError(w, http.StatusBadRequest, "invalid_outcome")
+		return
+	}
+	if err := s.shadowRecorder.RecordOutcome(request, now); err != nil {
 		writeError(w, http.StatusServiceUnavailable, "shadow_log_unavailable")
 		return
 	}

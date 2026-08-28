@@ -467,9 +467,14 @@ components:
       type: object
       description: Closed backend outcome label linked to the exact decision. The server validates that provenance and confidence are compatible with the selected outcome; challenge completion is never human confirmation.
       additionalProperties: false
-      required: [session_id, decision_id, endpoint_class, outcome, provenance, confidence]
+      required: [decision_id, endpoint_class, outcome, provenance, confidence]
       properties:
-        session_id: { type: string, minLength: 8, maxLength: 128, pattern: "^[A-Za-z0-9_.:-]+$" }
+        session_id:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: "^[A-Za-z0-9_.:-]+$"
+          description: Optional when a valid PALISADE session cookie is supplied; the server derives and binds the session from that cookie.
         decision_id: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9_.:-]+$" }
         endpoint_class:
           type: string

@@ -18,7 +18,9 @@ palisade serve \
 ```
 
 Each authenticated, accepted batch then produces one internal shadow decision
-using its last event sequence and the fresh aggregate event count. The original
+using a server-owned contiguous batch sequence and the fresh aggregate event
+count. Browser event numbers remain inputs to bounded event deduplication; they
+are never interpreted as a request sequence. The original
 event proof must be minted for `events`; PALISADE creates and consumes a second
 internal proof for the configured decision action. Neither proof reaches the
 recorder. The browser gets no decision body, scores or evidence.
@@ -28,6 +30,14 @@ decision was queued and `dropped` when evaluation or queueing failed. The event
 response remains `202` in both cases because retrying an accepted batch would
 duplicate or reorder sequences. Drops are counted in process logs and must be
 included as measurement loss.
+
+Event-shadow decisions written by model versions before
+`transparent-baseline-v9` used the last browser event number as the decision
+sequence. Those authenticated records remain valid for chain integrity,
+non-sequence facts and linked outcomes, but sequence-derived reasons, scores
+and actions are instrument artifacts and must not be used for calibration.
+Reanalysis cannot rewrite a historical decision; begin a new comparison window
+after deploying v9.
 
 This collection bridge requires the encrypted sink and signed session cookie.
 It rejects signed rollout configuration and therefore cannot enforce. Disable

@@ -54,11 +54,13 @@ func (e fixedEngine) Decide(context.Context, core.DecisionRequest) (core.Decisio
 
 type capturingEngine struct {
 	request  core.DecisionRequest
+	requests []core.DecisionRequest
 	decision core.Decision
 }
 
 func (e *capturingEngine) Decide(_ context.Context, request core.DecisionRequest) (core.Decision, error) {
 	e.request = request
+	e.requests = append(e.requests, request)
 	return e.decision, nil
 }
 
@@ -306,7 +308,7 @@ func TestAcceptedEventBatchRecordsServerClassifiedShadowDecision(t *testing.T) {
 		t.Fatalf("event shadow response = %d headers=%v body=%s", response.Code, response.Header(), response.Body.String())
 	}
 	if engine.request.SessionID != claims.SessionID || engine.request.Action != "read" || engine.request.EndpointClass != "public_content" ||
-		engine.request.Sequence != 7 || engine.request.ProofToken == "" || !engine.request.Observations.ServerSessionVerified ||
+		engine.request.Sequence != 1 || engine.request.ProofToken == "" || !engine.request.Observations.ServerSessionVerified ||
 		!engine.request.Observations.UserAgentPresent || engine.request.Observations.BrowserEventCount != 1 || !engine.request.Observations.BrowserEventsVerified {
 		t.Fatalf("internal event decision request = %+v", engine.request)
 	}
@@ -320,6 +322,57 @@ func TestAcceptedEventBatchRecordsServerClassifiedShadowDecision(t *testing.T) {
 	if decision.Action != core.ActionObserve || decision.ComputedAction != core.ActionBlock || decision.Mode != core.RuntimeModeShadow ||
 		decision.RolloutID != "" || decision.Directive.Handling != "pass" || !strings.Contains(strings.Join(decision.ReasonCodes, ","), core.ReasonShadowActionOverridden) {
 		t.Fatalf("recorded event shadow decision = %+v", decision)
+	}
+}
+
+func TestEventShadowUsesBatchSequenceNotBrowserEventSequence(t *testing.T) {
+	now := time.Now().UTC()
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+	cookies, err := sessioncookie.New(secret, sessioncookie.DefaultTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuedCookie, claims, err := cookies.Issue(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := NewEventShadowProfile("read", "public_content")
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := &capturingEngine{decision: core.Decision{
+		DecisionID: "event-shadow-decision", Action: core.ActionAllow, ComputedAction: core.ActionAllow, Mode: core.RuntimeModeShadow,
+	}}
+	server := New(engine, tokens, "key", slog.Default()).
+		WithEventStore(events.NewStore(5*time.Minute)).
+		RequireEventProof(true).
+		WithSessionCookies(cookies, true).
+		WithShadowRecorder(&recordingShadow{}).
+		WithEventShadowEvaluation(profile)
+
+	for index, body := range []string{
+		`{"sensorVersion":"0.2.0","events":[{"sequence":1,"elapsedBucketMs":25,"kind":"navigation","valueBucket":1}]}`,
+		`{"sensorVersion":"0.2.0","events":[{"sequence":64,"elapsedBucketMs":15000,"kind":"pointer","valueBucket":16}]}`,
+	} {
+		proof, proofErr := tokens.Issue(claims.SessionID, "events", time.Minute, now)
+		if proofErr != nil {
+			t.Fatal(proofErr)
+		}
+		request := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(body))
+		request.Header.Set("X-Palisade-Proof", proof)
+		request.AddCookie(&issuedCookie)
+		response := httptest.NewRecorder()
+		server.Handler().ServeHTTP(response, request)
+		if response.Code != http.StatusAccepted {
+			t.Fatalf("batch %d status = %d: %s", index+1, response.Code, response.Body.String())
+		}
+	}
+	if len(engine.requests) != 2 || engine.requests[0].Sequence != 1 || engine.requests[1].Sequence != 2 {
+		t.Fatalf("event shadow decision sequences = %+v, want contiguous 1,2", engine.requests)
+	}
+	if engine.requests[1].Observations.BrowserEventCount != 2 {
+		t.Fatalf("second event count = %d, want 2", engine.requests[1].Observations.BrowserEventCount)
 	}
 }
 
@@ -612,5 +665,38 @@ func TestDecisionAndOutcomeReachShadowRecorder(t *testing.T) {
 	server.Handler().ServeHTTP(unlinkedResponse, unlinked)
 	if unlinkedResponse.Code != http.StatusBadRequest {
 		t.Fatalf("unlinked outcome status = %d", unlinkedResponse.Code)
+	}
+}
+
+func TestOutcomeDerivesSessionFromSignedCookie(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+	cookies, err := sessioncookie.New(secret, sessioncookie.DefaultTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuedCookie, claims, err := cookies.Issue(time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := &recordingShadow{}
+	server := New(contractEngine{}, tokens, "key", slog.Default()).
+		WithSessionCookies(cookies, true).
+		WithShadowRecorder(recorder)
+	request := httptest.NewRequest(http.MethodPost, "/v1/outcome", bytes.NewBufferString(`{"decision_id":"decision-contract","endpoint_class":"compare_noindex","outcome":"human_confirmed","provenance":"authenticated_account","confidence":"confirmed"}`))
+	request.Header.Set("Authorization", "Bearer key")
+	request.AddCookie(&issuedCookie)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusAccepted || len(recorder.outcomes) != 1 || recorder.outcomes[0].SessionID != claims.SessionID {
+		t.Fatalf("cookie-bound outcome status/records = %d/%+v", response.Code, recorder.outcomes)
+	}
+	mismatch := httptest.NewRequest(http.MethodPost, "/v1/outcome", bytes.NewBufferString(`{"session_id":"different-session","decision_id":"decision-contract","endpoint_class":"compare_noindex","outcome":"human_confirmed","provenance":"authenticated_account","confidence":"confirmed"}`))
+	mismatch.Header.Set("Authorization", "Bearer key")
+	mismatch.AddCookie(&issuedCookie)
+	mismatchResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(mismatchResponse, mismatch)
+	if mismatchResponse.Code != http.StatusUnauthorized || len(recorder.outcomes) != 1 {
+		t.Fatalf("mismatched session status/records = %d/%+v", mismatchResponse.Code, recorder.outcomes)
 	}
 }

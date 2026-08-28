@@ -84,7 +84,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		switch result.status {
 		case http.StatusNoContent:
 			w.Header().Set("X-Palisade-Adapter", "pass")
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, withOutcomeHandle(r, result.decisionID, classification.EndpointClass, cookie))
 		case http.StatusTooManyRequests:
 			w.Header().Set("Retry-After", integerString(result.retryAfter))
 			w.Header().Set("X-Palisade-Action", result.action)
