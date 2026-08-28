@@ -17,11 +17,47 @@ palisade serve \
   --shadow-log-key-file /private/local/palisade-shadow/shadow.key
 ```
 
+The static profile intentionally classifies every event batch the same way. To
+measure multiple route classes in production, use the mutually exclusive
+proof-classified mode:
+
+```sh
+palisade serve \
+  --require-session-cookie \
+  --event-shadow-from-proof \
+  --shadow-log-dir /private/local/palisade-shadow/logs \
+  --shadow-log-key-file /private/local/palisade-shadow/shadow.key
+```
+
+For each page class, the trusted origin requests the ordinary one-time event
+proof with its closed route-table classification:
+
+```json
+{
+  "action": "events",
+  "request_action": "compare",
+  "endpoint_class": "compare_noindex",
+  "ttl_seconds": 60
+}
+```
+
+`POST /v1/token` is backend-authenticated. Go origins can use
+`palisadehttp.Middleware.IssueEventProof` from a fixed same-origin backend
+route. Browser code receives only the
+signed proof and forwards it as `X-Palisade-Proof`; it never selects or submits
+the action, endpoint class, path, URL or referer. The proof is session-bound,
+expires after at most five minutes and is usable for at most one event request
+attempt. A missing, partial, raw or
+unrecognized context is rejected
+before event ingestion, so the sensor can retry without creating a gap in the
+server-owned batch sequence. Static and proof-classified modes cannot run
+together.
+
 Each authenticated, accepted batch then produces one internal shadow decision
 using a server-owned contiguous batch sequence and the fresh aggregate event
 count. Browser event numbers remain inputs to bounded event deduplication; they
-are never interpreted as a request sequence. The original
-event proof must be minted for `events`; PALISADE creates and consumes a second
+are never interpreted as a request sequence. The original event proof must be
+minted for `events`; PALISADE creates and consumes a second
 internal proof for the configured decision action. Neither proof reaches the
 recorder. The browser gets no decision body, scores or evidence.
 

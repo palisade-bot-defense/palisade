@@ -8,9 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/palisade-bot-defense/palisade/internal/core"
 )
 
 var (
@@ -20,12 +23,14 @@ var (
 )
 
 type Claims struct {
-	Version   int    `json:"v"`
-	SessionID string `json:"sid"`
-	Action    string `json:"act"`
-	IssuedAt  int64  `json:"iat"`
-	ExpiresAt int64  `json:"exp"`
-	Nonce     string `json:"n"`
+	Version       int    `json:"v"`
+	SessionID     string `json:"sid"`
+	Action        string `json:"act"`
+	RequestAction string `json:"ract,omitempty"`
+	EndpointClass string `json:"epc,omitempty"`
+	IssuedAt      int64  `json:"iat"`
+	ExpiresAt     int64  `json:"exp"`
+	Nonce         string `json:"n"`
 }
 
 type NonceStore interface {
@@ -48,7 +53,21 @@ func NewService(secret []byte, nonces NonceStore) (*Service, error) {
 }
 
 func (s *Service) Issue(sessionID, action string, ttl time.Duration, now time.Time) (string, error) {
-	if sessionID == "" || action == "" {
+	return s.issue(sessionID, action, "", "", ttl, now)
+}
+
+// IssueEventContext creates the ordinary one-time events proof with an
+// additional server-authorized, closed shadow-evaluation classification. The
+// classification is signed and cannot be changed by browser code.
+func (s *Service) IssueEventContext(sessionID, requestAction, endpointClass string, ttl time.Duration, now time.Time) (string, error) {
+	if !core.ValidRequestAction(requestAction) || !core.ValidEndpointClass(endpointClass) {
+		return "", errors.New("event context action and endpoint class are required")
+	}
+	return s.issue(sessionID, "events", requestAction, endpointClass, ttl, now)
+}
+
+func (s *Service) issue(sessionID, action, requestAction, endpointClass string, ttl time.Duration, now time.Time) (string, error) {
+	if len(sessionID) < 8 || len(sessionID) > 128 || action == "" || len(action) > 80 || strings.ContainsAny(sessionID+action, "\r\n\x00") {
 		return "", errors.New("session and action are required")
 	}
 	if ttl <= 0 || ttl > 5*time.Minute {
@@ -59,12 +78,14 @@ func (s *Service) Issue(sessionID, action string, ttl time.Duration, now time.Ti
 		return "", fmt.Errorf("create nonce: %w", err)
 	}
 	claims := Claims{
-		Version:   1,
-		SessionID: sessionID,
-		Action:    action,
-		IssuedAt:  now.Unix(),
-		ExpiresAt: now.Add(ttl).Unix(),
-		Nonce:     base64.RawURLEncoding.EncodeToString(nonceBytes),
+		Version:       1,
+		SessionID:     sessionID,
+		Action:        action,
+		RequestAction: requestAction,
+		EndpointClass: endpointClass,
+		IssuedAt:      now.Unix(),
+		ExpiresAt:     now.Add(ttl).Unix(),
+		Nonce:         base64.RawURLEncoding.EncodeToString(nonceBytes),
 	}
 	payload, err := json.Marshal(claims)
 	if err != nil {
@@ -93,7 +114,16 @@ func (s *Service) VerifyAndConsume(raw, expectedSession, expectedAction string, 
 	if err := decoder.Decode(&claims); err != nil {
 		return Claims{}, ErrInvalidToken
 	}
-	if claims.Version != 1 || claims.SessionID != expectedSession || claims.Action != expectedAction || claims.Nonce == "" {
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return Claims{}, ErrInvalidToken
+	}
+	contextPaired := (claims.RequestAction == "") == (claims.EndpointClass == "")
+	contextAllowed := claims.RequestAction == "" || (claims.Action == "events" && core.ValidRequestAction(claims.RequestAction) && core.ValidEndpointClass(claims.EndpointClass))
+	nonce, nonceErr := base64.RawURLEncoding.DecodeString(claims.Nonce)
+	validLifetime := claims.ExpiresAt > claims.IssuedAt && claims.ExpiresAt-claims.IssuedAt <= int64((5*time.Minute)/time.Second)
+	if claims.Version != 1 || claims.SessionID != expectedSession || claims.Action != expectedAction || nonceErr != nil || len(nonce) != 16 || !validLifetime || !contextPaired || !contextAllowed ||
+		len(claims.SessionID) < 8 || len(claims.SessionID) > 128 || claims.Action == "" || len(claims.Action) > 80 || strings.ContainsAny(claims.SessionID+claims.Action, "\r\n\x00") ||
+		len(claims.RequestAction) > 80 || len(claims.EndpointClass) > 64 || strings.ContainsAny(claims.RequestAction+claims.EndpointClass, "\r\n\x00") {
 		return Claims{}, ErrInvalidToken
 	}
 	if claims.IssuedAt > now.Add(30*time.Second).Unix() || claims.ExpiresAt <= now.Unix() {

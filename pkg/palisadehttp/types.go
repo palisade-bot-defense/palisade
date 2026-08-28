@@ -27,6 +27,7 @@ var (
 	ErrInvalidClassification = errors.New("invalid PALISADE request classification")
 	ErrInvalidSignals        = errors.New("invalid PALISADE normalized signals")
 	ErrInvalidOutcome        = errors.New("invalid PALISADE normalized outcome")
+	ErrSessionRequired       = errors.New("PALISADE session cookie is required")
 	ErrStateCapacity         = errors.New("PALISADE adapter state capacity exceeded")
 	ErrInvalidPending        = errors.New("invalid PALISADE pending challenge")
 	ErrInvalidResponse       = errors.New("invalid PALISADE service response")

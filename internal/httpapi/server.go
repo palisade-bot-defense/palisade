@@ -121,6 +121,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
+	var eventProofClaims token.Claims
 	sessionID, verifiedSession, err := s.resolveSession(r, batch.SessionID, now)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid_session")
@@ -133,7 +134,14 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusUnauthorized, "event_proof_required")
 			return
 		}
-		if _, err := s.tokens.VerifyAndConsume(proof, batch.SessionID, "events", now); err != nil {
+		eventProofClaims, err = s.tokens.VerifyAndConsume(proof, batch.SessionID, "events", now)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "invalid_event_proof")
+			return
+		}
+	}
+	if s.eventShadow != nil {
+		if _, _, err := s.eventShadow.classification(eventProofClaims); err != nil {
 			writeError(w, http.StatusUnauthorized, "invalid_event_proof")
 			return
 		}
@@ -146,7 +154,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	s.counters.eventBatches.Add(1)
 	s.counters.events.Add(uint64(len(batch.Events)))
 	if s.eventShadow != nil {
-		if err := s.recordEventShadowDecision(r.Context(), batch, receipt, verifiedSession, r.UserAgent() != "", now); err != nil {
+		if err := s.recordEventShadowDecision(r.Context(), batch, receipt, eventProofClaims, verifiedSession, r.UserAgent() != "", now); err != nil {
 			s.recordEventShadowDrop(err)
 			w.Header().Set("X-Palisade-Shadow-Evaluation", "dropped")
 		} else {
@@ -197,9 +205,11 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request struct {
-		SessionID  string `json:"session_id"`
-		Action     string `json:"action"`
-		TTLSeconds int    `json:"ttl_seconds"`
+		SessionID     string `json:"session_id"`
+		Action        string `json:"action"`
+		RequestAction string `json:"request_action"`
+		EndpointClass string `json:"endpoint_class"`
+		TTLSeconds    int    `json:"ttl_seconds"`
 	}
 	if err := decodeJSON(w, r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
@@ -213,12 +223,23 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	sessionID, _, err := s.resolveSession(r, request.SessionID, now)
+	sessionID, verifiedSession, err := s.resolveSession(r, request.SessionID, now)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid_session")
 		return
 	}
-	raw, err := s.tokens.Issue(sessionID, request.Action, time.Duration(request.TTLSeconds)*time.Second, now)
+	contextRequested := request.RequestAction != "" || request.EndpointClass != ""
+	if contextRequested && (s.eventShadow == nil || !s.eventShadow.fromProof || !s.requireEventProof || !verifiedSession || request.Action != "events" ||
+		!validEventShadowAction(request.RequestAction) || !validEventShadowEndpoint(request.EndpointClass)) {
+		writeError(w, http.StatusBadRequest, "invalid_token_request")
+		return
+	}
+	var raw string
+	if contextRequested {
+		raw, err = s.tokens.IssueEventContext(sessionID, request.RequestAction, request.EndpointClass, time.Duration(request.TTLSeconds)*time.Second, now)
+	} else {
+		raw, err = s.tokens.Issue(sessionID, request.Action, time.Duration(request.TTLSeconds)*time.Second, now)
+	}
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_token_request")
 		return

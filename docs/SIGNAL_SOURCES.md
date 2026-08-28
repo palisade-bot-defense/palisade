@@ -61,6 +61,19 @@ sequence retries. This bridge is shadow-only, requires the encrypted sink and
 signed session cookie, cannot run with a signed rollout, and must not be used in
 parallel with the origin adapter's authoritative decision stream.
 
+For multiple endpoint classes, replace the two static profile flags with
+`--event-shadow-from-proof`. The backend then calls `POST /v1/token` with
+`action: events` plus a closed `request_action` and `endpoint_class` derived
+from the backend route table. PALISADE signs those fields into the same
+short-lived one-time proof already required by `/v1/events`; the sensor only
+forwards that proof. Proof-classified mode rejects development mode, raw route
+values, missing claim pairs and non-event proofs. It never adds browser-chosen
+classification fields to the event batch. Invalid or cross-mode contexts are
+rejected before ingestion so they cannot advance the event-shadow sequence.
+Go origins can use `palisadehttp.Middleware.IssueEventProof` from a fixed
+same-origin backend route; the helper forwards only the PALISADE session cookie
+and closed server configuration, never the page request target or headers.
+
 ## HTTP integration
 
 The origin creates or reuses a stable session ID, obtains a short-lived proof

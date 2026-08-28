@@ -42,7 +42,7 @@ go run ./cmd/palisade replay --file examples/replay/synthetic.jsonl
 
 The server always starts from `--mode shadow`. In shadow mode, risky computed actions remain visible as `computed_action`, while the enforced `action` is limited to `allow` or `observe`. Canary/enforcement requires a valid, expiring operator-signed rollout plan; `serve --mode enforce` is rejected. Production refuses to start without `PALISADE_HMAC_KEY`, `PALISADE_API_KEY` and a distinct `PALISADE_ADMIN_KEY` of at least 32 bytes. The Operator Console is served only from the separate loopback-only `--admin-listen` address and its key remains in browser memory; the public decision listener never serves admin assets or summaries. Development mode intentionally disables proof enforcement, rejects rollout plans and must never face public traffic. `--require-session-cookie` is a separate integration gate: enable it only after the origin adapter forwards the backend-issued `__Host-palisade_session` cookie on token, event and decision requests.
 
-For a sensor-only shadow deployment, `--event-shadow-action` and `--event-shadow-endpoint-class` turn every accepted event flush into one server-classified shadow decision. A server-owned contiguous batch counter drives the decision sequence; browser event numbers remain event-store deduplication data and cannot create request-sequence-gap evidence. This closes the measurement loop without adding latency to page delivery or returning scores to the browser. It requires the encrypted sink and signed session cookie, is unavailable with a signed rollout, and must be disabled once origin middleware becomes the authoritative decision stream.
+For a sensor-only shadow deployment, a static `--event-shadow-action` plus `--event-shadow-endpoint-class` can classify a single surface. Multi-surface pilots should use `--event-shadow-from-proof`: the trusted backend mints each one-time `events` proof with a closed request action and endpoint class derived from its route table, while the browser only forwards the signed proof. A server-owned contiguous batch counter drives the decision sequence; browser event numbers remain event-store deduplication data and cannot create request-sequence-gap evidence. Neither mode accepts URLs, paths or referers. Both require the encrypted sink and signed session cookie, are unavailable with a signed rollout, and must be disabled once origin middleware becomes the authoritative decision stream.
 
 ## HTTP surface
 
@@ -70,7 +70,7 @@ See the [Operator Console guide](docs/OPERATOR_CONSOLE.md).
 The signed cookie prevents clients from inventing a trusted session identifier, but does not prove that a person, account or unique device is present; starting fresh sessions remains possible. A valid cookie contributes only continuity evidence. The browser sensor never sends keystrokes, form values, DOM text or exact pointer coordinates. See [privacy boundaries](docs/privacy/DATA_BOUNDARIES.md).
 The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contracts live under [`api/proto`](api/proto). The [signal-source guide](docs/SIGNAL_SOURCES.md) contains trust boundaries, request examples and the checked detector extension procedure. The [native challenge guide](docs/CHALLENGE.md) documents the origin handshake, accessibility contract, exact one-time binding and single-instance limit.
 
-Applications built with Go `net/http` can use the included [`pkg/palisadehttp`](pkg/palisadehttp) reference middleware. It creates signed continuity sessions, submits only normalized signals, applies pass/delay/throttle/challenge/block results, renders the same-origin accessible challenge and grants exactly one retry for the original method and request target. After a validated pass it exposes an opaque request-scoped outcome handle, allowing authenticated application code to link a closed result to the exact decision without handling a raw PALISADE session ID. Its availability policy is an explicit deployment choice. See the [origin-adapter guide](docs/ORIGIN_ADAPTER.md).
+Applications built with Go `net/http` can use the included [`pkg/palisadehttp`](pkg/palisadehttp) reference middleware. It creates signed continuity sessions, submits only normalized signals, applies pass/delay/throttle/challenge/block results, renders the same-origin accessible challenge and grants exactly one retry for the original method and request target. It also provides a backend-only route-classified sensor-proof helper and, after a validated pass, an opaque request-scoped outcome handle for linking a closed result to the exact decision without handling a raw PALISADE session ID. Its availability policy is an explicit deployment choice. See the [origin-adapter guide](docs/ORIGIN_ADAPTER.md).
 
 ## Local encrypted shadow logging
 
@@ -81,6 +81,14 @@ go run ./cmd/palisade serve \
   --require-session-cookie \
   --event-shadow-action read \
   --event-shadow-endpoint-class public_content \
+  --shadow-log-dir /private/local/palisade-shadow/logs \
+  --shadow-log-key-file /private/local/palisade-shadow/shadow.key
+
+# Production multi-surface collection. The origin requests route-specific
+# events proofs from /v1/token with request_action and endpoint_class.
+go run ./cmd/palisade serve \
+  --require-session-cookie \
+  --event-shadow-from-proof \
   --shadow-log-dir /private/local/palisade-shadow/logs \
   --shadow-log-key-file /private/local/palisade-shadow/shadow.key
 

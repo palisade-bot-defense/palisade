@@ -60,6 +60,7 @@ paths:
   /v1/token:
     post:
       summary: Issue a short-lived one-time proof
+      description: Backend-only issuance. When proof-classified event shadow evaluation is enabled, an events proof may additionally bind one closed request action and endpoint class. Those fields are signed claims supplied by the trusted backend, never browser observations.
       operationId: issueProof
       security:
         - bearerAuth: []
@@ -71,6 +72,9 @@ paths:
               type: object
               additionalProperties: false
               required: [action]
+              dependentRequired:
+                request_action: [endpoint_class]
+                endpoint_class: [request_action]
               properties:
                 session_id:
                   type: string
@@ -78,6 +82,14 @@ paths:
                   maxLength: 128
                   description: Optional when a valid PALISADE session cookie is supplied; if both are present they must match.
                 action: { type: string, minLength: 1, maxLength: 80 }
+                request_action:
+                  type: string
+                  enum: [read, write, create, update, delete, search, compare, login, logout, register, checkout, purchase, other]
+                  description: Allowed only when action is events and --event-shadow-from-proof is enabled. The trusted backend derives this class from its route table.
+                endpoint_class:
+                  type: string
+                  enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]
+                  description: Allowed only when action is events and --event-shadow-from-proof is enabled. Never place a path, URL, query or referer here.
                 ttl_seconds: { type: integer, minimum: 1, maximum: 300, default: 60 }
       responses:
         "201":

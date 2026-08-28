@@ -242,6 +242,7 @@ func serve(args []string) error {
 	shadowLogQueue := flags.Int("shadow-log-queue", shadowlog.DefaultQueueSize, "bounded asynchronous shadow record queue")
 	eventShadowAction := flags.String("event-shadow-action", "", "server-trusted action for one shadow decision after each accepted event batch")
 	eventShadowEndpoint := flags.String("event-shadow-endpoint-class", "", "server-trusted endpoint class for event-triggered shadow decisions")
+	eventShadowFromProof := flags.Bool("event-shadow-from-proof", false, "derive each event shadow action and endpoint class from its backend-issued signed proof")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -267,7 +268,10 @@ func serve(args []string) error {
 	if (*eventShadowAction == "") != (*eventShadowEndpoint == "") {
 		return errors.New("--event-shadow-action and --event-shadow-endpoint-class must be configured together")
 	}
-	eventShadowEnabled := *eventShadowAction != ""
+	if *eventShadowFromProof && *eventShadowAction != "" {
+		return errors.New("--event-shadow-from-proof is mutually exclusive with the static event shadow profile")
+	}
+	eventShadowEnabled := *eventShadowAction != "" || *eventShadowFromProof
 	if eventShadowEnabled && *shadowLogDir == "" {
 		return errors.New("event shadow evaluation requires the encrypted shadow log")
 	}
@@ -277,8 +281,13 @@ func serve(args []string) error {
 	if eventShadowEnabled && *rolloutPlanPath != "" {
 		return errors.New("event shadow evaluation is shadow-only and cannot run with a signed rollout plan")
 	}
+	if *eventShadowFromProof && *dev {
+		return errors.New("--event-shadow-from-proof requires production one-time event proofs and cannot run with --dev")
+	}
 	var eventShadowProfile httpapi.EventShadowProfile
-	if eventShadowEnabled {
+	if *eventShadowFromProof {
+		eventShadowProfile = httpapi.NewEventShadowProofProfile()
+	} else if eventShadowEnabled {
 		eventShadowProfile, err = httpapi.NewEventShadowProfile(*eventShadowAction, *eventShadowEndpoint)
 		if err != nil {
 			return err
@@ -402,7 +411,7 @@ func serve(args []string) error {
 		_ = server.Shutdown(shutdownCtx)
 		_ = adminServer.Shutdown(shutdownCtx)
 	}()
-	logger.Info("PALISADE starting", "version", version, "listen", *listen, "admin_listen", *adminListen, "dev", *dev, "mode", mode, "rollout_id", rolloutID, "require_session_cookie", *requireSessionCookie, "shadow_log", shadowSink != nil, "event_shadow_evaluation", eventShadowEnabled, "analysis_report", analysisFeed != nil)
+	logger.Info("PALISADE starting", "version", version, "listen", *listen, "admin_listen", *adminListen, "dev", *dev, "mode", mode, "rollout_id", rolloutID, "require_session_cookie", *requireSessionCookie, "shadow_log", shadowSink != nil, "event_shadow_evaluation", eventShadowEnabled, "event_shadow_from_proof", *eventShadowFromProof, "analysis_report", analysisFeed != nil)
 	if *dev {
 		logger.Warn("development mode active; proof tokens are not required")
 	}

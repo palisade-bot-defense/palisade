@@ -55,6 +55,39 @@ Keep this helper request-local. A deployment that needs a result after the
 request has finished must implement a separate audited, bounded backend
 workflow that preserves the same decision, session and endpoint binding.
 
+## Issuing route-classified sensor proofs
+
+Proof-classified sensor-only shadow deployments can use `IssueEventProof` from
+a same-origin backend route. The application fixes the classification in its
+route table; browser input does not supply it:
+
+```go
+func compareEventProof(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+        http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+    proof, err := guard.IssueEventProof(r, palisadehttp.Classification{
+        Action: "compare", EndpointClass: "compare_noindex",
+    })
+    if err != nil {
+        http.Error(w, "proof unavailable", http.StatusServiceUnavailable)
+        return
+    }
+    w.Header().Set("Cache-Control", "no-store")
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(proof)
+}
+```
+
+The helper reads only `__Host-palisade_session`, sends the adapter bearer key
+server-to-server and returns the bounded proof response. It does not forward
+the request URL, query, Referer, User-Agent, body, other cookies or arbitrary
+headers. Register separate fixed handlers for the closed route classes you
+actually measure. Never accept action or endpoint class values from a request
+body or query parameter, never log the returned proof, and do not use this
+shadow-only measurement bridge as enforcement evidence by itself.
+
 `FailureMode` is mandatory. Choose `fail_open` only when availability is more
 important than protection during a PALISADE outage; bypassed requests receive
 `X-Palisade-Adapter: bypass_unavailable`. Choose `fail_closed` for sensitive

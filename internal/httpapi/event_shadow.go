@@ -9,6 +9,7 @@ import (
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	"github.com/palisade-bot-defense/palisade/internal/events"
 	"github.com/palisade-bot-defense/palisade/internal/rollout"
+	"github.com/palisade-bot-defense/palisade/internal/token"
 )
 
 var ErrInvalidEventShadowProfile = errors.New("invalid event shadow evaluation profile")
@@ -18,6 +19,7 @@ var ErrInvalidEventShadowProfile = errors.New("invalid event shadow evaluation p
 type EventShadowProfile struct {
 	action        string
 	endpointClass string
+	fromProof     bool
 }
 
 func NewEventShadowProfile(action, endpointClass string) (EventShadowProfile, error) {
@@ -27,21 +29,32 @@ func NewEventShadowProfile(action, endpointClass string) (EventShadowProfile, er
 	return EventShadowProfile{action: action, endpointClass: endpointClass}, nil
 }
 
-func (s *Server) recordEventShadowDecision(ctx context.Context, batch events.Batch, receipt events.IngestReceipt, verifiedSession, userAgentPresent bool, now time.Time) error {
+// NewEventShadowProofProfile requires each accepted event proof to carry the
+// backend-authorized action and endpoint class. It is mutually exclusive with
+// the static profile at the CLI boundary.
+func NewEventShadowProofProfile() EventShadowProfile {
+	return EventShadowProfile{fromProof: true}
+}
+
+func (s *Server) recordEventShadowDecision(ctx context.Context, batch events.Batch, receipt events.IngestReceipt, proofClaims token.Claims, verifiedSession, userAgentPresent bool, now time.Time) error {
 	if s.eventShadow == nil {
 		return nil
 	}
 	if s.shadowRecorder == nil || s.tokens == nil || len(batch.Events) == 0 || receipt.BatchSequence == 0 {
 		return errors.New("event shadow evaluation dependencies unavailable")
 	}
-	proof, err := s.tokens.Issue(batch.SessionID, s.eventShadow.action, time.Minute, now)
+	action, endpointClass, err := s.eventShadow.classification(proofClaims)
+	if err != nil {
+		return err
+	}
+	proof, err := s.tokens.Issue(batch.SessionID, action, time.Minute, now)
 	if err != nil {
 		return fmt.Errorf("issue internal event shadow proof: %w", err)
 	}
 	request := core.DecisionRequest{
 		SessionID:     batch.SessionID,
-		Action:        s.eventShadow.action,
-		EndpointClass: s.eventShadow.endpointClass,
+		Action:        action,
+		EndpointClass: endpointClass,
 		// A decision sequence counts accepted HTTP batches. The browser event
 		// sequence counts events within those batches and can legitimately jump
 		// by dozens between flushes; treating that jump as missing requests
@@ -69,6 +82,19 @@ func (s *Server) recordEventShadowDecision(ctx context.Context, batch events.Bat
 	}
 	s.counters.recordedDecisions.Add(1)
 	return nil
+}
+
+func (p EventShadowProfile) classification(claims token.Claims) (string, string, error) {
+	if p.fromProof {
+		if !validEventShadowAction(claims.RequestAction) || !validEventShadowEndpoint(claims.EndpointClass) {
+			return "", "", errors.New("event shadow proof context required")
+		}
+		return claims.RequestAction, claims.EndpointClass, nil
+	}
+	if claims.RequestAction != "" || claims.EndpointClass != "" {
+		return "", "", errors.New("event shadow proof context is disabled")
+	}
+	return p.action, p.endpointClass, nil
 }
 
 func forceShadowDecision(decision core.Decision, now time.Time) core.Decision {
@@ -104,19 +130,9 @@ func appendReasonOnce(reasons []string, reason string) []string {
 }
 
 func validEventShadowAction(value string) bool {
-	switch value {
-	case "read", "write", "create", "update", "delete", "search", "compare", "login", "logout", "register", "checkout", "purchase", "other":
-		return true
-	default:
-		return false
-	}
+	return core.ValidRequestAction(value)
 }
 
 func validEventShadowEndpoint(value string) bool {
-	switch value {
-	case "public_content", "compare_index", "compare_noindex", "challenge_worker", "other_public", "account", "login", "checkout", "other":
-		return true
-	default:
-		return false
-	}
+	return core.ValidEndpointClass(value)
 }

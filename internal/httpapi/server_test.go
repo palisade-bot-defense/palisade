@@ -325,6 +325,133 @@ func TestAcceptedEventBatchRecordsServerClassifiedShadowDecision(t *testing.T) {
 	}
 }
 
+func TestBackendIssuedEventContextClassifiesDynamicShadowDecision(t *testing.T) {
+	now := time.Now().UTC()
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+	cookies, err := sessioncookie.New(secret, sessioncookie.DefaultTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuedCookie, claims, err := cookies.Issue(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := &capturingEngine{decision: core.Decision{
+		DecisionID: "dynamic-event-shadow", Action: core.ActionAllow, ComputedAction: core.ActionAllow, Mode: core.RuntimeModeShadow,
+	}}
+	recorder := &recordingShadow{}
+	server := New(engine, tokens, "key", slog.Default()).
+		WithEventStore(events.NewStore(time.Minute)).
+		RequireEventProof(true).
+		WithSessionCookies(cookies, true).
+		WithShadowRecorder(recorder).
+		WithEventShadowEvaluation(NewEventShadowProofProfile())
+
+	issue := httptest.NewRequest(http.MethodPost, "/v1/token", bytes.NewBufferString(`{"action":"events","request_action":"compare","endpoint_class":"compare_noindex","ttl_seconds":60}`))
+	issue.Header.Set("Authorization", "Bearer key")
+	issue.AddCookie(&issuedCookie)
+	issueResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(issueResponse, issue)
+	var proof struct {
+		Token string `json:"proof_token"`
+	}
+	if issueResponse.Code != http.StatusCreated || json.Unmarshal(issueResponse.Body.Bytes(), &proof) != nil || proof.Token == "" {
+		t.Fatalf("dynamic event proof = %d %s", issueResponse.Code, issueResponse.Body.String())
+	}
+
+	batch := `{"sensorVersion":"0.2.0","events":[{"sequence":1,"elapsedBucketMs":25,"kind":"navigation","valueBucket":1}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(batch))
+	request.Header.Set("X-Palisade-Proof", proof.Token)
+	request.AddCookie(&issuedCookie)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusAccepted || response.Header().Get("X-Palisade-Shadow-Evaluation") != "recorded" {
+		t.Fatalf("dynamic event response = %d headers=%v body=%s", response.Code, response.Header(), response.Body.String())
+	}
+	if engine.request.SessionID != claims.SessionID || engine.request.Action != "compare" || engine.request.EndpointClass != "compare_noindex" || recorder.decisions != 1 {
+		t.Fatalf("dynamic event classification request=%+v decisions=%d", engine.request, recorder.decisions)
+	}
+}
+
+func TestDynamicEventContextFailsClosedWithoutTrustedClassification(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+	cookies, _ := sessioncookie.New(secret, sessioncookie.DefaultTTL)
+	issuedCookie, claims, _ := cookies.Issue(time.Now().UTC())
+	engine := &capturingEngine{decision: core.Decision{DecisionID: "must-not-run", Action: core.ActionAllow, ComputedAction: core.ActionAllow, Mode: core.RuntimeModeShadow}}
+	server := New(engine, tokens, "key", slog.Default()).
+		WithEventStore(events.NewStore(time.Minute)).
+		RequireEventProof(true).
+		WithSessionCookies(cookies, true).
+		WithShadowRecorder(&recordingShadow{}).
+		WithEventShadowEvaluation(NewEventShadowProofProfile())
+
+	for _, body := range []string{
+		`{"action":"events","request_action":"read","ttl_seconds":60}`,
+		`{"action":"events","request_action":"read","endpoint_class":"/raw/path","ttl_seconds":60}`,
+		`{"action":"read","request_action":"read","endpoint_class":"public_content","ttl_seconds":60}`,
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/v1/token", bytes.NewBufferString(body))
+		request.Header.Set("Authorization", "Bearer key")
+		request.AddCookie(&issuedCookie)
+		response := httptest.NewRecorder()
+		server.Handler().ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("invalid context %s status = %d", body, response.Code)
+		}
+	}
+
+	plainProof, err := tokens.Issue(claims.SessionID, "events", time.Minute, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch := `{"sensorVersion":"0.2.0","events":[{"sequence":1,"elapsedBucketMs":25,"kind":"navigation","valueBucket":1}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(batch))
+	request.Header.Set("X-Palisade-Proof", plainProof)
+	request.AddCookie(&issuedCookie)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized || len(engine.requests) != 0 {
+		t.Fatalf("unclassified event response=%d headers=%v requests=%d", response.Code, response.Header(), len(engine.requests))
+	}
+
+	clientContext := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(`{"sensorVersion":"0.2.0","request_action":"read","endpoint_class":"public_content","events":[{"sequence":2,"elapsedBucketMs":50,"kind":"navigation","valueBucket":1}]}`))
+	clientContextResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(clientContextResponse, clientContext)
+	if clientContextResponse.Code != http.StatusBadRequest {
+		t.Fatalf("client event context status = %d", clientContextResponse.Code)
+	}
+}
+
+func TestStaticEventShadowRejectsContextBearingProofBeforeIngest(t *testing.T) {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	tokens, _ := token.NewService(secret, token.NewMemoryNonceStore())
+	profile, err := NewEventShadowProfile("read", "public_content")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := events.NewStore(time.Minute)
+	engine := &capturingEngine{decision: core.Decision{DecisionID: "must-not-run", Action: core.ActionAllow, ComputedAction: core.ActionAllow, Mode: core.RuntimeModeShadow}}
+	server := New(engine, tokens, "key", slog.Default()).
+		WithEventStore(store).
+		RequireEventProof(true).
+		WithShadowRecorder(&recordingShadow{}).
+		WithEventShadowEvaluation(profile)
+	proof, err := tokens.IssueEventContext("session-12345678", "compare", "compare_noindex", time.Minute, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch := `{"sessionId":"session-12345678","sensorVersion":"0.2.0","events":[{"sequence":1,"elapsedBucketMs":25,"kind":"navigation","valueBucket":1}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(batch))
+	request.Header.Set("X-Palisade-Proof", proof)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized || store.Count("session-12345678", time.Now().UTC()) != 0 || len(engine.requests) != 0 {
+		t.Fatalf("cross-mode context status=%d events=%d requests=%d", response.Code, store.Count("session-12345678", time.Now().UTC()), len(engine.requests))
+	}
+}
+
 func TestEventShadowUsesBatchSequenceNotBrowserEventSequence(t *testing.T) {
 	now := time.Now().UTC()
 	secret := []byte("0123456789abcdef0123456789abcdef")
