@@ -3,6 +3,8 @@ package palisadehttp
 import (
 	"net/netip"
 	"strings"
+	"sync/atomic"
+	"time"
 )
 
 const (
@@ -28,10 +30,10 @@ const (
 // operator-approved source. PALISADE deliberately ships no stale universal
 // list and never treats a user-agent token as identity by itself.
 type CrawlerIdentity struct {
-	Name            string
-	Class           string
-	UserAgentTokens []string
-	CIDRs           []string
+	Name            string   `json:"name"`
+	Class           string   `json:"class"`
+	UserAgentTokens []string `json:"user_agent_tokens"`
+	CIDRs           []string `json:"cidrs"`
 }
 
 type crawlerIdentity struct {
@@ -40,32 +42,53 @@ type crawlerIdentity struct {
 	prefixes []netip.Prefix
 }
 
-// CrawlerRegistry is immutable after construction and safe for concurrent use.
+type crawlerSnapshot struct {
+	identities  []crawlerIdentity
+	revision    uint64
+	issuedAt    time.Time
+	expiresAt   time.Time
+	digest      string
+	prefixCount int
+}
+
+// CrawlerRegistry is safe for concurrent verification and signed updates. A
+// registry built with NewCrawlerRegistry is immutable. A registry built with
+// NewSignedCrawlerRegistry atomically swaps only fully verified snapshots.
 type CrawlerRegistry struct {
-	identities []crawlerIdentity
+	static          *crawlerSnapshot
+	signed          atomic.Pointer[crawlerSnapshot]
+	verificationKey []byte
 }
 
 func NewCrawlerRegistry(entries []CrawlerIdentity) (*CrawlerRegistry, error) {
-	if len(entries) == 0 || len(entries) > maxCrawlerIdentities {
+	snapshot, err := buildCrawlerSnapshot(entries)
+	if err != nil {
 		return nil, ErrInvalidConfig
 	}
-	registry := &CrawlerRegistry{identities: make([]crawlerIdentity, 0, len(entries))}
+	return &CrawlerRegistry{static: snapshot}, nil
+}
+
+func buildCrawlerSnapshot(entries []CrawlerIdentity) (*crawlerSnapshot, error) {
+	if len(entries) == 0 || len(entries) > maxCrawlerIdentities {
+		return nil, ErrInvalidCrawlerRegistry
+	}
+	snapshot := &crawlerSnapshot{identities: make([]crawlerIdentity, 0, len(entries))}
 	totalPrefixes := 0
 	for _, entry := range entries {
 		if len(entry.Name) < 1 || len(entry.Name) > 64 || !stableCrawlerValue(entry.Name) ||
 			!validCrawlerClass(entry.Class) || entry.Class == CrawlerClassUnknown ||
 			len(entry.UserAgentTokens) == 0 || len(entry.UserAgentTokens) > maxCrawlerUATokens || len(entry.CIDRs) == 0 {
-			return nil, ErrInvalidConfig
+			return nil, ErrInvalidCrawlerRegistry
 		}
 		identity := crawlerIdentity{class: entry.Class}
 		for _, rawToken := range entry.UserAgentTokens {
 			token := strings.ToLower(strings.TrimSpace(rawToken))
 			if len(token) < 5 || len(token) > 64 || !stableCrawlerValue(token) {
-				return nil, ErrInvalidConfig
+				return nil, ErrInvalidCrawlerRegistry
 			}
 			for _, existing := range identity.tokens {
 				if token == existing {
-					return nil, ErrInvalidConfig
+					return nil, ErrInvalidCrawlerRegistry
 				}
 			}
 			identity.tokens = append(identity.tokens, token)
@@ -73,27 +96,39 @@ func NewCrawlerRegistry(entries []CrawlerIdentity) (*CrawlerRegistry, error) {
 		for _, rawPrefix := range entry.CIDRs {
 			prefix, err := netip.ParsePrefix(strings.TrimSpace(rawPrefix))
 			if err != nil || prefix != prefix.Masked() || !validCrawlerPrefix(prefix) {
-				return nil, ErrInvalidConfig
+				return nil, ErrInvalidCrawlerRegistry
 			}
 			identity.prefixes = append(identity.prefixes, prefix)
 			totalPrefixes++
 			if totalPrefixes > maxCrawlerPrefixes {
-				return nil, ErrInvalidConfig
+				return nil, ErrInvalidCrawlerRegistry
 			}
 		}
-		registry.identities = append(registry.identities, identity)
+		snapshot.identities = append(snapshot.identities, identity)
 	}
-	return registry, nil
+	snapshot.prefixCount = totalPrefixes
+	return snapshot, nil
 }
 
 func (r *CrawlerRegistry) verify(userAgent string, address netip.Addr) (bool, string, string) {
+	return r.verifyAt(userAgent, address, time.Now().UTC())
+}
+
+func (r *CrawlerRegistry) verifyAt(userAgent string, address netip.Addr, now time.Time) (bool, string, string) {
 	if r == nil || !address.IsValid() || address.Zone() != "" {
+		return false, CrawlerClassUnknown, CrawlerVerificationUnknown
+	}
+	snapshot := r.static
+	if len(r.verificationKey) > 0 {
+		snapshot = r.signed.Load()
+	}
+	if snapshot == nil || (!snapshot.expiresAt.IsZero() && !now.Before(snapshot.expiresAt)) {
 		return false, CrawlerClassUnknown, CrawlerVerificationUnknown
 	}
 	address = address.Unmap()
 	userAgent = strings.ToLower(userAgent)
 	matchedClass := ""
-	for _, identity := range r.identities {
+	for _, identity := range snapshot.identities {
 		if !matchesCrawlerToken(userAgent, identity.tokens) || !matchesCrawlerPrefix(address, identity.prefixes) {
 			continue
 		}
