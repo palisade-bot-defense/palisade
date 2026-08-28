@@ -3,11 +3,21 @@
 </p>
 
 <p align="center">
-  Behavior-first bot defense with explainable, privacy-limited decisions.
+  Open-source, explainable signal fusion for bot and abuse decisions.
 </p>
 
 > [!IMPORTANT]
-> PALISADE is an early defensive prototype. It does not claim perfect bot detection and must begin in shadow mode. No CAPTCHA or behavior model can guarantee 100% separation against an adaptive attacker.
+> PALISADE is an early defensive prototype. It does not claim perfect bot detection and must begin in shadow mode. Its false-positive rate is not yet calibrated on a representative confirmed-human cohort. No CAPTCHA, fingerprint or behavior model can guarantee 100% separation against an adaptive attacker.
+
+## Project focus
+
+PALISADE is developed as a self-hosted open-source project: an explainable
+fusion and policy layer for bounded bot and abuse signals. The current priority
+is a reproducible local experience, representative shadow evaluation and useful
+adapters—not hosted SaaS, managed operations, billing or commercial product
+tiers. Strong edge signals such as protocol fingerprints and reputation can be
+normalized by a trusted deployment adapter; PALISADE does not need to own every
+detector to make their combined decision auditable.
 
 ## What exists today
 
@@ -153,17 +163,12 @@ See the [architecture and stack](docs/ARCHITECTURE.md), [reference origin adapte
 
 The PALISADE server, dashboard, policies, CLI and documentation are licensed under **GNU AGPL-3.0-only**. The browser sensor under [`sensor/`](sensor/) is independently licensed under **Apache-2.0** for straightforward integration. See [the licensing map](LICENSING.md), the root [`LICENSE`](LICENSE) and [`sensor/LICENSE`](sensor/LICENSE).
 
-Commercial support, managed hosting and alternative licensing may be offered separately. The published AGPL-3.0-only and Apache-2.0 grants remain valid for their respective code. No software license grants rights to PALISADE names or logos beyond reasonable attribution.
+No software license grants rights to PALISADE names or logos beyond reasonable attribution.
 Bundled dependency notices are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-The commercial product is defined as three honest deployment paths: self-hosted
-**Palisade Core**, a scoped **Palisade Pilot** service and dedicated single-tenant
-**Palisade Managed** early access. The public website lives in [`website/`](website/);
-the availability boundary, buyer, deliverables, success metrics and remaining
-commercial launch gates are documented in the
-[business product specification](docs/product/BUSINESS_PRODUCT.md). The website
-contains no analytics or customer-data collection and accepts a private contact
-URL only through `VITE_CONTACT_URL` at build time.
+The public project website lives in [`website/`](website/). It contains no
+analytics, forms or customer-data collection and describes only capabilities
+available in this repository.
 
 ## Contributing and security
 

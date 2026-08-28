@@ -7,7 +7,7 @@ describe("public SEO and GEO artifacts", () => {
     expect(artifacts.head).toContain("noindex, nofollow");
     expect(artifacts.robots).toContain("Disallow: /");
     expect(artifacts.sitemap).toBeNull();
-    expect(artifacts.llms).toContain("managed service is early access");
+    expect(artifacts.llms).toContain("no production-supported or managed-service release");
   });
 
   it("emits consistent canonical, structured, sitemap and machine-readable facts", () => {

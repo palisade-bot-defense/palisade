@@ -1,79 +1,61 @@
-# Roadmap
+# Open-source roadmap
 
-PALISADE advances through measured gates, not a promise of a universally unsolvable puzzle.
+PALISADE advances through measured gates. This roadmap prioritizes a useful,
+self-hosted open-source signal-fusion and decision layer—not a promise of a
+universally accurate bot detector.
 
-## 0. Runnable foundation — complete
+## Now — prove the decision loop
 
-- Go decision hot path, explicit fail-safe shadow boundary and replay-safe proofs.
-- Typed detectors, three-score fusion, CEL policy and stable reasons.
-- Privacy-limited TypeScript sensor and embedded light dashboard.
-- Deterministic replay, container build and local security scans.
+- Make the local quick start reproducible, including a synthetic replay and a
+  populated Operator Console without production credentials or private data.
+- Run one representative shadow deployment with route-specific endpoint
+  classes, measured coverage and uniquely linked delayed outcomes.
+- Diagnose and remove collection artifacts before tuning detector thresholds.
+- Normalize strong deployment-owned edge evidence, including protocol/TLS
+  fingerprints, address provenance and reputation, behind explicit trust
+  boundaries; raw vendor payloads stay outside the public decision API.
+- Publish aggregate latency, coverage, unknown-label and challenge-outcome
+  results together with their limitations.
+- Expand poisoning, proxy-misconfiguration, missing-signal, accessibility and
+  privacy regression tests.
 
-## 1. Deployment shadow pilot
+Exit gate: no raw personal data in repository or CI; p95 added in-process
+decision latency below 10 ms; representative confirmed-human and confirmed-abuse
+outcomes linked to exact decisions; false-positive and recall estimates reported
+with confidence intervals. Until then, automatic blocking remains off.
 
-- Define sanitized adapters for challenge systems, external risk providers and policy-alert sources.
-- Import historical samples into a versioned, access-controlled replay dataset.
-- Establish endpoint classes, outcome labels and verified-bot allowlists.
-- Run parallel shadow decisions without changing live responses.
-- Retain only encrypted, bounded local shadow records with explicit rotation, deletion and outcome provenance.
-- Run bounded local aggregate analysis and produce operator-facing, non-enforcing recommendations.
-- Sign expiring endpoint-scoped canary plans and return bounded origin enforcement results.
-- Publish an internal baseline report by endpoint and attacker cohort.
+## Next — calibrate and integrate
 
-Exit gate: no raw personal data in training/replay artifacts; p95 added decision latency below 10 ms in-process; unknown-label and endpoint outcome shares reported with confidence intervals. A false-positive rate is reported only after outcomes are uniquely linked to decisions and the confirmed-human cohort is representative.
+- Calibrate automation, abuse intent and continuity separately by endpoint
+  class on time-separated data and unseen attack families.
+- Publish documented adapters for reverse proxies, reputation providers and
+  policy-alert sources using the closed normalized signal contract.
+- Publish scrubbed synthetic replay fixtures and detector evaluation templates.
+- Make policies and detector bundles independently reviewable, signed and
+  replaceable without making policy updates opaque.
+- Exercise the full reversible progression: observe → delay → throttle →
+  accessible step-up → temporary block.
 
-## 2. Detector and calibration layer
+Exit gate: a reviewed canary improves the chosen endpoint outcome without
+exceeding its false-positive or abandonment budget, and rollback is tested.
 
-- Add protocol/TLS normalization at the trusted proxy boundary.
-- Add burst, navigation-graph, token-replay and decoy interaction detectors.
-- Calibrate automation, intent and continuity separately by endpoint class.
-- Add independently replaceable signed model/policy bundles; rollout plans and aggregate evaluation reports are gated today.
-- Test poisoning, missing-signal and forged-sensor scenarios.
+## Later — harden proven needs
 
-Current hardening: the reference adapter normalizes protocol, transport
-security and address provenance without transmitting raw addresses; forwarded
-metadata is accepted only from explicitly trusted TCP peers. Browser-event
-counts are server-authoritative and create benign continuity evidence only when
-backed by the bounded event store. Missing sensor data remains neutral, and
-forged request counts are covered by regression tests. Navigation state is a
-fixed nine-bit endpoint-class graph with capacity eviction; broad sweeps are
-low-confidence shadow evidence and decoy interaction is isolated as its own
-detector. Authenticated cumulative reports now measure only completed requests
-inside configured reference middleware, with closed endpoint/disposition
-counters, monotonic replay protection and an explicit protected-handler scope;
-they do not claim total website coverage. Outcome ingestion rejection and write
-loss are exposed separately from usable ground-truth labels. Broader poisoning
-and proxy-misconfiguration tests remain open.
-
-Exit gate: improvements hold on a time-separated test set and unseen attack families, not only random train/test splits.
-
-## 3. Progressive response
-
-- Observe → delay → throttle → accessible step-up → temporary block.
-- Current hardening: `delay` is an explicit policy/action/directive contract.
-  It returns a bounded one-second retry response instead of sleeping in the Go
-  hot path, remains `observe` in shadow mode and requires a signed rollout for
-  live application.
-- Keep canary assignment deterministic, bind full enforcement to the exact measured predecessor canary and preserve one-command rollback.
-- Bind challenges to short-lived server state, action, session and nonce. The
-  native single-instance lifecycle and one-time redemption are implemented;
-  shared multi-replica state and identity-aware families remain future gates.
-- Offer WebAuthn/account re-authentication where identity assurance matters.
-- Rotate decoy endpoints and challenge families without relying on secrecy alone.
-- Measure completion and abandonment by browser/accessibility cohort.
-
-Exit gate: documented rollback, support path and canary results; automatic blocking remains off until approved per endpoint.
-
-## 4. Community hardening
-
-- Maintain the AGPL-3.0-only core and Apache-2.0 sensor/SDK boundary; finalize the separate contributor agreement.
-- Publish scrubbed replay fixtures and detector evaluation templates.
-- Add reverse-proxy adapters and production shared state where measurements justify it.
+- Add shared challenge/session state only when multi-replica measurements
+  justify it.
+- Add WebAuthn or account re-authentication where identity assurance matters.
+- Add independently maintained crawler-registry update tooling with signed,
+  expiring local artifacts and fail-closed verification.
 - Commission independent privacy, accessibility and adversarial reviews.
+- Grow community integrations under the existing AGPL-3.0-only core and
+  Apache-2.0 sensor license boundary.
 
-## Non-goals
+## Not planned for now
 
-- Claiming 100% detection or a challenge no adversary can ever solve.
+- Hosted SaaS, managed operations, billing, enterprise product tiers or sales
+  funnels.
+- A central telemetry cloud or cross-site identity graph.
+- Claims of 100% detection, a universally unsolvable challenge or a calibrated
+  false-positive rate without representative labels.
 - Treating automation as abuse by itself.
-- Fingerprinting people across unrelated sites.
-- Shipping opaque model decisions without reason codes and replay evidence.
+- Shipping opaque decisions without stable reasons and replay evidence.
