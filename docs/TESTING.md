@@ -73,6 +73,12 @@ duplicate annotation poisoning, hard annotation budgets and absence of
 sequence/family identifiers in serialized reports. The public adversarial
 scenario contract contains no deployment records.
 
+The versioned [public adversarial suite](ADVERSARIAL_FIXTURES.md) links the
+roadmap threat categories for replay, poisoning, missing signals, spoofed
+headers, accessibility and adapter failures to executable synthetic tests. A
+repository contract fails if a required scenario disappears, changes its
+closed expected result or points at a missing test function.
+
 ## Known gaps
 
 The current baseline does not yet include a real-browser end-to-end suite,

@@ -1,0 +1,136 @@
+{
+  "schema_version": "palisade.adversarial-suite.v1",
+  "scope": "roadmap_v0_3_public_conformance",
+  "synthetic_only": true,
+  "scenarios": [
+    {
+      "id": "deterministic_replay",
+      "category": "replay",
+      "threat": "identical chronological input produces different decisions, identities or expiries",
+      "expected": "byte_identical_output",
+      "test_refs": ["cmd/palisade/main_test.go#TestReplayEngineOutputIsDeterministic"]
+    },
+    {
+      "id": "challenge_redemption_replay",
+      "category": "replay",
+      "threat": "a redeemed challenge grant is reused for a second protected request",
+      "expected": "reject_second_redemption",
+      "test_refs": ["pkg/palisadehttp/middleware_test.go#TestChallengePageRelayAndOneTimeRetryGrant"]
+    },
+    {
+      "id": "proof_token_replay",
+      "category": "replay",
+      "threat": "an already consumed action-bound proof is presented again",
+      "expected": "reject_consumed_proof",
+      "test_refs": ["internal/token/service_test.go#TestIssueVerifyAndRejectReplay"]
+    },
+    {
+      "id": "coverage_counter_poisoning",
+      "category": "poisoning",
+      "threat": "an origin source replays an epoch, changes a sequence or decreases cumulative counters",
+      "expected": "reject_counter_regression_or_conflict",
+      "test_refs": ["internal/httpapi/origin_coverage_test.go#TestOriginCoverageReportRejectsPoisoningAndFreeEndpointData"]
+    },
+    {
+      "id": "family_annotation_poisoning",
+      "category": "poisoning",
+      "threat": "one normalized sequence is assigned to multiple operator family references",
+      "expected": "reject_duplicate_family_assignment",
+      "test_refs": ["internal/localsequence/holdout_test.go#TestFamilyAnnotationReaderIsBoundedStrictAndPrivate"]
+    },
+    {
+      "id": "detector_evidence_poisoning",
+      "category": "poisoning",
+      "threat": "a detector emits malformed, duplicate or unbounded normalized evidence",
+      "expected": "reject_malformed_or_unbounded_evidence",
+      "test_refs": [
+        "internal/detector/detector_test.go#TestRegistryRejectsMalformedEvidence",
+        "internal/detector/detector_test.go#TestRegistryBoundsEvidence"
+      ]
+    },
+    {
+      "id": "unverified_browser_sequence",
+      "category": "missing_signals",
+      "threat": "client-declared browser counts are treated as verified behavior evidence",
+      "expected": "ignore_unverified_browser_evidence",
+      "test_refs": ["internal/detector/baseline_test.go#TestBrowserSequenceRequiresServerVerifiedEvents"]
+    },
+    {
+      "id": "missing_trusted_transport_signal",
+      "category": "missing_signals",
+      "threat": "a trusted proxy omits the configured transport signal and PALISADE invents TLS state",
+      "expected": "retain_unknown_transport_state",
+      "test_refs": ["pkg/palisadehttp/transport_test.go#TestTransportNormalizerTreatsMissingTrustedEdgeProtoAsUnknown"]
+    },
+    {
+      "id": "partial_collection_signal",
+      "category": "missing_signals",
+      "threat": "partial or missing collection is silently interpreted as attacker behavior",
+      "expected": "retain_collection_artifact",
+      "test_refs": ["internal/localsequence/holdout_test.go#TestHoldoutEvaluationKeepsChronologyLabelsAndUnseenFamiliesSeparate"]
+    },
+    {
+      "id": "direct_forwarding_header_spoof",
+      "category": "spoofed_headers",
+      "threat": "a direct client supplies forwarding headers that claim a different address or TLS state",
+      "expected": "ignore_headers_from_untrusted_peer",
+      "test_refs": ["pkg/palisadehttp/transport_test.go#TestTransportNormalizerTrustsHeadersOnlyFromConfiguredPeer"]
+    },
+    {
+      "id": "crawler_identity_header_spoof",
+      "category": "spoofed_headers",
+      "threat": "an untrusted peer claims an allowed crawler address through a forwarding header",
+      "expected": "do_not_verify_crawler_from_forwarded_spoof",
+      "test_refs": ["pkg/palisadehttp/middleware_test.go#TestMiddlewareDerivesCrawlerIdentityAndIgnoresDirectForwardingSpoof"]
+    },
+    {
+      "id": "raw_edge_intelligence_spoof",
+      "category": "spoofed_headers",
+      "threat": "raw fingerprints, provider scores or incomplete edge tuples enter the closed signal contract",
+      "expected": "reject_raw_or_unpaired_edge_values",
+      "test_refs": ["pkg/palisadehttp/middleware_test.go#TestEdgeIntelligenceRejectsRawOrUnpairedValues"]
+    },
+    {
+      "id": "reduced_motion_cohort_preserved",
+      "category": "accessibility",
+      "threat": "a deployment accessibility cohort is dropped or converted into detector evidence",
+      "expected": "preserve_closed_accessibility_cohort",
+      "test_refs": ["pkg/palisadehttp/middleware_test.go#TestMiddlewarePassesClosedSignalsWithoutRawRequestData"]
+    },
+    {
+      "id": "accessible_fallback_closes_pending_state",
+      "category": "accessibility",
+      "threat": "requesting a fallback leaves the original challenge grant usable",
+      "expected": "record_fallback_and_invalidate_pending_grant",
+      "test_refs": ["pkg/palisadehttp/middleware_test.go#TestFallbackClosesMatchingLocalPendingState"]
+    },
+    {
+      "id": "challenge_pass_not_human_label",
+      "category": "accessibility",
+      "threat": "challenge completion is promoted to confirmed-human evidence",
+      "expected": "never_promote_challenge_to_human",
+      "test_refs": ["internal/detector/baseline_test.go#TestSolvedChallengeIsNotHumanEvidence"]
+    },
+    {
+      "id": "explicit_adapter_failure_modes",
+      "category": "adapter_failures",
+      "threat": "an unavailable decision service produces an implicit or undocumented origin behavior",
+      "expected": "apply_declared_fail_open_or_fail_closed",
+      "test_refs": ["pkg/palisadehttp/middleware_test.go#TestFailureModeIsExplicitAndEnforced"]
+    },
+    {
+      "id": "risky_shadow_adapter_response",
+      "category": "adapter_failures",
+      "threat": "a malformed adapter response applies a risky action while the service claims shadow mode",
+      "expected": "reject_risky_shadow_contract",
+      "test_refs": ["pkg/palisadehttp/middleware_test.go#TestInvalidSignalsAndRiskyShadowResponseFailClosed"]
+    },
+    {
+      "id": "unsafe_method_challenge_replay",
+      "category": "adapter_failures",
+      "threat": "a challenged unsafe request body is buffered or replayed by the reference adapter",
+      "expected": "never_buffer_or_replay_unsafe_body",
+      "test_refs": ["pkg/palisadehttp/middleware_test.go#TestNonGETChallengeDoesNotReplayRequestBody"]
+    }
+  ]
+}

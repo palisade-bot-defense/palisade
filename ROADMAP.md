@@ -86,7 +86,7 @@ Deliverables:
   families instead of random row splits;
 - link delayed confirmed-human and operator-confirmed-abuse outcomes to the exact
   decision while reporting ambiguous and missing labels;
-- publish synthetic adversarial fixtures for replay, poisoning, missing signals,
+- [x] publish synthetic adversarial fixtures for replay, poisoning, missing signals,
   spoofed headers, accessibility and adapter failures.
 
 Exit gate: at least one representative private shadow deployment produces
