@@ -8,7 +8,8 @@
       "component": "reference_origin_adapter",
       "source_paths": [
         "pkg/palisadehttp/challenge.go",
-        "pkg/palisadehttp/client.go"
+        "pkg/palisadehttp/client.go",
+        "pkg/palisadeproxy/proxy.go"
       ],
       "initiator": "operator_deployed_origin_adapter",
       "destination": "operator_configured_palisade_base_url",

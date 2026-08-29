@@ -184,6 +184,14 @@ The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contrac
 
 Applications built with Go `net/http` can use the included [`pkg/palisadehttp`](pkg/palisadehttp) reference middleware. It creates signed continuity sessions, submits only normalized signals, applies pass/delay/throttle/challenge/block results, renders the same-origin accessible challenge and grants exactly one retry for the original method and request target. It also provides a backend-only route-classified sensor-proof helper and, after a validated pass, an opaque request-scoped outcome handle for linking a closed result to the exact decision without handling a raw PALISADE session ID. Its availability policy is an explicit deployment choice. See the [origin-adapter guide](docs/ORIGIN_ADAPTER.md) and the fully synthetic [portable conformance suite](docs/ADAPTER_CONFORMANCE.md).
 
+Deployments that need a standalone handler in front of an upstream can use the
+independently implemented [`pkg/palisadeproxy`](pkg/palisadeproxy) reference
+adapter. It enforces the same pass, delay, throttle, challenge-metadata and
+temporary-block contract with explicit fail-open/fail-closed behavior, while
+never forwarding application request data to PALISADE. Both adapters run the
+same nine-case portable suite. See the [reverse-proxy guide](docs/REVERSE_PROXY_ADAPTER.md)
+for its intentionally narrower challenge and single-process state boundary.
+
 The reference middleware can explicitly enable privacy-safe coverage reporting.
 It sends cumulative counts for completed requests in the protected handler,
 split only by PALISADE's nine endpoint classes and closed handling outcomes.
@@ -276,7 +284,7 @@ For the authenticated encrypted decision stream itself,
 decision time and reports separate baseline/holdout endpoint and accessibility
 slices; see [chronological linked shadow holdout](docs/SHADOW_HOLDOUT.md).
 
-See the [architecture and stack](docs/ARCHITECTURE.md), [product differentiation](docs/DIFFERENTIATION.md), [Sovereignty Report](docs/SOVEREIGNTY.md), [runtime egress inventory](docs/RUNTIME_EGRESS.md), [machine-readable data map](docs/DATA_MAP.md), [normalized signal contract](docs/NORMALIZED_SIGNAL_CONTRACT.md), [generic local import](docs/LOCAL_IMPORT.md), [local sequence analysis](docs/LOCAL_SEQUENCE_ANALYSIS.md), [local holdout evaluation](docs/LOCAL_HOLDOUT_EVALUATION.md), [chronological linked shadow holdout](docs/SHADOW_HOLDOUT.md), [public adversarial fixtures](docs/ADVERSARIAL_FIXTURES.md), [local release process](docs/RELEASING.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [portable adapter conformance](docs/ADAPTER_CONFORMANCE.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed local runtime artifacts](docs/LOCAL_ARTIFACTS.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
+See the [architecture and stack](docs/ARCHITECTURE.md), [product differentiation](docs/DIFFERENTIATION.md), [Sovereignty Report](docs/SOVEREIGNTY.md), [runtime egress inventory](docs/RUNTIME_EGRESS.md), [machine-readable data map](docs/DATA_MAP.md), [normalized signal contract](docs/NORMALIZED_SIGNAL_CONTRACT.md), [generic local import](docs/LOCAL_IMPORT.md), [local sequence analysis](docs/LOCAL_SEQUENCE_ANALYSIS.md), [local holdout evaluation](docs/LOCAL_HOLDOUT_EVALUATION.md), [chronological linked shadow holdout](docs/SHADOW_HOLDOUT.md), [public adversarial fixtures](docs/ADVERSARIAL_FIXTURES.md), [local release process](docs/RELEASING.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [standalone reverse-proxy adapter](docs/REVERSE_PROXY_ADAPTER.md), [portable adapter conformance](docs/ADAPTER_CONFORMANCE.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed local runtime artifacts](docs/LOCAL_ARTIFACTS.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
 
 ## Project status and license
 

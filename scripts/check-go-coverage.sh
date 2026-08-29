@@ -60,6 +60,7 @@ internal/shadowlog
 internal/token
 pkg/palisadecontract
 pkg/palisadehttp
+pkg/palisadeproxy
 '
 
 for package in $critical_packages; do

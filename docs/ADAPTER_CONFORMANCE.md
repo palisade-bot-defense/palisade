@@ -53,10 +53,16 @@ proxy trust configuration or production availability. Certification must name
 the adapter implementation and commit, suite schema version, runtime and test
 date. Do not attach request captures or production logs.
 
-## Reference implementation
+## Reference implementations
 
-The Go `net/http` adapter executes the canonical file in
-`pkg/palisadehttp/conformance_test.go`. Run:
+Both independent Go adapters execute the canonical file directly:
+
+- `pkg/palisadehttp/conformance_test.go` covers the in-process origin
+  middleware with the accessible challenge lifecycle;
+- `pkg/palisadeproxy/conformance_test.go` covers the standalone handler-based
+  reverse-proxy adapter without calling the middleware implementation.
+
+Run both:
 
 ```sh
 make adapter-conformance
