@@ -36,6 +36,14 @@ The deployment shadow sink may collect only its closed outcome vocabulary. New o
 
 `palisade analyze-shadow-log` produces the closed aggregate `palisade.shadow-analysis.v3` readiness report from authenticated local records. It keeps only SHA-256 digests of decision IDs under `--max-decision-links` (default one million, hard maximum five million) and never emits those digests. False-positive rate, abuse recall and precision are computed only for unique decisions carrying one unambiguous confirmed ground-truth label. Challenge rates use challenged decisions at least 15 minutes old; absent, duplicate and conflicting terminal outcomes remain explicit. Results are sliced by endpoint and a closed coarse cohort (`standard`, `reduced_motion`, `keyboard_only`, `fallback_path`, `sensor_missing`, `unknown`). Cohorts are trusted operational tags, not inferred attributes and never detector evidence. Canary comparisons remain descriptive rather than causal. `operator_review_candidate` permits only review of a reversible endpoint canary; the report never enables enforcement.
 
+`palisade evaluate-shadow-holdout` applies a predeclared UTC boundary to that
+same authenticated decision/outcome stream. Partition membership follows the
+decision record time, so a delayed label cannot move a baseline decision into
+holdout. It reports only aggregate linked confusion and challenge metrics by
+endpoint/cohort, keeps unknown and ambiguous decisions explicit and always sets
+automatic enforcement to false. It does not implement unseen-family grouping;
+that remains the separate normalized local-evidence workflow.
+
 The evaluated 2026-08-26 offline export contains 16 `human_confirmed` admin clients,
 17,841 weak `campaign_signature` clients and 169,050 `unlabeled` clients.
 Neither rendered subresources/internal referers nor timing regularity define a

@@ -51,7 +51,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: palisade <serve|doctor|sovereignty-report|replay|import-offline|import-local-events|analyze-local-events|evaluate-local-holdout|verify-shadow-log|analyze-shadow-log|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
+		return errors.New("usage: palisade <serve|doctor|sovereignty-report|replay|import-offline|import-local-events|analyze-local-events|evaluate-local-holdout|verify-shadow-log|analyze-shadow-log|evaluate-shadow-holdout|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
 	}
 	switch args[0] {
 	case "serve":
@@ -74,6 +74,8 @@ func run(args []string) error {
 		return verifyShadowLog(args[1:])
 	case "analyze-shadow-log":
 		return analyzeShadowLog(args[1:])
+	case "evaluate-shadow-holdout":
+		return evaluateShadowHoldout(args[1:])
 	case "rollout-keygen":
 		return rolloutKeygen(args[1:])
 	case "prepare-review":
@@ -161,6 +163,41 @@ func analyzeShadowLog(args []string) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(report)
+}
+
+func evaluateShadowHoldout(args []string) error {
+	flags := flag.NewFlagSet("evaluate-shadow-holdout", flag.ContinueOnError)
+	directory := flags.String("dir", "", "private shadow log directory outside every Git worktree")
+	keyFile := flags.String("key-file", "", "owner-only shadow log encryption key file")
+	holdoutStart := flags.String("holdout-start", "", "predeclared UTC RFC3339 decision-time boundary")
+	outputPath := flags.String("output", "", "new owner-only aggregate holdout report outside every Git worktree")
+	maxFiles := flags.Uint64("max-files", shadowlog.DefaultScanMaxFiles, "hard managed-file scan budget")
+	maxRecords := flags.Uint64("max-records", shadowlog.DefaultScanMaxRecords, "hard decrypted-record scan budget")
+	maxEncryptedBytes := flags.Int64("max-encrypted-bytes", shadowlog.DefaultScanMaxEncryptedBytes, "hard encrypted input byte budget")
+	maxDecisionLinks := flags.Int("max-decision-links", shadowanalysis.DefaultMaxDecisionLinks, "hard in-memory decision/outcome linkage budget")
+	minConfirmedHuman := flags.Uint64("min-confirmed-human", shadowanalysis.DefaultHoldoutMinimum, "minimum linked confirmed-human decisions in each partition")
+	minConfirmedAbuse := flags.Uint64("min-confirmed-abuse", shadowanalysis.DefaultHoldoutMinimum, "minimum linked confirmed-abuse decisions in each partition")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 || *directory == "" || *keyFile == "" || *holdoutStart == "" || *outputPath == "" {
+		return errors.New("evaluate-shadow-holdout requires --dir, --key-file, --holdout-start and --output and accepts no positional arguments")
+	}
+	report, err := shadowanalysis.EvaluateShadowHoldoutDirectory(*directory, *keyFile, shadowanalysis.ShadowHoldoutConfig{
+		ScanLimits: shadowlog.ScanLimits{
+			MaxFiles: *maxFiles, MaxRecords: *maxRecords, MaxEncryptedBytes: *maxEncryptedBytes,
+		},
+		HoldoutStart: *holdoutStart, MinConfirmedHuman: *minConfirmedHuman,
+		MinConfirmedAbuse: *minConfirmedAbuse, MaxDecisionLinks: *maxDecisionLinks,
+	})
+	if err != nil {
+		return err
+	}
+	if err := shadowanalysis.WriteShadowHoldoutReport(*outputPath, report); err != nil {
+		return err
+	}
+	_, err = fmt.Printf("shadow holdout report written: baseline=%d holdout=%d readiness=%s\n", report.Baseline.Decisions, report.Holdout.Decisions, report.Readiness.State)
+	return err
 }
 
 func runShadowAnalysisWatch(ctx context.Context, interval time.Duration, analyze func() (shadowanalysis.Report, error), publish func(shadowanalysis.Report) error, stdout, stderr io.Writer) error {

@@ -189,6 +189,15 @@ if (cd "$shadow_analysis_v3" && "$guard") >/dev/null 2>&1; then
 	exit 1
 fi
 
+shadow_holdout="$test_root/shadow-holdout"
+new_repo "$shadow_holdout"
+printf '%s\n' '{"schema_version":"palisade.shadow-holdout.v1","source":{"records":42}}' >"$shadow_holdout/renamed.txt"
+git -C "$shadow_holdout" add renamed.txt
+if (cd "$shadow_holdout" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: generated shadow holdout report was accepted" >&2
+	exit 1
+fi
+
 rollout_plan="$test_root/rollout-plan"
 new_repo "$rollout_plan"
 printf '%s\n' '{"plan":{"schema_version":"palisade.rollout-plan.v1"},"signature":"synthetic"}' >"$rollout_plan/renamed.txt"

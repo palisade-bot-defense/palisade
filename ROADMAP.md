@@ -84,7 +84,7 @@ Deliverables:
   optional unseen-family partition;
 - evaluate by endpoint class on chronological holdouts and unseen attack
   families instead of random row splits;
-- link delayed confirmed-human and operator-confirmed-abuse outcomes to the exact
+- [x] link delayed confirmed-human and operator-confirmed-abuse outcomes to the exact
   decision while reporting ambiguous and missing labels;
 - [x] publish synthetic adversarial fixtures for replay, poisoning, missing signals,
   spoofed headers, accessibility and adapter failures.

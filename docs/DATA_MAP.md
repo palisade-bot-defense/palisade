@@ -56,6 +56,13 @@ annotation-file fingerprint. No sequence pseudonym or family reference appears
 in the report. The annotation input and aggregate report remain private
 operator artifacts.
 
+The `aggregate_analysis` flow also covers chronological evaluation of the
+encrypted shadow stream. That evaluator reuses the already mapped encrypted
+decision/outcome records and persists only aggregate confidence intervals,
+endpoint/cohort slices and closed readiness. It introduces no new accepted,
+transient or exported data class; decision IDs remain in-memory digest keys and
+never enter the report.
+
 `TestDataMapIsClosedAndContainsNoRawAcceptedClass` rejects duplicate flows,
 external-export flags, missing boundaries and any raw excluded class that is
 also declared as accepted. Changes to collection, persistence, retention or

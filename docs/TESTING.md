@@ -73,6 +73,13 @@ duplicate annotation poisoning, hard annotation budgets and absence of
 sequence/family identifiers in serialized reports. The public adversarial
 scenario contract contains no deployment records.
 
+The encrypted-shadow holdout suite separately verifies that partition
+membership follows decision time rather than delayed-outcome arrival, exact
+decision/endpoint linkage is preserved, unknown and ambiguous labels stay in
+the denominator, endpoint/cohort slices sum to their partition and private
+decision IDs never enter the report. File tests require create-only `0600`
+output outside Git.
+
 The versioned [public adversarial suite](ADVERSARIAL_FIXTURES.md) links the
 roadmap threat categories for replay, poisoning, missing signals, spoofed
 headers, accessibility and adapter failures to executable synthetic tests. A

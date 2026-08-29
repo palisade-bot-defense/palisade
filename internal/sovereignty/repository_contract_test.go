@@ -186,6 +186,7 @@ func TestSovereigntyRepositorySchemasAreValidJSON(t *testing.T) {
 		"schemas/local-sequence-report-v1.schema.json",
 		"schemas/local-release-v1.schema.json",
 		"schemas/runtime-egress-v1.schema.json",
+		"schemas/shadow-holdout-report-v1.schema.json",
 		"schemas/sovereignty-report-v1.schema.json",
 	} {
 		var schema map[string]any
