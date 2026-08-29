@@ -27,8 +27,10 @@ development. The adapter never trusts forwarding headers. It classifies the
 direct TCP peer only as `direct` or `unknown`, records only whether a User-Agent
 is present and never sends the peer address or raw User-Agent to PALISADE.
 Deployment-specific edge, WAF and reputation signals may be supplied only
-through the closed `Signals` type. This adapter has no crawler registry and
-therefore always normalizes crawler identity to unverified/unknown.
+through the closed `Signals` type or the independently authenticated
+[signed upstream-signal envelope](UPSTREAM_SIGNALS.md). This adapter has no
+crawler registry and therefore always normalizes crawler identity to
+unverified/unknown.
 
 The availability choice is mandatory. `fail_closed` rejects dependency outages
 with a closed 503 response. `fail_open` sends the original request to the

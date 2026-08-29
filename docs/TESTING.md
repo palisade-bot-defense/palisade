@@ -57,6 +57,10 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
   free-form request actions, incomplete verified-crawler tuples, unpaired edge
   classifications and duplicate protobuf field or enum numbers. The public
   contract package is included in the per-package 70% coverage gate.
+- Signed upstream-envelope tests cover direct-peer spoofing, key and signature
+  failure, strict canonical JSON, unknown and duplicate fields, freshness,
+  replay, nonce capacity, closed cross-field invariants and conservative merge
+  conflicts in both reference adapters. No raw upstream fixture is required.
 - Signed local-artifact tests cover domain-separated signatures, key and type
   confusion, expiry, revision rollback, file permissions, symlinks, worktree
   placement, closed threshold ordering and compiled detector selection. Run

@@ -30,6 +30,12 @@ Every mapped flow has `external_export: false`. That field means PALISADE does
 not export the flow to a PALISADE-operated external service. It does not override
 the operator's surrounding monitoring, backup, proxy or hosting configuration.
 
+The optional signed local upstream envelope is an authenticated adapter
+implementation of the existing `decision_request` flow and introduces no new
+accepted or persisted signal class. Its HMAC, nonce, encoded envelope and direct
+peer address remain transient inside the adapter; only the already mapped
+`closed_signal_classes` enter the decision request.
+
 The map separately lists prohibited runtime and persisted raw classes including IP addresses, ASNs,
 URLs, request bodies, user-agent strings, TLS fingerprints, vendor payloads,
 form content, DOM text, keystrokes and exact pointer paths. Closed classes

@@ -24,6 +24,10 @@ PALISADE should decide from behavior without reconstructing a person's content.
   verification result.
 - Random, server-issued session identifiers authenticated by an HttpOnly cookie; they are continuity handles, not identity claims.
 - Reason codes and normalized verdicts from challenge systems, external risk providers and policy-alert sources.
+- A fresh HMAC-authenticated local upstream envelope containing only those
+  closed classes. The direct peer address, signature, nonce and encoded
+  envelope are transient adapter inputs and never enter the decision request or
+  shadow record.
 - Opaque server-generated decoy capabilities plus the closed `link|form|api`
   surface and `touched|submitted` interaction classes. Capabilities are bound
   to an opaque session and closed endpoint class; no trap URL or form content

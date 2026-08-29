@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/palisade-bot-defense/palisade/pkg/palisadeedge"
 )
 
 const (
@@ -103,6 +105,10 @@ type Config struct {
 	// never sends the address or user-agent to PALISADE, and never performs a
 	// network lookup in the hot path.
 	CrawlerRegistry *CrawlerRegistry
+	// EdgeSignals verifies a short-lived HMAC envelope from an explicitly
+	// allowlisted direct peer. It accepts only closed normalized upstream
+	// classes and ignores spoofed envelope headers from every other peer.
+	EdgeSignals *palisadeedge.Verifier
 }
 
 func StaticClassification(action, endpointClass string) Classifier {

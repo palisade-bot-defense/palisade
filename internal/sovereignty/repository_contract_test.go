@@ -188,6 +188,7 @@ func TestSovereigntyRepositorySchemasAreValidJSON(t *testing.T) {
 		"schemas/data-map-v4.schema.json",
 		"schemas/data-map-v5.schema.json",
 		"schemas/data-map-v6.schema.json",
+		"schemas/edge-signal-envelope-v1.schema.json",
 		"schemas/local-evidence-event-v1.schema.json",
 		"schemas/local-family-annotation-v1.schema.json",
 		"schemas/local-evidence-input-v1.schema.json",

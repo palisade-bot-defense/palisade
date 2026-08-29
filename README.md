@@ -192,6 +192,13 @@ never forwarding application request data to PALISADE. Both adapters run the
 same nine-case portable suite. See the [reverse-proxy guide](docs/REVERSE_PROXY_ADAPTER.md)
 for its intentionally narrower challenge and single-process state boundary.
 
+Both adapters can authenticate vendor-neutral local WAF, reputation,
+TLS/HTTP-fingerprint and request-time challenge context with the signed
+[`palisade.edge-signals.v1`](docs/UPSTREAM_SIGNALS.md) envelope. The bridge
+accepts only existing closed classes from an allowlisted direct peer, enforces
+fresh single-use HMAC authentication and never sends raw upstream values or the
+envelope itself to PALISADE.
+
 The reference middleware can explicitly enable privacy-safe coverage reporting.
 It sends cumulative counts for completed requests in the protected handler,
 split only by PALISADE's nine endpoint classes and closed handling outcomes.
@@ -284,7 +291,7 @@ For the authenticated encrypted decision stream itself,
 decision time and reports separate baseline/holdout endpoint and accessibility
 slices; see [chronological linked shadow holdout](docs/SHADOW_HOLDOUT.md).
 
-See the [architecture and stack](docs/ARCHITECTURE.md), [product differentiation](docs/DIFFERENTIATION.md), [Sovereignty Report](docs/SOVEREIGNTY.md), [runtime egress inventory](docs/RUNTIME_EGRESS.md), [machine-readable data map](docs/DATA_MAP.md), [normalized signal contract](docs/NORMALIZED_SIGNAL_CONTRACT.md), [generic local import](docs/LOCAL_IMPORT.md), [local sequence analysis](docs/LOCAL_SEQUENCE_ANALYSIS.md), [local holdout evaluation](docs/LOCAL_HOLDOUT_EVALUATION.md), [chronological linked shadow holdout](docs/SHADOW_HOLDOUT.md), [public adversarial fixtures](docs/ADVERSARIAL_FIXTURES.md), [local release process](docs/RELEASING.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [standalone reverse-proxy adapter](docs/REVERSE_PROXY_ADAPTER.md), [portable adapter conformance](docs/ADAPTER_CONFORMANCE.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed local runtime artifacts](docs/LOCAL_ARTIFACTS.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
+See the [architecture and stack](docs/ARCHITECTURE.md), [product differentiation](docs/DIFFERENTIATION.md), [Sovereignty Report](docs/SOVEREIGNTY.md), [runtime egress inventory](docs/RUNTIME_EGRESS.md), [machine-readable data map](docs/DATA_MAP.md), [normalized signal contract](docs/NORMALIZED_SIGNAL_CONTRACT.md), [signed upstream signals](docs/UPSTREAM_SIGNALS.md), [generic local import](docs/LOCAL_IMPORT.md), [local sequence analysis](docs/LOCAL_SEQUENCE_ANALYSIS.md), [local holdout evaluation](docs/LOCAL_HOLDOUT_EVALUATION.md), [chronological linked shadow holdout](docs/SHADOW_HOLDOUT.md), [public adversarial fixtures](docs/ADVERSARIAL_FIXTURES.md), [local release process](docs/RELEASING.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [standalone reverse-proxy adapter](docs/REVERSE_PROXY_ADAPTER.md), [portable adapter conformance](docs/ADAPTER_CONFORMANCE.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed local runtime artifacts](docs/LOCAL_ARTIFACTS.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
 
 ## Project status and license
 

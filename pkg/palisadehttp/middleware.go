@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/pkg/palisadecontract"
+	"github.com/palisade-bot-defense/palisade/pkg/palisadeedge"
 )
 
 func (m *Middleware) Handler(next http.Handler) http.Handler {
@@ -60,6 +61,16 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		signals.CrawlerVerification = CrawlerVerificationUnknown
 		if m.crawlers != nil && clientAddressOK {
 			signals.VerifiedBot, signals.CrawlerClass, signals.CrawlerVerification = m.crawlers.verifyAt(r.UserAgent(), clientAddress, now)
+		}
+		if m.edgeSignals != nil {
+			edgeSignals, present, verifyErr := m.edgeSignals.Verify(r)
+			if verifyErr != nil || (present && !mergeEdgeSignals(&signals, edgeSignals)) {
+				m.logger.Error("PALISADE signed upstream signal verification failed")
+				writeAdapterError(w, http.StatusInternalServerError, "palisade_signals_failed")
+				return
+			}
+			r.Header.Del(palisadeedge.PayloadHeader)
+			r.Header.Del(palisadeedge.SignatureHeader)
 		}
 		if !validSignals(signals) {
 			m.logger.Error("PALISADE normalized signal provider failed")
@@ -145,6 +156,32 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusForbidden)
 		}
 	})
+}
+
+func mergeEdgeSignals(target *Signals, source palisadeedge.Signals) bool {
+	if !mergeClosedSignal(&target.ChallengeVerdict, source.ChallengeVerdict) ||
+		!mergeClosedSignal(&target.EdgeFingerprintClass, source.EdgeFingerprintClass) ||
+		!mergeClosedSignal(&target.EdgeFingerprintMethod, source.EdgeFingerprintMethod) ||
+		!mergeClosedSignal(&target.NetworkReputation, source.NetworkReputation) ||
+		!mergeClosedSignal(&target.NetworkType, source.NetworkType) {
+		return false
+	}
+	if source.ExternalRiskScore > target.ExternalRiskScore {
+		target.ExternalRiskScore = source.ExternalRiskScore
+	}
+	target.PolicyAlert = target.PolicyAlert || source.PolicyAlert
+	return true
+}
+
+func mergeClosedSignal(target *string, source string) bool {
+	if source == "" || source == "unknown" {
+		return true
+	}
+	if *target == "" || *target == "unknown" {
+		*target = source
+		return true
+	}
+	return *target == source
 }
 
 func (m *Middleware) sessionCookie(request *http.Request) (http.Cookie, bool, error) {

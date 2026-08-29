@@ -6,6 +6,10 @@ to the closed `Observations` contract and calls the decision API. This prevents
 vendor payloads, headers and free text from silently becoming trusted features.
 The authoritative value sets, cross-field invariants and compatibility policy
 are defined by the versioned [normalized signal contract](NORMALIZED_SIGNAL_CONTRACT.md).
+The two Go adapters can also consume the vendor-neutral
+[signed local upstream envelope](UPSTREAM_SIGNALS.md), which requires an
+allowlisted direct peer, HMAC, freshness and one-time nonce before merging only
+those same closed classes.
 
 ## Supported source classes
 

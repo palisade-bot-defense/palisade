@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/edge-signal-envelope-v1.schema.json",
+  "title": "PALISADE signed edge-signal envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "issued_at", "nonce", "signals"],
+  "properties": {
+    "version": { "const": "palisade.edge-signals.v1" },
+    "issued_at": { "type": "integer", "minimum": 0 },
+    "nonce": { "type": "string", "pattern": "^[A-Za-z0-9_-]{22}$" },
+    "signals": { "$ref": "#/$defs/signals" }
+  },
+  "$defs": {
+    "signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "challenge_verdict": { "enum": ["suspicious", "failed", "blocked", "allowed", "passed", "unknown"] },
+        "external_risk_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "policy_alert": { "type": "boolean" },
+        "edge_fingerprint_class": { "enum": ["unknown", "browser_consistent", "automation_consistent", "anomalous"] },
+        "edge_fingerprint_method": { "enum": ["unknown", "tls", "http2", "tls_http2"] },
+        "network_reputation": { "enum": ["unknown", "low_risk", "elevated_risk", "high_risk"] },
+        "network_type": { "enum": ["unknown", "residential", "mobile", "hosting", "enterprise", "education", "anonymizer"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["edge_fingerprint_class"],
+            "properties": { "edge_fingerprint_class": { "enum": ["browser_consistent", "automation_consistent", "anomalous"] } }
+          },
+          "then": {
+            "required": ["edge_fingerprint_method"],
+            "properties": { "edge_fingerprint_method": { "enum": ["tls", "http2", "tls_http2"] } }
+          }
+        },
+        {
+          "if": {
+            "required": ["edge_fingerprint_method"],
+            "properties": { "edge_fingerprint_method": { "enum": ["tls", "http2", "tls_http2"] } }
+          },
+          "then": {
+            "required": ["edge_fingerprint_class"],
+            "properties": { "edge_fingerprint_class": { "enum": ["browser_consistent", "automation_consistent", "anomalous"] } }
+          }
+        }
+      ]
+    }
+  }
+}
