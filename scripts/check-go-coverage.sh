@@ -57,6 +57,7 @@ internal/sessioncookie
 internal/shadowanalysis
 internal/shadowlog
 internal/token
+pkg/palisadecontract
 pkg/palisadehttp
 '
 

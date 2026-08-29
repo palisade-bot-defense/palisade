@@ -23,8 +23,17 @@ enum RuntimeMode {
   RUNTIME_MODE_CANARY = 3;
 }
 
+enum EnforcementHandling {
+  ENFORCEMENT_HANDLING_UNSPECIFIED = 0;
+  ENFORCEMENT_HANDLING_PASS = 1;
+  ENFORCEMENT_HANDLING_DELAY = 2;
+  ENFORCEMENT_HANDLING_THROTTLE = 3;
+  ENFORCEMENT_HANDLING_CHALLENGE = 4;
+  ENFORCEMENT_HANDLING_BLOCK = 5;
+}
+
 message EnforcementDirective {
-  string handling = 1;
+  EnforcementHandling handling = 1;
   uint32 http_status = 2;
   uint32 retry_after_seconds = 3;
   google.protobuf.Timestamp expires_at = 4;

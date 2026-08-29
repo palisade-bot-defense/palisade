@@ -4,6 +4,8 @@ PALISADE consumes normalized evidence, not arbitrary raw logs. A deployment
 adapter owns authentication and source-specific parsing, maps an upstream event
 to the closed `Observations` contract and calls the decision API. This prevents
 vendor payloads, headers and free text from silently becoming trusted features.
+The authoritative value sets, cross-field invariants and compatibility policy
+are defined by the versioned [normalized signal contract](NORMALIZED_SIGNAL_CONTRACT.md).
 
 ## Supported source classes
 

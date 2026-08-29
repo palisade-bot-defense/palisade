@@ -17,6 +17,7 @@ import (
 	"github.com/palisade-bot-defense/palisade/internal/rollout"
 	"github.com/palisade-bot-defense/palisade/internal/session"
 	"github.com/palisade-bot-defense/palisade/internal/token"
+	"github.com/palisade-bot-defense/palisade/pkg/palisadecontract"
 )
 
 var (
@@ -178,7 +179,7 @@ func boundedDecoyHits(claimed, verified int) int {
 }
 
 func validateRequest(request core.DecisionRequest) error {
-	if len(request.SessionID) < 8 || len(request.SessionID) > 128 || len(request.Action) < 1 || len(request.Action) > 80 {
+	if len(request.SessionID) < 8 || len(request.SessionID) > 128 || !core.ValidRequestAction(request.Action) {
 		return ErrInvalidRequest
 	}
 	if !core.ValidEndpointClass(request.EndpointClass) || request.Sequence == 0 {
@@ -202,6 +203,9 @@ func validateRequest(request core.DecisionRequest) error {
 	if _, valid := core.NormalizeCrawlerVerification(request.Observations.CrawlerVerification); !valid {
 		return ErrInvalidRequest
 	}
+	if !palisadecontract.ValidCrawlerIdentity(request.Observations.VerifiedBot, string(request.Observations.CrawlerClass), string(request.Observations.CrawlerVerification)) {
+		return ErrInvalidRequest
+	}
 	if !validTransportProtocol(request.Observations.TransportProtocol) || !validTransportSecurity(request.Observations.TransportSecurity) ||
 		!validClientAddressSource(request.Observations.ClientAddressSource) {
 		return ErrInvalidRequest
@@ -210,39 +214,22 @@ func validateRequest(request core.DecisionRequest) error {
 		request.Observations.NetworkReputation, request.Observations.NetworkType) {
 		return ErrInvalidRequest
 	}
-	switch request.Observations.ChallengeVerdict {
-	case "", "suspicious", "failed", "blocked", "allowed", "passed", "unknown":
-	default:
+	if !palisadecontract.ValidOptionalUnknownClass(request.Observations.ChallengeVerdict, palisadecontract.ValidChallengeVerdict) {
 		return ErrInvalidRequest
 	}
 	return nil
 }
 
 func validTransportProtocol(value string) bool {
-	switch value {
-	case "", "http1", "http2", "http3", "unknown":
-		return true
-	default:
-		return false
-	}
+	return palisadecontract.ValidOptionalUnknownClass(value, palisadecontract.ValidTransportProtocol)
 }
 
 func validTransportSecurity(value string) bool {
-	switch value {
-	case "", "direct_tls", "trusted_proxy_tls", "plaintext", "unknown":
-		return true
-	default:
-		return false
-	}
+	return palisadecontract.ValidOptionalUnknownClass(value, palisadecontract.ValidTransportSecurity)
 }
 
 func validClientAddressSource(value string) bool {
-	switch value {
-	case "", "direct", "trusted_proxy", "invalid_trusted_proxy", "unknown":
-		return true
-	default:
-		return false
-	}
+	return palisadecontract.ValidOptionalUnknownClass(value, palisadecontract.ValidClientAddressSource)
 }
 
 func newID() string {

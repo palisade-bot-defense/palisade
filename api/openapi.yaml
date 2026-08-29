@@ -1,4 +1,5 @@
 openapi: 3.1.0
+x-palisade-normalized-signal-contract: palisade.normalized-signal-contract.v1
 info:
   title: PALISADE HTTP API
   version: 0.1.0
@@ -81,7 +82,9 @@ paths:
                   minLength: 8
                   maxLength: 128
                   description: Optional when a valid PALISADE session cookie is supplied; if both are present they must match.
-                action: { type: string, minLength: 1, maxLength: 80 }
+                action:
+                  type: string
+                  enum: [read, write, create, update, delete, search, compare, login, logout, register, checkout, purchase, events, other]
                 request_action:
                   type: string
                   enum: [read, write, create, update, delete, search, compare, login, logout, register, checkout, purchase, other]
@@ -657,7 +660,9 @@ components:
           maxLength: 43
           pattern: "^[A-Za-z0-9_-]+$"
           description: Backend-only origin-flow capability copied from the matching origin check; browsers must never receive or supply it.
-        action: { type: string, minLength: 1, maxLength: 80 }
+        action:
+          type: string
+          enum: [read, write, create, update, delete, search, compare, login, logout, register, checkout, purchase, other]
         endpoint_class:
           type: string
           enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]
@@ -783,6 +788,38 @@ components:
     Observations:
       type: object
       additionalProperties: false
+      allOf:
+        - if:
+            required: [verified_bot]
+            properties:
+              verified_bot: { const: true }
+          then:
+            required: [crawler_class, crawler_verification]
+            properties:
+              crawler_class:
+                enum: [search_indexer, answer_engine, training_crawler, user_triggered_agent, preview, monitoring, other]
+              crawler_verification:
+                enum: [ip_ua_registry, fcrdns_ua, http_signature]
+        - if:
+            required: [edge_fingerprint_class]
+            properties:
+              edge_fingerprint_class:
+                enum: [browser_consistent, automation_consistent, anomalous]
+          then:
+            required: [edge_fingerprint_method]
+            properties:
+              edge_fingerprint_method:
+                enum: [tls, http2, tls_http2]
+        - if:
+            required: [edge_fingerprint_method]
+            properties:
+              edge_fingerprint_method:
+                enum: [tls, http2, tls_http2]
+          then:
+            required: [edge_fingerprint_class]
+            properties:
+              edge_fingerprint_class:
+                enum: [browser_consistent, automation_consistent, anomalous]
       properties:
         user_agent_present: { type: boolean }
         browser_event_count:
@@ -848,7 +885,9 @@ components:
           minLength: 8
           maxLength: 128
           description: Optional when a valid PALISADE session cookie is supplied; if both are present they must match.
-        action: { type: string, minLength: 1, maxLength: 80 }
+        action:
+          type: string
+          enum: [read, write, create, update, delete, search, compare, login, logout, register, checkout, purchase, other]
         endpoint_class:
           type: string
           enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]

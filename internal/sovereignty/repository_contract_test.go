@@ -194,6 +194,7 @@ func TestSovereigntyRepositorySchemasAreValidJSON(t *testing.T) {
 		"schemas/local-holdout-report-v1.schema.json",
 		"schemas/local-sequence-report-v1.schema.json",
 		"schemas/local-release-v1.schema.json",
+		"schemas/normalized-signal-contract-v1.schema.json",
 		"schemas/origin-adapter-conformance-v1.schema.json",
 		"schemas/runtime-egress-v1.schema.json",
 		"schemas/rollout-plan-v2.schema.json",

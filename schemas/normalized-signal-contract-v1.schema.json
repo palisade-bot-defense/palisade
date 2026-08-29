@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/normalized-signal-contract-v1.schema.json",
+  "title": "PALISADE normalized signal contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "scope", "closed", "raw_values_allowed", "request_actions", "proof_actions",
+    "endpoint_classes", "evaluation_cohorts", "challenge_verdicts", "crawler_classes",
+    "crawler_verifications", "transport_protocols", "transport_securities", "client_address_sources",
+    "edge_fingerprint_classes", "edge_fingerprint_methods", "network_reputations", "network_types",
+    "decision_actions", "runtime_modes", "enforcement_handlings", "numeric_bounds", "invariants",
+    "forbidden_raw_classes"
+  ],
+  "properties": {
+    "schema_version": { "const": "palisade.normalized-signal-contract.v1" },
+    "scope": { "const": "decision_and_origin_adapter" },
+    "closed": { "const": true },
+    "raw_values_allowed": { "const": false },
+    "request_actions": { "$ref": "#/$defs/requestActions" },
+    "proof_actions": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "read" }, { "const": "write" }, { "const": "create" }, { "const": "update" },
+        { "const": "delete" }, { "const": "search" }, { "const": "compare" }, { "const": "login" },
+        { "const": "logout" }, { "const": "register" }, { "const": "checkout" }, { "const": "purchase" },
+        { "const": "events" }, { "const": "other" }
+      ],
+      "items": false,
+      "minItems": 14,
+      "maxItems": 14
+    },
+    "endpoint_classes": { "$ref": "#/$defs/endpointClasses" },
+    "evaluation_cohorts": { "$ref": "#/$defs/evaluationCohorts" },
+    "challenge_verdicts": { "$ref": "#/$defs/challengeVerdicts" },
+    "crawler_classes": { "$ref": "#/$defs/crawlerClasses" },
+    "crawler_verifications": { "$ref": "#/$defs/crawlerVerifications" },
+    "transport_protocols": { "$ref": "#/$defs/transportProtocols" },
+    "transport_securities": { "$ref": "#/$defs/transportSecurities" },
+    "client_address_sources": { "$ref": "#/$defs/clientAddressSources" },
+    "edge_fingerprint_classes": { "$ref": "#/$defs/edgeFingerprintClasses" },
+    "edge_fingerprint_methods": { "$ref": "#/$defs/edgeFingerprintMethods" },
+    "network_reputations": { "$ref": "#/$defs/networkReputations" },
+    "network_types": { "$ref": "#/$defs/networkTypes" },
+    "decision_actions": { "$ref": "#/$defs/decisionActions" },
+    "runtime_modes": { "$ref": "#/$defs/runtimeModes" },
+    "enforcement_handlings": { "$ref": "#/$defs/enforcementHandlings" },
+    "numeric_bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["browser_event_count", "honeypot_hits", "external_risk_score"],
+      "properties": {
+        "browser_event_count": { "$ref": "#/$defs/range10000" },
+        "honeypot_hits": { "$ref": "#/$defs/range100" },
+        "external_risk_score": { "$ref": "#/$defs/range1" }
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["omitted_optional_class", "edge_fingerprint_pairing", "verified_crawler_pairing", "browser_event_claim", "challenge_passed"],
+      "properties": {
+        "omitted_optional_class": { "const": "unknown" },
+        "edge_fingerprint_pairing": { "const": "class_and_method_known_together" },
+        "verified_crawler_pairing": { "const": "non_unknown_class_and_verification_required" },
+        "browser_event_claim": { "const": "neutral_until_server_verified" },
+        "challenge_passed": { "const": "outcome_not_human_identity" }
+      }
+    },
+    "forbidden_raw_classes": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "request_url" }, { "const": "query_string" }, { "const": "request_body" },
+        { "const": "user_agent" }, { "const": "ip_address" }, { "const": "asn" },
+        { "const": "tls_fingerprint" }, { "const": "http2_fingerprint" }, { "const": "vendor_label" },
+        { "const": "vendor_score" }
+      ],
+      "items": false,
+      "minItems": 10,
+      "maxItems": 10
+    }
+  },
+  "$defs": {
+    "requestActions": { "type": "array", "prefixItems": [{ "const": "read" }, { "const": "write" }, { "const": "create" }, { "const": "update" }, { "const": "delete" }, { "const": "search" }, { "const": "compare" }, { "const": "login" }, { "const": "logout" }, { "const": "register" }, { "const": "checkout" }, { "const": "purchase" }, { "const": "other" }], "items": false, "minItems": 13, "maxItems": 13 },
+    "endpointClasses": { "type": "array", "prefixItems": [{ "const": "public_content" }, { "const": "compare_index" }, { "const": "compare_noindex" }, { "const": "challenge_worker" }, { "const": "other_public" }, { "const": "account" }, { "const": "login" }, { "const": "checkout" }, { "const": "other" }], "items": false, "minItems": 9, "maxItems": 9 },
+    "evaluationCohorts": { "type": "array", "prefixItems": [{ "const": "standard" }, { "const": "reduced_motion" }, { "const": "keyboard_only" }, { "const": "fallback_path" }, { "const": "sensor_missing" }, { "const": "unknown" }], "items": false, "minItems": 6, "maxItems": 6 },
+    "challengeVerdicts": { "type": "array", "prefixItems": [{ "const": "suspicious" }, { "const": "failed" }, { "const": "blocked" }, { "const": "allowed" }, { "const": "passed" }, { "const": "unknown" }], "items": false, "minItems": 6, "maxItems": 6 },
+    "crawlerClasses": { "type": "array", "prefixItems": [{ "const": "unknown" }, { "const": "search_indexer" }, { "const": "answer_engine" }, { "const": "training_crawler" }, { "const": "user_triggered_agent" }, { "const": "preview" }, { "const": "monitoring" }, { "const": "other" }], "items": false, "minItems": 8, "maxItems": 8 },
+    "crawlerVerifications": { "type": "array", "prefixItems": [{ "const": "unknown" }, { "const": "ip_ua_registry" }, { "const": "fcrdns_ua" }, { "const": "http_signature" }], "items": false, "minItems": 4, "maxItems": 4 },
+    "transportProtocols": { "type": "array", "prefixItems": [{ "const": "http1" }, { "const": "http2" }, { "const": "http3" }, { "const": "unknown" }], "items": false, "minItems": 4, "maxItems": 4 },
+    "transportSecurities": { "type": "array", "prefixItems": [{ "const": "direct_tls" }, { "const": "trusted_proxy_tls" }, { "const": "plaintext" }, { "const": "unknown" }], "items": false, "minItems": 4, "maxItems": 4 },
+    "clientAddressSources": { "type": "array", "prefixItems": [{ "const": "direct" }, { "const": "trusted_proxy" }, { "const": "invalid_trusted_proxy" }, { "const": "unknown" }], "items": false, "minItems": 4, "maxItems": 4 },
+    "edgeFingerprintClasses": { "type": "array", "prefixItems": [{ "const": "unknown" }, { "const": "browser_consistent" }, { "const": "automation_consistent" }, { "const": "anomalous" }], "items": false, "minItems": 4, "maxItems": 4 },
+    "edgeFingerprintMethods": { "type": "array", "prefixItems": [{ "const": "unknown" }, { "const": "tls" }, { "const": "http2" }, { "const": "tls_http2" }], "items": false, "minItems": 4, "maxItems": 4 },
+    "networkReputations": { "type": "array", "prefixItems": [{ "const": "unknown" }, { "const": "low_risk" }, { "const": "elevated_risk" }, { "const": "high_risk" }], "items": false, "minItems": 4, "maxItems": 4 },
+    "networkTypes": { "type": "array", "prefixItems": [{ "const": "unknown" }, { "const": "residential" }, { "const": "mobile" }, { "const": "hosting" }, { "const": "enterprise" }, { "const": "education" }, { "const": "anonymizer" }], "items": false, "minItems": 7, "maxItems": 7 },
+    "decisionActions": { "type": "array", "prefixItems": [{ "const": "allow" }, { "const": "observe" }, { "const": "delay" }, { "const": "throttle" }, { "const": "challenge" }, { "const": "block" }], "items": false, "minItems": 6, "maxItems": 6 },
+    "runtimeModes": { "type": "array", "prefixItems": [{ "const": "shadow" }, { "const": "canary" }, { "const": "enforce" }], "items": false, "minItems": 3, "maxItems": 3 },
+    "enforcementHandlings": { "type": "array", "prefixItems": [{ "const": "pass" }, { "const": "delay" }, { "const": "throttle" }, { "const": "challenge" }, { "const": "block" }], "items": false, "minItems": 5, "maxItems": 5 },
+    "range10000": { "type": "object", "additionalProperties": false, "required": ["minimum", "maximum"], "properties": { "minimum": { "const": 0 }, "maximum": { "const": 10000 } } },
+    "range100": { "type": "object", "additionalProperties": false, "required": ["minimum", "maximum"], "properties": { "minimum": { "const": 0 }, "maximum": { "const": 100 } } },
+    "range1": { "type": "object", "additionalProperties": false, "required": ["minimum", "maximum"], "properties": { "minimum": { "const": 0 }, "maximum": { "const": 1 } } }
+  }
+}

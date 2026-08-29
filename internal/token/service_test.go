@@ -82,6 +82,7 @@ func TestIssueRejectsUnboundedBindings(t *testing.T) {
 		{string(make([]byte, 129)), "read"},
 		{"session-a", ""},
 		{"session-a", "read\nraw"},
+		{"session-a", "vendor-action"},
 	} {
 		if _, err := service.Issue(input.session, input.action, time.Minute, now); err == nil {
 			t.Fatalf("accepted binding session_len=%d action=%q", len(input.session), input.action)

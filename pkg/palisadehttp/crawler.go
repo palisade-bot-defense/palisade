@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/palisade-bot-defense/palisade/pkg/palisadecontract"
 )
 
 const (
@@ -187,23 +189,7 @@ func validCrawlerPrefix(prefix netip.Prefix) bool {
 }
 
 func validCrawlerClass(value string) bool {
-	switch value {
-	case CrawlerClassUnknown, CrawlerClassSearchIndexer, CrawlerClassAnswerEngine,
-		CrawlerClassTrainingCrawler, CrawlerClassUserTriggeredAgent,
-		CrawlerClassPreview, CrawlerClassMonitoring, CrawlerClassOther:
-		return true
-	default:
-		return false
-	}
-}
-
-func validCrawlerVerification(value string) bool {
-	switch value {
-	case CrawlerVerificationUnknown, CrawlerVerificationIPUARegistry:
-		return true
-	default:
-		return false
-	}
+	return palisadecontract.ValidCrawlerClass(value)
 }
 
 func stableCrawlerValue(value string) bool {

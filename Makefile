@@ -1,4 +1,4 @@
-.PHONY: build test check verify release-plan release coverage-check privacy-check license-check adapter-conformance offline-eval-test replay dev demo docker
+.PHONY: build test check verify release-plan release coverage-check privacy-check license-check adapter-conformance normalized-contract offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -36,6 +36,9 @@ license-check:
 
 adapter-conformance:
 	go test ./pkg/palisadehttp -run TestOriginAdapterConformanceSuiteV1 -count=1
+
+normalized-contract:
+	go test ./pkg/palisadecontract -count=1
 
 offline-eval-test:
 	python3 -m unittest scripts/test_evaluate_offline.py
