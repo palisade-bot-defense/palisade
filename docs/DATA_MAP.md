@@ -1,27 +1,28 @@
 # Machine-readable data map
 
-The current versioned [PALISADE data map](../manifests/data-map-v4.json) records the
+The current versioned [PALISADE data map](../manifests/data-map-v5.json) records the
 reference product's accepted data classes, destinations, network scopes and
 persistence modes. Its JSON Schema is
-[`schemas/data-map-v4.schema.json`](../schemas/data-map-v4.schema.json). The
+[`schemas/data-map-v5.schema.json`](../schemas/data-map-v5.schema.json). The
 [v1](../manifests/data-map-v1.json), [v2](../manifests/data-map-v2.json) and
-[v3](../manifests/data-map-v3.json) maps remain immutable records of earlier
+[v3](../manifests/data-map-v3.json) and [v4](../manifests/data-map-v4.json) maps remain immutable records of earlier
 boundaries.
 
-The v4 map covers twelve flows:
+The v5 map covers thirteen flows:
 
 1. bounded browser-event ingestion;
 2. trusted normalized decision requests;
 3. the signed first-party continuity cookie;
 4. the same-origin native challenge lifecycle;
-5. optional encrypted shadow decisions;
-6. delayed closed outcome labels;
-7. local aggregate analysis;
-8. the generic local evidence import;
-9. bounded local aggregate sequence analysis;
-10. local chronological and optional unseen-family holdout evaluation;
-11. the loopback Operator Console summary; and
-12. the non-identifying Sovereignty Report.
+5. the backend-authenticated native decoy-capability lifecycle;
+6. optional encrypted shadow decisions;
+7. delayed closed outcome labels;
+8. local aggregate analysis;
+9. the generic local evidence import;
+10. bounded local aggregate sequence analysis;
+11. local chronological and optional unseen-family holdout evaluation;
+12. the loopback Operator Console summary; and
+13. the non-identifying Sovereignty Report.
 
 Every mapped flow has `external_export: false`. That field means PALISADE does
 not export the flow to a PALISADE-operated external service. It does not override
@@ -55,6 +56,14 @@ digests for equality within one run and persists only family counts plus the
 annotation-file fingerprint. No sequence pseudonym or family reference appears
 in the report. The annotation input and aggregate report remain private
 operator artifacts.
+
+Data Map v5 adds the native decoy lifecycle. A trusted origin handler requests
+an opaque, short-lived capability bound to a session handle, closed endpoint
+class and closed surface class. PALISADE stores only the capability digest and
+a digest of the session handle. A consumed capability creates one bounded
+`touched|submitted` evidence event for the next matching decision. URLs, form
+fields, content, client addresses and user-agent values are outside the
+contract.
 
 The `aggregate_analysis` flow also covers chronological evaluation of the
 encrypted shadow stream. That evaluator reuses the already mapped encrypted

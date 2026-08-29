@@ -112,15 +112,15 @@ func TestRuntimeEgressManifestMatchesReviewedSourceCallsites(t *testing.T) {
 func TestDataMapIsClosedAndContainsNoRawAcceptedClass(t *testing.T) {
 	root := repositoryRoot(t)
 	var manifest dataMapManifest
-	readRepositoryJSON(t, root, "manifests/data-map-v4.json", &manifest)
-	if manifest.SchemaVersion != "palisade.data-map.v4" || manifest.Scope != "reference_product_data_flows" ||
+	readRepositoryJSON(t, root, "manifests/data-map-v5.json", &manifest)
+	if manifest.SchemaVersion != "palisade.data-map.v5" || manifest.Scope != "reference_product_data_flows" ||
 		manifest.DefaultRules.ExternalExport || manifest.DefaultRules.RawNetworkIdentifiers != "excluded_from_runtime_and_persisted_output" ||
 		manifest.DefaultRules.ContentCollection != "excluded" || manifest.DefaultRules.MissingBrowserSensor != "neutral" {
 		t.Fatalf("unexpected data map defaults: %+v", manifest.DefaultRules)
 	}
 	wantFlowIDs := []string{
 		"aggregate_analysis", "browser_event_ingest", "continuity_cookie", "decision_request",
-		"delayed_outcome", "local_evidence_import", "local_holdout_evaluation", "local_sequence_analysis", "native_challenge_lifecycle", "operator_console_summary", "shadow_measurement", "sovereignty_report",
+		"delayed_outcome", "local_evidence_import", "local_holdout_evaluation", "local_sequence_analysis", "native_challenge_lifecycle", "native_decoy_lifecycle", "operator_console_summary", "shadow_measurement", "sovereignty_report",
 	}
 	wantDirectReferences := []string{"operator_session_reference_may_be_personal_data", "operator_subject_reference_may_include_network_identifier"}
 	wantSequenceLinkage := []string{"daily_rotating_pseudonym_for_sequence_linkage"}
@@ -178,6 +178,7 @@ func TestSovereigntyRepositorySchemasAreValidJSON(t *testing.T) {
 		"schemas/data-map-v2.schema.json",
 		"schemas/data-map-v3.schema.json",
 		"schemas/data-map-v4.schema.json",
+		"schemas/data-map-v5.schema.json",
 		"schemas/local-evidence-event-v1.schema.json",
 		"schemas/local-family-annotation-v1.schema.json",
 		"schemas/local-evidence-input-v1.schema.json",

@@ -145,6 +145,7 @@ const reasonCopy: Record<string, string> = {
   SHADOW_ACTION_OVERRIDDEN: "A risky computed action was safely reduced in shadow mode.",
   NAVIGATION_SURFACE_SWEEP: "A session crossed many closed endpoint classes unusually quickly.",
   HONEYPOT_INTERACTION: "A trusted origin adapter reported interaction with a decoy surface.",
+  DECOY_CAPABILITY_REDEEMED: "A PALISADE-issued, session-and-endpoint-bound decoy capability was consumed exactly once.",
   COMPARE_NOINDEX_CAMPAIGN_SURFACE: "The request reached a public comparison surface associated with the configured campaign pattern.",
   POLICY_ALERT: "A trusted deployment policy adapter reported elevated abuse intent.",
   EXTERNAL_RISK: "A trusted external adapter contributed a normalized risk signal.",

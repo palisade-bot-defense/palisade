@@ -15,6 +15,7 @@ import (
 
 	"github.com/palisade-bot-defense/palisade/internal/challenge"
 	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-bot-defense/palisade/internal/decoy"
 	decisionengine "github.com/palisade-bot-defense/palisade/internal/engine"
 	"github.com/palisade-bot-defense/palisade/internal/events"
 	"github.com/palisade-bot-defense/palisade/internal/sessioncookie"
@@ -44,6 +45,7 @@ type Server struct {
 	requireSession    bool
 	shadowRecorder    ShadowRecorder
 	challenges        *challenge.Service
+	decoys            *decoy.Service
 	shadowDrops       atomic.Uint64
 	eventShadow       *EventShadowProfile
 	eventShadowDrops  atomic.Uint64
@@ -90,6 +92,11 @@ func (s *Server) WithChallenges(service *challenge.Service) *Server {
 	return s
 }
 
+func (s *Server) WithDecoys(service *decoy.Service) *Server {
+	s.decoys = service
+	return s
+}
+
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) {
@@ -105,11 +112,92 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/origin-check", s.handleOriginCheck)
 	mux.HandleFunc("POST /v1/origin-coverage", s.handleOriginCoverage)
 	mux.HandleFunc("POST /v1/outcome", s.handleOutcome)
+	mux.HandleFunc("POST /v1/decoy/issue", s.handleDecoyIssue)
+	mux.HandleFunc("POST /v1/decoy/hit", s.handleDecoyHit)
 	mux.HandleFunc("GET /v1/challenge/{challenge_id}", s.handleChallengeView)
 	mux.HandleFunc("POST /v1/challenge/verify", s.handleChallengeVerify)
 	mux.HandleFunc("POST /v1/challenge/redeem", s.handleChallengeRedeem)
 	mux.HandleFunc("POST /v1/challenge/fallback", s.handleChallengeFallback)
 	return s.recover(s.securityHeaders(mux))
+}
+
+func (s *Server) handleDecoyIssue(w http.ResponseWriter, r *http.Request) {
+	if !s.authorized(r) {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if s.decoys == nil {
+		writeError(w, http.StatusServiceUnavailable, "decoy_service_unavailable")
+		return
+	}
+	var request struct {
+		SessionID     string        `json:"session_id"`
+		EndpointClass string        `json:"endpoint_class"`
+		Surface       decoy.Surface `json:"surface"`
+		TTLSeconds    int           `json:"ttl_seconds"`
+	}
+	if err := decodeJSON(w, r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if request.TTLSeconds != 0 && (request.TTLSeconds < int(decoy.MinimumTTL/time.Second) || request.TTLSeconds > int(decoy.MaximumTTL/time.Second)) {
+		writeError(w, http.StatusBadRequest, "invalid_decoy_request")
+		return
+	}
+	now := time.Now().UTC()
+	sessionID, _, err := s.resolveSession(r, request.SessionID, now)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid_session")
+		return
+	}
+	ttl := time.Duration(request.TTLSeconds) * time.Second
+	result, err := s.decoys.Issue(decoy.IssueRequest{
+		SessionID: sessionID, EndpointClass: request.EndpointClass, Surface: request.Surface, TTL: ttl,
+	}, now)
+	if err != nil {
+		s.writeDecoyError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, result)
+}
+
+func (s *Server) handleDecoyHit(w http.ResponseWriter, r *http.Request) {
+	if !s.authorized(r) {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if s.decoys == nil {
+		writeError(w, http.StatusServiceUnavailable, "decoy_service_unavailable")
+		return
+	}
+	var request struct {
+		Capability  string            `json:"capability"`
+		Interaction decoy.Interaction `json:"interaction"`
+	}
+	if err := decodeJSON(w, r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if err := s.decoys.Hit(request.Capability, request.Interaction, time.Now().UTC()); err != nil {
+		s.writeDecoyError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (s *Server) writeDecoyError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, decoy.ErrInvalidRequest):
+		writeError(w, http.StatusBadRequest, "invalid_decoy_request")
+	case errors.Is(err, decoy.ErrExpired):
+		writeError(w, http.StatusGone, "decoy_capability_expired")
+	case errors.Is(err, decoy.ErrInvalidCapability):
+		writeError(w, http.StatusConflict, "decoy_capability_invalid")
+	case errors.Is(err, decoy.ErrCapacity):
+		writeError(w, http.StatusServiceUnavailable, "decoy_capacity_exceeded")
+	default:
+		writeError(w, http.StatusServiceUnavailable, "decoy_service_unavailable")
+	}
 }
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {

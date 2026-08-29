@@ -73,17 +73,24 @@ func (d NavigationGraph) Evaluate(_ context.Context, input core.DetectorInput) (
 
 type DecoyInteraction struct{}
 
-func (DecoyInteraction) ID() string { return "decoy_interaction_v1" }
+func (DecoyInteraction) ID() string { return "decoy_interaction_v2" }
 
 func (d DecoyInteraction) Evaluate(_ context.Context, input core.DetectorInput) ([]core.Evidence, error) {
-	hits := input.Request.Observations.HoneypotHits
-	if hits == 0 {
+	claimedHits := input.Request.Observations.HoneypotHits
+	verifiedHits := input.Request.Observations.VerifiedDecoyHits
+	if claimedHits == 0 && verifiedHits == 0 {
 		return nil, nil
 	}
-	strength := .62 + float64(hits-1)*.12
-	return []core.Evidence{
-		evidence("HONEYPOT_INTERACTION", d.ID(), core.DimensionIntent, core.DirectionSuspicious, clamp(strength), .88),
-	}, nil
+	result := make([]core.Evidence, 0, 2)
+	if claimedHits > 0 {
+		strength := .62 + float64(claimedHits-1)*.12
+		result = append(result, evidence("HONEYPOT_INTERACTION", d.ID(), core.DimensionIntent, core.DirectionSuspicious, clamp(strength), .88))
+	}
+	if verifiedHits > 0 {
+		strength := .72 + float64(verifiedHits-1)*.12
+		result = append(result, evidence("DECOY_CAPABILITY_REDEEMED", d.ID(), core.DimensionIntent, core.DirectionSuspicious, clamp(strength), .94))
+	}
+	return result, nil
 }
 
 // CampaignSurface describes endpoint intent learned from an evaluated offline

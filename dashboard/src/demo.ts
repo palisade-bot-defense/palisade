@@ -8,7 +8,7 @@ export const createDemoSummary = (now: Date): Summary => ({
   schema_version: "palisade.admin-summary.v9",
   generated_at: now.toISOString(),
   uptime_seconds: 7540,
-  runtime: { mode: "shadow", policy_version: "default-v5", model_version: "transparent-baseline-v12" },
+  runtime: { mode: "shadow", policy_version: "default-v5", model_version: "transparent-baseline-v13" },
   capabilities: { shadow_log: true, event_shadow: true, event_shadow_proof_contexts: true, analysis_report: true },
   traffic: {
     accepted_event_batches: 412, accepted_events: 2864, decisions: 480, origin_checks: 442,

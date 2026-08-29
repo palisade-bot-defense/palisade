@@ -98,7 +98,7 @@ latency. No automatic blocking is enabled.
 
 Deliverables:
 
-- add deployment-owned, server-generated decoy and honeypot contracts whose
+- [x] add deployment-owned, server-generated decoy and honeypot contracts whose
   hits are evidence rather than an automatic verdict;
 - [x] vary bounded response cost by endpoint value, evidence confidence, recent
   behavior and retry history;

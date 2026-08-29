@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-bot-defense/palisade/internal/decoy"
 	"github.com/palisade-bot-defense/palisade/internal/detector"
 	"github.com/palisade-bot-defense/palisade/internal/policy"
 	"github.com/palisade-bot-defense/palisade/internal/rollout"
@@ -32,8 +33,42 @@ func TestShadowModeOverridesRiskyComputedAction(t *testing.T) {
 	if !hasReason(decision.ReasonCodes, core.ReasonShadowActionOverridden) {
 		t.Fatalf("missing %s in %v", core.ReasonShadowActionOverridden, decision.ReasonCodes)
 	}
-	if decision.PolicyVersion != "default-v5" || decision.ModelVersion != "transparent-baseline-v12" {
+	if decision.PolicyVersion != "default-v5" || decision.ModelVersion != "transparent-baseline-v13" {
 		t.Fatalf("unexpected versions: policy=%s model=%s", decision.PolicyVersion, decision.ModelVersion)
+	}
+}
+
+func TestServerIssuedDecoyHitBecomesOneTimeEvidenceNotAutomaticBlock(t *testing.T) {
+	current := newTestEngine(t, core.RuntimeModeShadow)
+	current.detectors = detector.NewRegistry(detector.DecoyInteraction{})
+	now := time.Unix(1_800_000_000, 0).UTC()
+	issued, err := current.Decoys().Issue(decoy.IssueRequest{
+		SessionID: "session-12345678", EndpointClass: "login", Surface: decoy.SurfaceForm, TTL: time.Minute,
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := current.Decoys().Hit(issued.Capability, decoy.InteractionSubmitted, now); err != nil {
+		t.Fatal(err)
+	}
+	request := core.DecisionRequest{SessionID: "session-12345678", Action: "login", EndpointClass: "login", Sequence: 1}
+	decision, err := current.Decide(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.ComputedAction != core.ActionChallenge || decision.Action != core.ActionObserve {
+		t.Fatalf("unexpected actions: computed=%s enforced=%s", decision.ComputedAction, decision.Action)
+	}
+	if hasReason(decision.ReasonCodes, "MULTI_SOURCE_ABUSE") || !hasEvidence(decision.Evidence, "DECOY_CAPABILITY_REDEEMED") {
+		t.Fatalf("decoy was not treated as standalone evidence: reasons=%v evidence=%+v", decision.ReasonCodes, decision.Evidence)
+	}
+	request.Sequence++
+	second, err := current.Decide(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasEvidence(second.Evidence, "DECOY_CAPABILITY_REDEEMED") {
+		t.Fatalf("decoy evidence replayed: %+v", second.Evidence)
 	}
 }
 

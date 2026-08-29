@@ -24,6 +24,10 @@ PALISADE should decide from behavior without reconstructing a person's content.
   verification result.
 - Random, server-issued session identifiers authenticated by an HttpOnly cookie; they are continuity handles, not identity claims.
 - Reason codes and normalized verdicts from challenge systems, external risk providers and policy-alert sources.
+- Opaque server-generated decoy capabilities plus the closed `link|form|api`
+  surface and `touched|submitted` interaction classes. Capabilities are bound
+  to an opaque session and closed endpoint class; no trap URL or form content
+  enters PALISADE.
 - One closed, deployment-supplied evaluation cohort (`standard`, `reduced_motion`, `keyboard_only`, `fallback_path`, `sensor_missing`, `unknown`) used only for aggregate safety measurement.
 
 ## Prohibited
@@ -92,6 +96,14 @@ closed session/decision/action/endpoint/rollout bindings, attempt/state fields,
 expiries and only a hash of the one-time redemption capability. It never stores
 the original URL, query, request body, IP address, user agent, cookie or sensor
 events. Only closed challenge outcomes may enter the encrypted shadow sink.
+
+Native decoy state is also memory-only and bounded. Issuance retains only a
+SHA-256 digest of the random capability, a domain-separated digest of the
+opaque session handle, one closed endpoint/surface class and an expiry. A
+successful backend-authenticated hit consumes the capability exactly once and
+queues at most 100 normalized hits for five minutes. The next matching
+decision consumes that evidence at most once. A decoy hit is suspicious intent
+evidence, not an identity label and not a standalone block condition.
 
 The reference Go origin adapter additionally holds bounded, expiring sequence,
 pending-challenge and one-time retry maps. It binds the retry to method, escaped

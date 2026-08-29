@@ -542,7 +542,8 @@ func serve(args []string) error {
 		WithEventStore(eventStore).
 		RequireEventProof(!*dev).
 		WithSessionCookies(sessionCookies, *requireSessionCookie).
-		WithChallenges(challengeService)
+		WithChallenges(challengeService).
+		WithDecoys(engine.Decoys())
 	if shadowSink != nil {
 		api.WithShadowRecorder(shadowSink)
 	}

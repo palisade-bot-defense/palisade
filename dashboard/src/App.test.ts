@@ -17,13 +17,14 @@ describe("aggregate endpoint evidence", () => {
     expect(explainReason("NAVIGATION_SURFACE_SWEEP")).toContain("endpoint classes");
     expect(explainReason("EDGE_AUTOMATION_PROFILE")).toContain("raw fingerprint");
     expect(explainReason("RESPONSE_COST_RETRY_HISTORY")).toContain("retried before");
+    expect(explainReason("DECOY_CAPABILITY_REDEEMED")).toContain("exactly once");
     expect(explainReason("FUTURE_REASON_CODE")).toContain("versioned rule");
   });
 
   it("marks the bundled demo as synthetic and non-enforcing", () => {
     const summary = createDemoSummary(new Date("2026-08-28T12:00:00Z"));
     expect(summary.runtime.mode).toBe("shadow");
-    expect(summary.runtime.model_version).toBe("transparent-baseline-v12");
+    expect(summary.runtime.model_version).toBe("transparent-baseline-v13");
     expect(summary.analysis?.readiness.automatic_enforcement).toBe(false);
     expect(summary.traffic.enforced.challenge).toBe(0);
     expect(summary.traffic.computed.challenge).toBeGreaterThan(0);

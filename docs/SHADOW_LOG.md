@@ -104,6 +104,12 @@ recent-session and retry-history factors. Stable factor reason codes make this
 visible in encrypted decisions. Existing v11 decisions remain valid historical
 measurements, but a v11-signed rollout cannot load into the v12 runtime.
 
+`transparent-baseline-v13` adds native, server-generated decoy capabilities.
+The in-process lifecycle binds an opaque one-time capability to a session and
+closed endpoint class and emits `DECOY_CAPABILITY_REDEEMED` only after a
+backend-authenticated hit. A v12-signed rollout cannot load into the v13
+runtime; begin a fresh shadow comparison window for the new evidence source.
+
 This collection bridge requires the encrypted sink and signed session cookie.
 It rejects signed rollout configuration and therefore cannot enforce. Disable
 it before enabling the origin middleware or a rollout; otherwise flush-based

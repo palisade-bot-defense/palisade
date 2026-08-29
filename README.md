@@ -84,7 +84,7 @@ PALISADE keeps three questions separate:
 Every decision response includes the enforced `action`, the unmodified
 `computed_action`, the runtime `mode`, stable reason codes, policy/model
 versions and an expiry time. The current reported versions are policy
-`default-v5` and model `transparent-baseline-v12`. The progressive action
+`default-v5` and model `transparent-baseline-v13`. The progressive action
 vocabulary is `allow → observe → delay → throttle → challenge → block`:
 `delay` is a one-second retry response, never a sleep in the PALISADE hot path,
 and is enforced only by a valid signed rollout.
@@ -162,6 +162,8 @@ For a sensor-only shadow deployment, a static `--event-shadow-action` plus `--ev
 | `POST /v1/session` | Backend-authenticated issuance of a Secure, HttpOnly, SameSite=Lax continuity cookie |
 | `POST /v1/events` | Same-origin, privacy-limited browser event batches; one-time proof required in production |
 | `POST /v1/token` | Authenticated, short-lived action proof issuance |
+| `POST /v1/decoy/issue` | Backend-authenticated issuance of a session/endpoint-bound opaque decoy capability |
+| `POST /v1/decoy/hit` | Consume a native decoy capability once and queue closed evidence for the next matching decision |
 | `POST /v1/decision` | Explainable risk decision |
 | `POST /v1/origin-check` | Score once and return the bounded HTTP enforcement result for origin middleware |
 | `POST /v1/origin-coverage` | Accept authenticated cumulative protected-handler counts from reference adapters |
@@ -178,7 +180,7 @@ contains decisions, sessions, tokens, source paths or raw shadow-log records.
 See the [Operator Console guide](docs/OPERATOR_CONSOLE.md).
 
 The signed cookie prevents clients from inventing a trusted session identifier, but does not prove that a person, account or unique device is present; starting fresh sessions remains possible. A valid cookie contributes only continuity evidence. The browser sensor never sends keystrokes, form values, DOM text or exact pointer coordinates. See [privacy boundaries](docs/privacy/DATA_BOUNDARIES.md).
-The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contracts live under [`api/proto`](api/proto). The [signal-source guide](docs/SIGNAL_SOURCES.md) contains trust boundaries, request examples and the checked detector extension procedure. The [native challenge guide](docs/CHALLENGE.md) documents the origin handshake, accessibility contract, exact one-time binding and single-instance limit.
+The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contracts live under [`api/proto`](api/proto). The [signal-source guide](docs/SIGNAL_SOURCES.md) contains trust boundaries, request examples and the checked detector extension procedure. The [native decoy guide](docs/DECOYS.md) specifies the backend lifecycle and evidence semantics. The [native challenge guide](docs/CHALLENGE.md) documents the origin handshake, accessibility contract, exact one-time binding and single-instance limit.
 
 Applications built with Go `net/http` can use the included [`pkg/palisadehttp`](pkg/palisadehttp) reference middleware. It creates signed continuity sessions, submits only normalized signals, applies pass/delay/throttle/challenge/block results, renders the same-origin accessible challenge and grants exactly one retry for the original method and request target. It also provides a backend-only route-classified sensor-proof helper and, after a validated pass, an opaque request-scoped outcome handle for linking a closed result to the exact decision without handling a raw PALISADE session ID. Its availability policy is an explicit deployment choice. See the [origin-adapter guide](docs/ORIGIN_ADAPTER.md).
 
