@@ -33,8 +33,8 @@ and replay, and **rollout** that is measured, signed and reversible.
   in the public repository.
 - **Auditable decisions:** stable reason codes and versioned policies replace an
   opaque remote bot score.
-- **Machine-readable posture:** the [Sovereignty Report](https://github.com/palisade-bot-defense/palisade/blob/main/docs/SOVEREIGNTY.md), [egress inventory](https://github.com/palisade-bot-defense/palisade/blob/main/manifests/runtime-egress-v1.json) and [data map](https://github.com/palisade-bot-defense/palisade/blob/main/manifests/data-map-v2.json) separate product invariants from operator-declared deployment facts.
-- **Bring data without giving it away:** the [generic local import](https://github.com/palisade-bot-defense/palisade/blob/main/docs/LOCAL_IMPORT.md) accepts an operator-owned closed contract, rotates pseudonyms daily and makes no network request.
+- **Machine-readable posture:** the [Sovereignty Report](https://github.com/palisade-bot-defense/palisade/blob/main/docs/SOVEREIGNTY.md), [egress inventory](https://github.com/palisade-bot-defense/palisade/blob/main/manifests/runtime-egress-v1.json) and [data map](https://github.com/palisade-bot-defense/palisade/blob/main/manifests/data-map-v3.json) separate product invariants from operator-declared deployment facts.
+- **Bring data without giving it away:** the [generic local import](https://github.com/palisade-bot-defense/palisade/blob/main/docs/LOCAL_IMPORT.md) accepts an operator-owned closed contract, rotates pseudonyms daily and makes no network request; its [sequence analyzer](https://github.com/palisade-bot-defense/palisade/blob/main/docs/LOCAL_SEQUENCE_ANALYSIS.md) persists only bounded aggregates.
 - **Actually open source:** AGPL-3.0-only core and Apache-2.0 browser sensor.
 
 PALISADE separates three questions that bot controls often collapse into one:

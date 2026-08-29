@@ -152,15 +152,10 @@ func RunLocal(config LocalConfig) (result LocalResult, returnErr error) {
 			DomainID:              pseudonyms.domainID,
 			ChronologicalRequired: true,
 		},
-		Input:  inputStats,
-		Shards: writer.shards,
-		Totals: LocalTotals{Records: inputStats.Records, Events: writer.total},
-		Warnings: []string{
-			"operator-supplied evidence classes depend on the operator adapter mapping and are not independently verified",
-			"unknown labels are not confirmed-human labels",
-			"challenge completion is an outcome and does not establish humanity",
-			"direct subject and session references are used only transiently for local pseudonymization",
-		},
+		Input:    inputStats,
+		Shards:   writer.shards,
+		Totals:   LocalTotals{Records: inputStats.Records, Events: writer.total},
+		Warnings: localManifestWarnings(),
 	}
 	if err := writeLocalJSON(filepath.Join(stagingDir, "local-manifest.json"), manifest, budget); err != nil {
 		return result, err
@@ -188,6 +183,15 @@ func RunLocal(config LocalConfig) (result LocalResult, returnErr error) {
 	}
 	completed = true
 	return LocalResult{ManifestPath: filepath.Join(outputDir, "local-manifest.json"), Events: writer.total}, nil
+}
+
+func localManifestWarnings() []string {
+	return []string{
+		"operator-supplied evidence classes depend on the operator adapter mapping and are not independently verified",
+		"unknown labels are not confirmed-human labels",
+		"challenge completion is an outcome and does not establish humanity",
+		"direct subject and session references are used only transiently for local pseudonymization",
+	}
 }
 
 func normalizeLocalConfig(config LocalConfig) (LocalConfig, error) {

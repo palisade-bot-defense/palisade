@@ -77,6 +77,10 @@ Primary source: [§ 25 TDDDG](https://www.gesetze-im-internet.de/ttdsg/__25.html
   personal data. Document the adapter mapping, key custody, daily pseudonym
   rotation, approved linkage window and deletion of inputs, outputs and
   backups. Pseudonymization is not anonymization.
+- Treat local sequence reports as private operational data even though they
+  contain no row-level event or pseudonym. Restrict report access, choose a
+  deletion period and never publish a report without a separate disclosure
+  review of its aggregate time ranges, volumes and labels.
 - Limit operator-console and report access; never expose the demo container
   admin listener beyond host loopback.
 - Keep `sensor_missing` neutral. Do not disadvantage consent refusal merely by

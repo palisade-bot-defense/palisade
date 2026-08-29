@@ -6,6 +6,12 @@ const (
 	LocalManifestSchemaVersion = "palisade.local-evidence-manifest.v1"
 	LocalImporterVersion       = "local-evidence-importer-v1"
 	ProvenanceOperatorExport   = "operator_authorized_export"
+
+	DefaultLocalScanMaxShards = 10_000
+	DefaultLocalScanMaxEvents = 50_000_000
+	DefaultLocalScanMaxBytes  = int64(64 << 30)
+	MaximumLocalScanEvents    = 100_000_000
+	MaximumLocalScanBytes     = int64(1 << 40)
 )
 
 // LocalConfig describes a local-only import of an operator-normalized JSONL
@@ -111,4 +117,18 @@ type LocalInputStats struct {
 type LocalTotals struct {
 	Records uint64 `json:"records"`
 	Events  uint64 `json:"events"`
+}
+
+type LocalScanLimits struct {
+	MaxShards int
+	MaxEvents uint64
+	MaxBytes  int64
+}
+
+type LocalVerification struct {
+	Shards  uint64 `json:"shards"`
+	Events  uint64 `json:"events"`
+	Bytes   int64  `json:"bytes"`
+	FirstAt string `json:"first_at,omitempty"`
+	LastAt  string `json:"last_at,omitempty"`
 }

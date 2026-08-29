@@ -44,7 +44,7 @@ while IFS="$tab" read -r metadata path; do
 			echo "privacy-check: forbidden raw bundle filename: $path" >&2
 			failed=1
 			;;
-		events-[0-9][0-9][0-9][0-9][0-9][0-9].jsonl|evidence-[0-9][0-9][0-9][0-9][0-9][0-9].jsonl|manifest.json|local-manifest.json|COMPLETE|LOCAL_COMPLETE)
+		events-[0-9][0-9][0-9][0-9][0-9][0-9].jsonl|evidence-[0-9][0-9][0-9][0-9][0-9][0-9].jsonl|manifest.json|local-manifest.json|local-sequence-report.json|COMPLETE|LOCAL_COMPLETE)
 			echo "privacy-check: normalized offline artifact filename: $path" >&2
 			failed=1
 			;;
@@ -110,6 +110,10 @@ while IFS="$tab" read -r metadata path; do
 	fi
 	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.shadow-analysis\.v(1|2|3)"' "$blob_file"; then
 		echo "privacy-check: generated shadow analysis report: $path" >&2
+		failed=1
+	fi
+	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.local-sequence-report\.v1"' "$blob_file"; then
+		echo "privacy-check: generated local sequence report: $path" >&2
 		failed=1
 	fi
 	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.rollout-plan\.v1"' "$blob_file"; then

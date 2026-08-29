@@ -48,6 +48,15 @@ never sent over a network. All other raw classes above remain prohibited. The
 input and pseudonymized output stay outside Git and remain subject to the
 operator's legal basis, access controls, retention and deletion duties.
 
+The follow-on [`analyze-local-events`](../LOCAL_SEQUENCE_ANALYSIS.md) command
+may use daily subject/session pseudonyms transiently as bounded sequence-map
+keys. It verifies every shard locally and persists only aggregate counts,
+closed feature definitions, collection-quality totals and a source time range.
+Pseudonyms and row-level events never enter the report. The report is still a
+private, owner-only artifact because its aggregate timing and volume may be
+sensitive; the repository privacy guard rejects it by schema marker even after
+renaming.
+
 Default event/session retention is five minutes in memory. Optional shadow persistence records only the bounded decision fields and normalized outcomes documented in [SHADOW_LOG.md](../SHADOW_LOG.md). It is disabled unless both a local directory and key file are configured. Records are individually authenticated and encrypted, session IDs are replaced with keyed pilot-local link keys, timestamps are quantized to seconds, retention is configurable, and paths must be owner-only and outside Git worktrees. This is not permission to persist browser events, request bodies, cookies, tokens, IP addresses, user agents or raw traffic.
 
 When event-triggered shadow evaluation is enabled, accepted browser events stay

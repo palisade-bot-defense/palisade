@@ -27,6 +27,7 @@ import (
 	decisionengine "github.com/palisade-bot-defense/palisade/internal/engine"
 	"github.com/palisade-bot-defense/palisade/internal/events"
 	"github.com/palisade-bot-defense/palisade/internal/httpapi"
+	"github.com/palisade-bot-defense/palisade/internal/localsequence"
 	"github.com/palisade-bot-defense/palisade/internal/offlineimport"
 	"github.com/palisade-bot-defense/palisade/internal/policy"
 	"github.com/palisade-bot-defense/palisade/internal/replay"
@@ -50,7 +51,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: palisade <serve|doctor|sovereignty-report|replay|import-offline|import-local-events|verify-shadow-log|analyze-shadow-log|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
+		return errors.New("usage: palisade <serve|doctor|sovereignty-report|replay|import-offline|import-local-events|analyze-local-events|verify-shadow-log|analyze-shadow-log|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
 	}
 	switch args[0] {
 	case "serve":
@@ -65,6 +66,8 @@ func run(args []string) error {
 		return runOfflineImport(args[1:])
 	case "import-local-events":
 		return runLocalEventImport(args[1:])
+	case "analyze-local-events":
+		return runLocalEventAnalysis(args[1:])
 	case "verify-shadow-log":
 		return verifyShadowLog(args[1:])
 	case "analyze-shadow-log":
@@ -294,6 +297,34 @@ func runLocalEventImport(args []string) error {
 		return err
 	}
 	fmt.Printf("local evidence import complete: events=%d\nmanifest: %s\n", result.Events, result.ManifestPath)
+	return nil
+}
+
+func runLocalEventAnalysis(args []string) error {
+	flags := flag.NewFlagSet("analyze-local-events", flag.ContinueOnError)
+	directory := flags.String("dir", "", "owner-only normalized local evidence directory outside every Git worktree")
+	outputPath := flags.String("output", "", "new owner-only aggregate report outside every Git worktree")
+	maxShards := flags.Int("max-shards", offlineimport.DefaultLocalScanMaxShards, "hard verified-shard scan budget")
+	maxEvents := flags.Uint64("max-events", offlineimport.DefaultLocalScanMaxEvents, "hard verified-event scan budget")
+	maxBytes := flags.Int64("max-bytes", offlineimport.DefaultLocalScanMaxBytes, "hard verified-input byte budget")
+	maxActive := flags.Int("max-active-sequences", localsequence.DefaultMaxActiveSequences, "hard in-memory active sequence budget")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 || *directory == "" || *outputPath == "" {
+		return errors.New("analyze-local-events requires --dir and --output and accepts no positional arguments")
+	}
+	report, err := localsequence.AnalyzeDirectory(*directory, localsequence.Config{
+		ScanLimits:         offlineimport.LocalScanLimits{MaxShards: *maxShards, MaxEvents: *maxEvents, MaxBytes: *maxBytes},
+		MaxActiveSequences: *maxActive,
+	})
+	if err != nil {
+		return err
+	}
+	if err := localsequence.WriteReport(*outputPath, report); err != nil {
+		return err
+	}
+	fmt.Printf("local sequence report written: events=%d sequences=%d\n", report.Source.Events, report.Source.Sequences)
 	return nil
 }
 

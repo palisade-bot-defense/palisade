@@ -47,6 +47,7 @@ internal/engine
 internal/events
 internal/fusion
 internal/httpapi
+internal/localsequence
 internal/offlineimport
 internal/policy
 internal/replay

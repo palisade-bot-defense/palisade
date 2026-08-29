@@ -27,7 +27,7 @@ func TestLocalEvidenceNormalizationNeverEmitsDirectReferences(t *testing.T) {
 	pseudonyms := newPseudonymizer(bytes.Repeat([]byte{0x42}, 32), "dataset", "pilot")
 	defer pseudonyms.Wipe()
 	event := normalizeLocalEvent(parsed, observedAt, ProvenanceOperatorExport, pseudonyms)
-	if err := validateLocalOutputEvent(event); err != nil {
+	if err := ValidateLocalEvent(event); err != nil {
 		t.Fatal(err)
 	}
 	encoded := string(mustJSON(t, event))

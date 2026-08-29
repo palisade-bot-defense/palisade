@@ -135,6 +135,15 @@ if (cd "$local_evidence_input" && "$guard") >/dev/null 2>&1; then
 	exit 1
 fi
 
+local_sequence_report="$test_root/local-sequence-report"
+new_repo "$local_sequence_report"
+printf '%s\n' '{"schema_version":"palisade.local-sequence-report.v1","source":{"events":42}}' >"$local_sequence_report/renamed.txt"
+git -C "$local_sequence_report" add renamed.txt
+if (cd "$local_sequence_report" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: generated local sequence report was accepted" >&2
+	exit 1
+fi
+
 shadow_analysis="$test_root/shadow-analysis"
 new_repo "$shadow_analysis"
 printf '%s\n' '{"schema_version":"palisade.shadow-analysis.v1","source":{"records":42}}' >"$shadow_analysis/renamed.txt"

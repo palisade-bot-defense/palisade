@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/local-sequence-report-v1.schema.json",
+  "title": "PALISADE local sequence report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_schema_version", "config", "feature_definitions", "source", "windows", "burst_shapes", "peak_minute_events", "endpoint_transitions", "endpoints", "collection", "evidence", "decoys", "challenges", "labels", "limitations"],
+  "properties": {
+    "schema_version": { "const": "palisade.local-sequence-report.v1" },
+    "source_schema_version": { "const": "palisade.local-evidence-event.v1" },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_active_sequences", "max_scan_shards", "max_scan_events", "max_scan_bytes"],
+      "properties": {
+        "max_active_sequences": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "max_scan_shards": { "type": "integer", "minimum": 1, "maximum": 999999 },
+        "max_scan_events": { "type": "integer", "minimum": 1, "maximum": 100000000 },
+        "max_scan_bytes": { "type": "integer", "minimum": 1, "maximum": 1099511627776 }
+      }
+    },
+    "feature_definitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inactivity_seconds", "maximum_window_seconds", "clustered_minimum_events", "clustered_maximum_duration_seconds", "high_rate_minimum_peak_minute_events", "sustained_minimum_events", "sustained_minimum_duration_seconds"],
+      "properties": {
+        "inactivity_seconds": { "const": 300 },
+        "maximum_window_seconds": { "const": 900 },
+        "clustered_minimum_events": { "const": 20 },
+        "clustered_maximum_duration_seconds": { "const": 60 },
+        "high_rate_minimum_peak_minute_events": { "const": 60 },
+        "sustained_minimum_events": { "const": 20 },
+        "sustained_minimum_duration_seconds": { "const": 300 }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shards", "events", "bytes", "sequences"],
+      "properties": {
+        "shards": { "$ref": "#/$defs/count" },
+        "events": { "$ref": "#/$defs/count" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "sequences": { "$ref": "#/$defs/count" },
+        "first_at": { "$ref": "#/$defs/utc" },
+        "last_at": { "$ref": "#/$defs/utc" }
+      }
+    },
+    "windows": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "closed_by_inactivity", "closed_by_maximum_duration", "closed_at_end_of_input"],
+      "properties": {
+        "total": { "$ref": "#/$defs/count" },
+        "closed_by_inactivity": { "$ref": "#/$defs/count" },
+        "closed_by_maximum_duration": { "$ref": "#/$defs/count" },
+        "closed_at_end_of_input": { "$ref": "#/$defs/count" }
+      }
+    },
+    "burst_shapes": { "$ref": "#/$defs/burst_shapes" },
+    "peak_minute_events": { "$ref": "#/$defs/peak_minute_events" },
+    "endpoint_transitions": { "$ref": "#/$defs/endpoint_transitions" },
+    "endpoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["events", "sequences"],
+      "properties": {
+        "events": { "$ref": "#/$defs/endpoint_counts" },
+        "sequences": { "$ref": "#/$defs/endpoint_counts" }
+      }
+    },
+    "collection": { "$ref": "#/$defs/collection" },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["automation", "abuse_intent", "continuity"],
+      "properties": {
+        "automation": { "$ref": "#/$defs/evidence_levels" },
+        "abuse_intent": { "$ref": "#/$defs/evidence_levels" },
+        "continuity": { "$ref": "#/$defs/evidence_levels" }
+      }
+    },
+    "decoys": { "$ref": "#/$defs/decoys" },
+    "challenges": { "$ref": "#/$defs/challenges" },
+    "labels": { "$ref": "#/$defs/labels" },
+    "limitations": {
+      "const": [
+        "operator evidence mappings are declarations and are not independently verified",
+        "daily pseudonyms and window keys are continuity handles, not identities",
+        "aggregate sequence association is observational and does not establish causal efficacy",
+        "challenge completion does not establish humanity",
+        "the report emits no subject or session identifiers and no row-level events"
+      ]
+    }
+  },
+  "$defs": {
+    "count": { "type": "integer", "minimum": 0 },
+    "utc": { "type": "string", "format": "date-time", "pattern": "Z$", "maxLength": 40 },
+    "burst_shapes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["single", "sparse", "clustered", "sustained", "high_rate"],
+      "properties": {
+        "single": { "$ref": "#/$defs/count" },
+        "sparse": { "$ref": "#/$defs/count" },
+        "clustered": { "$ref": "#/$defs/count" },
+        "sustained": { "$ref": "#/$defs/count" },
+        "high_rate": { "$ref": "#/$defs/count" }
+      }
+    },
+    "peak_minute_events": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["one", "two_to_five", "six_to_twenty", "twenty_one_to_fifty_nine", "sixty_plus"],
+      "properties": {
+        "one": { "$ref": "#/$defs/count" },
+        "two_to_five": { "$ref": "#/$defs/count" },
+        "six_to_twenty": { "$ref": "#/$defs/count" },
+        "twenty_one_to_fifty_nine": { "$ref": "#/$defs/count" },
+        "sixty_plus": { "$ref": "#/$defs/count" }
+      }
+    },
+    "endpoint_transitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "same_class", "cross_class", "sensitive_escalation", "decoy_entry"],
+      "properties": {
+        "total": { "$ref": "#/$defs/count" },
+        "same_class": { "$ref": "#/$defs/count" },
+        "cross_class": { "$ref": "#/$defs/count" },
+        "sensitive_escalation": { "$ref": "#/$defs/count" },
+        "decoy_entry": { "$ref": "#/$defs/count" }
+      }
+    },
+    "endpoint_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["public_content", "account", "authentication", "transaction", "api", "decoy", "other"],
+      "properties": {
+        "public_content": { "$ref": "#/$defs/count" },
+        "account": { "$ref": "#/$defs/count" },
+        "authentication": { "$ref": "#/$defs/count" },
+        "transaction": { "$ref": "#/$defs/count" },
+        "api": { "$ref": "#/$defs/count" },
+        "decoy": { "$ref": "#/$defs/count" },
+        "other": { "$ref": "#/$defs/count" }
+      }
+    },
+    "collection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["events_complete", "events_partial", "events_missing", "windows_clean", "windows_with_artifact"],
+      "properties": {
+        "events_complete": { "$ref": "#/$defs/count" },
+        "events_partial": { "$ref": "#/$defs/count" },
+        "events_missing": { "$ref": "#/$defs/count" },
+        "windows_clean": { "$ref": "#/$defs/count" },
+        "windows_with_artifact": { "$ref": "#/$defs/count" }
+      }
+    },
+    "evidence_levels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["none", "low", "medium", "high"],
+      "properties": {
+        "none": { "$ref": "#/$defs/count" },
+        "low": { "$ref": "#/$defs/count" },
+        "medium": { "$ref": "#/$defs/count" },
+        "high": { "$ref": "#/$defs/count" }
+      }
+    },
+    "decoys": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["none", "rendered", "touched", "submitted"],
+      "properties": {
+        "none": { "$ref": "#/$defs/count" },
+        "rendered": { "$ref": "#/$defs/count" },
+        "touched": { "$ref": "#/$defs/count" },
+        "submitted": { "$ref": "#/$defs/count" }
+      }
+    },
+    "challenges": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["none", "issued_unresolved", "passed", "failed", "abandoned", "fallback", "conflicting"],
+      "properties": {
+        "none": { "$ref": "#/$defs/count" },
+        "issued_unresolved": { "$ref": "#/$defs/count" },
+        "passed": { "$ref": "#/$defs/count" },
+        "failed": { "$ref": "#/$defs/count" },
+        "abandoned": { "$ref": "#/$defs/count" },
+        "fallback": { "$ref": "#/$defs/count" },
+        "conflicting": { "$ref": "#/$defs/count" }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unknown", "human_confirmed", "operator_confirmed_abuse", "ambiguous"],
+      "properties": {
+        "unknown": { "$ref": "#/$defs/count" },
+        "human_confirmed": { "$ref": "#/$defs/count" },
+        "operator_confirmed_abuse": { "$ref": "#/$defs/count" },
+        "ambiguous": { "$ref": "#/$defs/count" }
+      }
+    }
+  }
+}

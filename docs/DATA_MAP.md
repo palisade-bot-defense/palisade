@@ -1,13 +1,14 @@
 # Machine-readable data map
 
-The current versioned [PALISADE data map](../manifests/data-map-v2.json) records the
+The current versioned [PALISADE data map](../manifests/data-map-v3.json) records the
 reference product's accepted data classes, destinations, network scopes and
 persistence modes. Its JSON Schema is
-[`schemas/data-map-v2.schema.json`](../schemas/data-map-v2.schema.json). The
-original [v1 map](../manifests/data-map-v1.json) remains available as an
-immutable record of the pre-generic-import boundary.
+[`schemas/data-map-v3.schema.json`](../schemas/data-map-v3.schema.json). The
+[v1](../manifests/data-map-v1.json) and [v2](../manifests/data-map-v2.json) maps
+remain immutable records of the pre-generic-import and pre-sequence-analysis
+boundaries.
 
-The v2 map covers ten flows:
+The v3 map covers eleven flows:
 
 1. bounded browser-event ingestion;
 2. trusted normalized decision requests;
@@ -16,9 +17,10 @@ The v2 map covers ten flows:
 5. optional encrypted shadow decisions;
 6. delayed closed outcome labels;
 7. local aggregate analysis;
-8. the loopback Operator Console summary;
-9. the generic local evidence import; and
-10. the non-identifying Sovereignty Report.
+8. the generic local evidence import;
+9. bounded local aggregate sequence analysis;
+10. the loopback Operator Console summary; and
+11. the non-identifying Sovereignty Report.
 
 Every mapped flow has `external_export: false`. That field means PALISADE does
 not export the flow to a PALISADE-operated external service. It does not override
@@ -30,13 +32,20 @@ form content, DOM text, keystrokes and exact pointer paths. Closed classes
 derived transiently at a trusted adapter may enter the decision contract; their
 raw source values may not.
 
-Data Map v2 adds one explicit exception at a different boundary: the local
+Data Map v2 added one explicit exception at a different boundary: the local
 evidence importer may read an operator subject and session reference from an
 owner-only input file solely to derive daily rotating pseudonyms. Those two
 transient classes are listed separately on the flow and at the document root.
 They never enter the runtime decision service or persisted normalized output.
 The input file remains operator-controlled personal data; pseudonymized output
 is still potentially personal data and is not publication-ready.
+
+Data Map v3 adds the follow-on sequence-analysis flow. Daily pseudonyms are
+used transiently to associate events inside fixed five-minute/15-minute windows,
+but only aggregate feature and evidence-lane counts are persisted in the
+sequence report. No subject/session pseudonym or row-level event is a report
+data class. The report remains owner-only because aggregate activity volume and
+time ranges may still reveal operational information.
 
 `TestDataMapIsClosedAndContainsNoRawAcceptedClass` rejects duplicate flows,
 external-export flags, missing boundaries and any raw excluded class that is

@@ -95,3 +95,20 @@ and manifests for the shortest approved period, use encrypted operator storage
 where the risk assessment requires it, and keep the key in a separately
 controlled location. Do not send these artifacts to GitHub, hosted CI, public
 issue trackers or PALISADE maintainers.
+
+## Aggregate sequence analysis
+
+After import, `palisade analyze-local-events` can verify the completed manifest
+and every shard, then derive bounded five-minute sequence aggregates into a new
+owner-only report:
+
+```sh
+palisade analyze-local-events \
+  --dir /private/palisade/normalized-run-001 \
+  --output /private/palisade/reports/local-sequence-report.json
+```
+
+Subject and session pseudonyms are used only as transient local linkage keys.
+They and all row-level events are absent from the report. See the
+[local sequence-analysis contract](LOCAL_SEQUENCE_ANALYSIS.md) for exact
+feature definitions, resource ceilings and interpretation limits.

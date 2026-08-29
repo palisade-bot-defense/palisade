@@ -255,9 +255,12 @@ command accepts an operator-created, chronological closed JSONL contract and
 immediately pseudonymizes its direct local references. Neither command uploads,
 fetches or emits raw rows. Inputs, keys and normalized outputs must stay outside
 every Git worktree. See the [generic local import contract](docs/LOCAL_IMPORT.md)
-and [source-specific offline import](docs/OFFLINE_IMPORT.md).
+and [source-specific offline import](docs/OFFLINE_IMPORT.md). The follow-on
+`palisade analyze-local-events` command verifies the completed local shards and
+emits only bounded aggregate sequence features under a versioned contract; see
+[local sequence analysis](docs/LOCAL_SEQUENCE_ANALYSIS.md).
 
-See the [architecture and stack](docs/ARCHITECTURE.md), [product differentiation](docs/DIFFERENTIATION.md), [Sovereignty Report](docs/SOVEREIGNTY.md), [runtime egress inventory](docs/RUNTIME_EGRESS.md), [machine-readable data map](docs/DATA_MAP.md), [generic local import](docs/LOCAL_IMPORT.md), [local release process](docs/RELEASING.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
+See the [architecture and stack](docs/ARCHITECTURE.md), [product differentiation](docs/DIFFERENTIATION.md), [Sovereignty Report](docs/SOVEREIGNTY.md), [runtime egress inventory](docs/RUNTIME_EGRESS.md), [machine-readable data map](docs/DATA_MAP.md), [generic local import](docs/LOCAL_IMPORT.md), [local sequence analysis](docs/LOCAL_SEQUENCE_ANALYSIS.md), [local release process](docs/RELEASING.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
 
 ## Project status and license
 

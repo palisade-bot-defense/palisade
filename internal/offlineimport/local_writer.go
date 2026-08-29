@@ -31,7 +31,7 @@ func newLocalShardWriter(dir string, limit int, budget *budgets) *localShardWrit
 }
 
 func (writer *localShardWriter) Write(event LocalEvent) error {
-	if err := validateLocalOutputEvent(event); err != nil {
+	if err := ValidateLocalEvent(event); err != nil {
 		return err
 	}
 	observedAt, _ := time.Parse(time.RFC3339Nano, event.ObservedAt)
@@ -138,7 +138,7 @@ func (writer *localShardWriter) finishCurrent() error {
 	return nil
 }
 
-func validateLocalOutputEvent(event LocalEvent) error {
+func ValidateLocalEvent(event LocalEvent) error {
 	if event.SchemaVersion != LocalEventSchemaVersion || event.Provenance != ProvenanceOperatorExport || !validPseudonym(event.SubjectID) || (event.SessionID != "" && !validPseudonym(event.SessionID)) {
 		return errors.New("local evidence output violates its closed identity contract")
 	}

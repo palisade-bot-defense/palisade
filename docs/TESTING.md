@@ -37,7 +37,8 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
 - Unit tests cover detector evidence, score fusion, policy ordering, bounded
   state, cryptography helpers and closed validation rules.
 - Integration tests cover the HTTP API, encrypted shadow pipeline, offline
-  importer, generic local evidence importer, signed rollout workflow, challenge lifecycle and reference origin
+  importer, generic local evidence importer, verified aggregate sequence
+  analyzer, signed rollout workflow, challenge lifecycle and reference origin
   middleware. Origin-coverage tests exercise authenticated cumulative reports,
   idempotent retries, monotonic counters, restart baselines, the 1,024-source
   bound and rejection of free-form endpoint data. Adapter tests additionally
@@ -57,6 +58,12 @@ fields, ambiguous label provenance, direct-reference leakage, decreasing event
 time, incomplete publication and cross-day pseudonym linkage. Owner-only file
 mode integration tests run on macOS/Linux; pure contract and pseudonym tests run
 on every supported build host.
+
+The local sequence-analysis suite authenticates shard fingerprints, rejects
+undeclared files and scan-budget overflow, verifies inactivity and maximum-age
+boundaries, enforces one heap entry per active sequence, keeps the three
+evidence dimensions separate and searches serialized reports for row-level
+identifiers. Its package is part of the 70% security-critical coverage gate.
 
 ## Known gaps
 

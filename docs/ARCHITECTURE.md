@@ -23,6 +23,7 @@ It is not a packet sniffer, a general log warehouse or a raw-vendor-event bus.
 | Rollout approval | Ed25519 signed JSON | Expiring endpoint/action/cohort scope reviewed by an operator |
 | Sovereignty inventory | Deterministic closed JSON | Product invariants separated from unverified, non-identifying operator declarations |
 | Egress and data maps | Versioned JSON plus source regression tests | Reviewed network callsites, closed data classes, destinations, persistence and explicit exclusions |
+| Historical sequence analysis | Go CLI | Verified local shards, bounded active windows and deterministic aggregate-only feature reports |
 
 The initial deployment is a modular monolith. A database, message broker or
 distributed cache is not required by the baseline. Shared state should be added
@@ -60,6 +61,9 @@ origin middleware ───────── POST /v1/origin-check ─> 204 / 4
 signed browser session ──── /v1/challenge/* ────────> one-time bound redemption
 
 loopback admin listener ─── /v1/admin/summary ──────> counters + validated aggregate report
+
+operator export ─── import-local-events ───> owner-only verified shards
+verified shards ─── analyze-local-events ──> owner-only aggregate sequence report
 ```
 
 In a sensor-only shadow deployment, an optional server-trusted profile turns
@@ -119,6 +123,11 @@ predecessor canary on the exact same endpoint.
   publishes only a validated aggregate report through a same-directory atomic
   rename. The serving process polls that report and retains its last valid
   snapshot when an update is missing, partial or invalid.
+- Historical sequence analysis is also a separate local process. It verifies
+  the completed import marker, manifest, exact directory inventory and every
+  shard fingerprint before streaming closed events. Daily pseudonyms exist
+  only as transient keys in a bounded active-window map; the create-only report
+  contains aggregates and fixed feature definitions, never those keys or rows.
 
-See [Sovereignty Report](SOVEREIGNTY.md), [runtime egress inventory](RUNTIME_EGRESS.md), [data map](DATA_MAP.md), [generic local import](LOCAL_IMPORT.md), [reference origin adapter](ORIGIN_ADAPTER.md), [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
+See [Sovereignty Report](SOVEREIGNTY.md), [runtime egress inventory](RUNTIME_EGRESS.md), [data map](DATA_MAP.md), [generic local import](LOCAL_IMPORT.md), [local sequence analysis](LOCAL_SEQUENCE_ANALYSIS.md), [reference origin adapter](ORIGIN_ADAPTER.md), [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
 [native challenge](CHALLENGE.md), [shadow logging](SHADOW_LOG.md), [automated analysis](ANALYSIS_AUTOMATION.md), [Operator Console](OPERATOR_CONSOLE.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).

@@ -112,18 +112,21 @@ func TestRuntimeEgressManifestMatchesReviewedSourceCallsites(t *testing.T) {
 func TestDataMapIsClosedAndContainsNoRawAcceptedClass(t *testing.T) {
 	root := repositoryRoot(t)
 	var manifest dataMapManifest
-	readRepositoryJSON(t, root, "manifests/data-map-v2.json", &manifest)
-	if manifest.SchemaVersion != "palisade.data-map.v2" || manifest.Scope != "reference_product_data_flows" ||
+	readRepositoryJSON(t, root, "manifests/data-map-v3.json", &manifest)
+	if manifest.SchemaVersion != "palisade.data-map.v3" || manifest.Scope != "reference_product_data_flows" ||
 		manifest.DefaultRules.ExternalExport || manifest.DefaultRules.RawNetworkIdentifiers != "excluded_from_runtime_and_persisted_output" ||
 		manifest.DefaultRules.ContentCollection != "excluded" || manifest.DefaultRules.MissingBrowserSensor != "neutral" {
 		t.Fatalf("unexpected data map defaults: %+v", manifest.DefaultRules)
 	}
 	wantFlowIDs := []string{
 		"aggregate_analysis", "browser_event_ingest", "continuity_cookie", "decision_request",
-		"delayed_outcome", "local_evidence_import", "native_challenge_lifecycle", "operator_console_summary", "shadow_measurement", "sovereignty_report",
+		"delayed_outcome", "local_evidence_import", "local_sequence_analysis", "native_challenge_lifecycle", "operator_console_summary", "shadow_measurement", "sovereignty_report",
 	}
-	wantTransient := []string{"operator_session_reference_may_be_personal_data", "operator_subject_reference_may_include_network_identifier"}
+	wantDirectReferences := []string{"operator_session_reference_may_be_personal_data", "operator_subject_reference_may_include_network_identifier"}
+	wantSequenceLinkage := []string{"daily_rotating_pseudonym_for_sequence_linkage"}
+	wantTransient := append(append([]string(nil), wantSequenceLinkage...), wantDirectReferences...)
 	slices.Sort(manifest.TransientLocalInputClasses)
+	slices.Sort(wantTransient)
 	if !reflect.DeepEqual(manifest.TransientLocalInputClasses, wantTransient) {
 		t.Fatalf("transient local input classes = %#v, want %#v", manifest.TransientLocalInputClasses, wantTransient)
 	}
@@ -140,8 +143,12 @@ func TestDataMapIsClosedAndContainsNoRawAcceptedClass(t *testing.T) {
 		}
 		if flow.ID == "local_evidence_import" {
 			slices.Sort(flow.TransientDataClasses)
-			if !reflect.DeepEqual(flow.TransientDataClasses, wantTransient) || flow.NetworkScope != "local_filesystem_only" {
+			if !reflect.DeepEqual(flow.TransientDataClasses, wantDirectReferences) || flow.NetworkScope != "local_filesystem_only" {
 				t.Fatalf("local import transient boundary is incomplete: %+v", flow)
+			}
+		} else if flow.ID == "local_sequence_analysis" {
+			if !reflect.DeepEqual(flow.TransientDataClasses, wantSequenceLinkage) || flow.NetworkScope != "local_filesystem_only" || flow.Persistence != "operator_controlled_owner_only_artifact" {
+				t.Fatalf("local sequence-analysis boundary is incomplete: %+v", flow)
 			}
 		} else if len(flow.TransientDataClasses) != 0 {
 			t.Fatalf("unexpected transient input classes on flow %q: %#v", flow.ID, flow.TransientDataClasses)
@@ -162,9 +169,11 @@ func TestSovereigntyRepositorySchemasAreValidJSON(t *testing.T) {
 	for _, path := range []string{
 		"schemas/data-map-v1.schema.json",
 		"schemas/data-map-v2.schema.json",
+		"schemas/data-map-v3.schema.json",
 		"schemas/local-evidence-event-v1.schema.json",
 		"schemas/local-evidence-input-v1.schema.json",
 		"schemas/local-evidence-manifest-v1.schema.json",
+		"schemas/local-sequence-report-v1.schema.json",
 		"schemas/local-release-v1.schema.json",
 		"schemas/runtime-egress-v1.schema.json",
 		"schemas/sovereignty-report-v1.schema.json",

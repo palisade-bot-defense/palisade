@@ -154,6 +154,20 @@ func TestLocalEventImportRejectsUnapprovedProvenanceBeforeOpeningFiles(t *testin
 	}
 }
 
+func TestLocalEventAnalysisRequiresPathsAndRejectsUnsafeBudget(t *testing.T) {
+	if err := runLocalEventAnalysis(nil); err == nil || !strings.Contains(err.Error(), "requires --dir and --output") {
+		t.Fatalf("missing local analysis paths error = %v", err)
+	}
+	err := runLocalEventAnalysis([]string{
+		"--dir", "synthetic-input",
+		"--output", "synthetic-output",
+		"--max-active-sequences", "1000001",
+	})
+	if err == nil || !strings.Contains(err.Error(), "active-window limit") {
+		t.Fatalf("unsafe local analysis budget error = %v", err)
+	}
+}
+
 func TestServeRequiresBothShadowLogPaths(t *testing.T) {
 	err := serve([]string{"--dev", "--shadow-log-dir", "synthetic-shadow-dir"})
 	if err == nil || !strings.Contains(err.Error(), "configured together") {

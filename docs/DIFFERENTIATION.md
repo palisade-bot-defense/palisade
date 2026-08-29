@@ -70,7 +70,9 @@ become more valuable when inspected and adopted:
 3. **Generic local import contract:** a vendor-neutral, owner-only path that
    pseudonymizes direct local references and keeps collection quality,
    automation, harmful intent, continuity, decoy and challenge evidence
-   separate without a PALISADE data upload.
+   separate without a PALISADE data upload. Its paired sequence contract
+   authenticates local shards, bounds active linkage and publishes only fixed,
+   reviewable aggregates.
 4. **Evidence ledger formats:** stable reasons, policy/model versions, replay
    records and delayed-outcome linkage with explicit uncertainty.
 5. **Measured rollout artifacts:** review and rollout schemas that cryptographically
