@@ -5,17 +5,50 @@
 </p>
 
 <p align="center">
-  <strong>Open-source signal fusion for bot defense.</strong><br>
-  Explainable decisions, privacy-limited signals, and measurable rollout gates.
+  <strong>EU-first, self-hosted bot defense.</strong><br>
+  Keep traffic data under your control. Explain every decision.
 </p>
 
-PALISADE is an early defensive-security project for separating three questions that bot controls often collapse into one:
+PALISADE is an open-source defensive-security project for operators that need
+bot and abuse decisions without routing traffic through a mandatory vendor
+cloud. It can run on-premises or in an operator-selected EU region with no
+PALISADE account, central telemetry service or cross-site identity graph.
+
+## Why PALISADE
+
+- **Self-hosted by design:** processing location, keys, retention and policies
+  remain under operator control.
+- **No mandatory third-country transfer:** a fully EU-hosted deployment with no
+  external providers does not require a PALISADE-operated data transfer.
+- **Data-minimized inputs:** raw addresses, protocol fingerprints, URLs, user
+  agents and vendor payloads stay at the trusted deployment boundary.
+- **Content-free browser sensor:** no form values, keystrokes, DOM text or exact
+  pointer coordinates.
+- **Local learning loop:** encrypted shadow logs, historical imports,
+  evaluation and rollout decisions remain local; production data never belongs
+  in the public repository.
+- **Auditable decisions:** stable reason codes and versioned policies replace an
+  opaque remote bot score.
+- **Actually open source:** AGPL-3.0-only core and Apache-2.0 browser sensor.
+
+PALISADE separates three questions that bot controls often collapse into one:
 
 - **Automation risk** — how likely is the client automated?
 - **Abuse intent** — how likely is the current action harmful?
 - **Account continuity** — how consistent is the session with its established behavior?
 
-Automation alone is not abuse. PALISADE combines bounded behavioral and server-side evidence with transparent reason codes, keeps risky actions in shadow mode until measured, and treats challenges as outcomes rather than proof of humanity.
+Automation alone is not abuse. PALISADE combines bounded behavioral and
+server-side evidence with transparent reason codes, keeps risky actions in
+shadow mode until measured, and treats challenges as outcomes rather than proof
+of humanity.
+
+> [!NOTE]
+> **GDPR-aware does not mean GDPR-certified.** PALISADE provides technical
+> controls, not a compliance certificate.
+> Controllers and processors remain responsible for legal basis, transparency,
+> data-subject rights, retention, security, provider relationships and any
+> required DPIA or terminal-access assessment. Start with the
+> [EU privacy deployment checklist](https://github.com/palisade-bot-defense/palisade/blob/main/docs/privacy/DEPLOYMENT_CHECKLIST.md).
 
 ## What we are building
 
@@ -32,7 +65,7 @@ Automation alone is not abuse. PALISADE combines bounded behavioral and server-s
 |---|---|---|
 | [`palisade`](https://github.com/palisade-bot-defense/palisade) | Early prototype · shadow first | Decision service, sensor, policy engine, replay, local evaluation, and deployment contracts |
 
-Start with the [project overview](https://github.com/palisade-bot-defense/palisade#readme), then read the [roadmap](https://github.com/palisade-bot-defense/palisade/blob/main/ROADMAP.md), [evaluation protocol](https://github.com/palisade-bot-defense/palisade/blob/main/docs/EVALUATION.md), and [privacy boundaries](https://github.com/palisade-bot-defense/palisade/blob/main/docs/privacy/DATA_BOUNDARIES.md).
+Start with the [project overview](https://github.com/palisade-bot-defense/palisade#readme), then read the [roadmap](https://github.com/palisade-bot-defense/palisade/blob/main/ROADMAP.md), [evaluation protocol](https://github.com/palisade-bot-defense/palisade/blob/main/docs/EVALUATION.md), [privacy boundaries](https://github.com/palisade-bot-defense/palisade/blob/main/docs/privacy/DATA_BOUNDARIES.md), and [EU deployment checklist](https://github.com/palisade-bot-defense/palisade/blob/main/docs/privacy/DEPLOYMENT_CHECKLIST.md).
 
 > [!IMPORTANT]
 > PALISADE does not claim perfect bot detection or an unsolvable challenge. The current prototype must begin in shadow mode and has no production-supported release.

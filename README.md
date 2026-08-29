@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  Open-source, explainable signal fusion for bot and abuse decisions.
+  EU-first, self-hosted bot defense with explainable, privacy-limited decisions.
 </p>
 
 > [!IMPORTANT]
@@ -11,13 +11,46 @@
 
 ## Project focus
 
-PALISADE is developed as a self-hosted open-source project: an explainable
-fusion and policy layer for bounded bot and abuse signals. The current priority
-is a reproducible local experience, representative shadow evaluation and useful
-adapters—not hosted SaaS, managed operations, billing or commercial product
-tiers. Strong edge signals such as protocol fingerprints and reputation can be
-normalized by a trusted deployment adapter; PALISADE does not need to own every
-detector to make their combined decision auditable.
+PALISADE is an EU-first, self-hosted and open-source fusion and policy layer for
+bounded bot and abuse signals. It runs on infrastructure selected and controlled
+by the operator—including on-premises or in an EU region—without a mandatory
+PALISADE cloud account, hosted control plane, central telemetry service or
+cross-site identity graph. The operator chooses the processing location,
+retention, keys, enabled signals and enforcement policy.
+
+The current priority is a reproducible local experience, representative shadow
+evaluation and useful adapters—not hosted SaaS, managed operations, billing or
+commercial product tiers. Strong edge signals such as protocol fingerprints and
+reputation can be normalized at the trusted deployment boundary; PALISADE does
+not need to receive their raw values or own every detector to make the combined
+decision auditable.
+
+## Data sovereignty by architecture
+
+| Area | PALISADE default |
+|---|---|
+| **Deployment** | The service runs in the operator's environment. Requests do not need to pass through a PALISADE-operated network. |
+| **Data flow** | The decision API accepts closed, normalized signal classes. Raw IP addresses, ASNs, user agents, URLs, protocol fingerprints and vendor payloads stay outside PALISADE. |
+| **Browser collection** | The first-party sensor excludes form content, keystrokes, DOM text and exact pointer coordinates. Missing sensor data remains neutral. |
+| **Storage** | Runtime state is bounded and local. Optional shadow logs are encrypted with operator-held keys, retained locally and deleted on an operator-defined schedule. |
+| **Evaluation** | Historical exports are imported and analyzed offline. Raw inputs, normalized deployment data and private reports must remain outside Git worktrees and are never required to be shared with the project. |
+| **Decisions** | Every result carries stable reason codes plus policy and model versions instead of relying on an opaque remote score. |
+| **Software freedom** | The server is AGPL-3.0-only and the embeddable sensor is Apache-2.0, allowing inspection, independent operation and community review. |
+
+When PALISADE and its selected upstream adapters are operated entirely on
+operator-controlled EU infrastructure, PALISADE itself requires no
+PALISADE-initiated transfer to a third country. External hosting, reputation,
+monitoring or support providers remain explicit deployment choices and must be
+assessed separately.
+
+> [!NOTE]
+> Self-hosting and data minimization do not automatically make a deployment
+> GDPR-, ePrivacy- or TDDDG-compliant. The operator remains responsible for the
+> purpose, legal basis, transparency, data-subject rights, retention, security,
+> processor relationships and any required DPIA. The browser sensor and
+> first-party cookie need a deployment-specific terminal-access assessment. Use
+> the [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md)
+> before enabling real traffic or enforcement.
 
 ## What exists today
 
