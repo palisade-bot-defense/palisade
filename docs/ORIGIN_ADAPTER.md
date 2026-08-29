@@ -270,3 +270,8 @@ pages.
 The adapter never promotes a recommendation or changes runtime mode. See
 [ROLLOUT.md](ROLLOUT.md), [CHALLENGE.md](CHALLENGE.md) and the authoritative
 [OpenAPI contract](../api/openapi.yaml).
+
+Custom implementations can verify the same pass, response, failure-policy and
+privacy boundary against the versioned [origin adapter conformance
+suite](ADAPTER_CONFORMANCE.md). The suite is entirely synthetic and does not
+require production traffic or PALISADE-operated infrastructure.

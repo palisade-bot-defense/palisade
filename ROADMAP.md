@@ -124,7 +124,7 @@ Deliverables:
 - stabilize the normalized HTTP and protobuf adapter contracts;
 - publish generic reference integrations for common reverse-proxy patterns,
   starting with the existing Go origin middleware;
-- define conformance fixtures so community adapters can be certified without
+- [x] define conformance fixtures so community adapters can be certified without
   production traffic or PALISADE-operated infrastructure;
 - support signed, expiring local artifacts for crawler registries, policies,
   detector bundles and rollout plans;

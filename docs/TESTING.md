@@ -46,7 +46,11 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
   in exactly one closed disposition without exporting request fields.
 - Consumer contract tests ensure the server and Go origin adapter agree on
   pass, delay, throttle, challenge and block responses and reject malformed or
-  risky shadow responses.
+  risky shadow responses. The versioned, language-neutral [origin adapter
+  conformance suite](ADAPTER_CONFORMANCE.md) executes the same nine synthetic
+  pass, response, outage and malformed-response scenarios against the Go
+  reference implementation and includes negative assertions for application
+  URLs, queries, bodies, user agents and cookies.
 - Challenge accessibility contract tests cover semantic status output, visible
   focus styling, 44-pixel controls, reduced-motion and forced-color CSS, absence
   of focus hijacking, a working no-JavaScript form, closed form parsing, safe
