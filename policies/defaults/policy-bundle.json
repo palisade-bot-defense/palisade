@@ -1,0 +1,12 @@
+{
+  "schema_version": "palisade.policy-bundle.v1",
+  "policy_version": "default-v5",
+  "profile": "transparent-progressive-v1",
+  "automation_elevated": 0.52,
+  "automation_step_up": 0.68,
+  "automation_high": 0.88,
+  "intent_elevated": 0.52,
+  "intent_step_up": 0.68,
+  "intent_high": 0.90,
+  "continuity_step_up_below": 0.20
+}

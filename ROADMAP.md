@@ -126,7 +126,7 @@ Deliverables:
   starting with the existing Go origin middleware;
 - [x] define conformance fixtures so community adapters can be certified without
   production traffic or PALISADE-operated infrastructure;
-- support signed, expiring local artifacts for crawler registries, policies,
+- [x] support signed, expiring local artifacts for crawler registries, policies,
   detector bundles and rollout plans;
 - document compatibility with local upstream signals such as WAF verdicts,
   reputation classes and challenge outcomes without embedding vendor payloads;

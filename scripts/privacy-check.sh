@@ -132,6 +132,10 @@ while IFS="$tab" read -r metadata path; do
 		echo "privacy-check: signed deployment rollout plan: $path" >&2
 		failed=1
 	fi
+	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.local-artifact\.v1"' "$blob_file"; then
+		echo "privacy-check: signed local runtime artifact: $path" >&2
+		failed=1
+	fi
 	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.rollout-review\.v(1|2|3|4)"' "$blob_file"; then
 		echo "privacy-check: generated rollout review proposal: $path" >&2
 		failed=1

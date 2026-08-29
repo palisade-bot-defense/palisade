@@ -57,6 +57,11 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
   free-form request actions, incomplete verified-crawler tuples, unpaired edge
   classifications and duplicate protobuf field or enum numbers. The public
   contract package is included in the per-package 70% coverage gate.
+- Signed local-artifact tests cover domain-separated signatures, key and type
+  confusion, expiry, revision rollback, file permissions, symlinks, worktree
+  placement, closed threshold ordering and compiled detector selection. Run
+  the synthetic package directly with `make artifact-contract`; no deployment
+  data or network access is involved.
 - Challenge accessibility contract tests cover semantic status output, visible
   focus styling, 44-pixel controls, reduced-motion and forced-color CSS, absence
   of focus hijacking, a working no-JavaScript form, closed form parsing, safe

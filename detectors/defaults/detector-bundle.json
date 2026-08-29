@@ -1,0 +1,14 @@
+{
+  "schema_version": "palisade.detector-bundle.v1",
+  "model_version": "transparent-baseline-v13",
+  "profile": "transparent-baseline-v1",
+  "enabled_detectors": [
+    "protocol_consistency_v2",
+    "sequence_velocity_v2",
+    "navigation_graph_v1",
+    "decoy_interaction_v2",
+    "campaign_surface_v1",
+    "external_verdicts_v3",
+    "edge_intelligence_v1"
+  ]
+}

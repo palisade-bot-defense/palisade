@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.bot/schemas/policy-bundle-v1.schema.json",
+  "title": "PALISADE closed policy bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_version", "profile", "automation_elevated", "automation_step_up", "automation_high", "intent_elevated", "intent_step_up", "intent_high", "continuity_step_up_below"],
+  "properties": {
+    "schema_version": { "const": "palisade.policy-bundle.v1" },
+    "policy_version": { "$ref": "#/$defs/id" },
+    "profile": { "const": "transparent-progressive-v1" },
+    "automation_elevated": { "$ref": "#/$defs/threshold" },
+    "automation_step_up": { "$ref": "#/$defs/threshold" },
+    "automation_high": { "$ref": "#/$defs/threshold" },
+    "intent_elevated": { "$ref": "#/$defs/threshold" },
+    "intent_step_up": { "$ref": "#/$defs/threshold" },
+    "intent_high": { "$ref": "#/$defs/threshold" },
+    "continuity_step_up_below": { "$ref": "#/$defs/threshold" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.:-]{2,63}$" },
+    "threshold": { "type": "number", "minimum": 0.05, "maximum": 0.99 }
+  }
+}

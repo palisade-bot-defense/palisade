@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.bot/schemas/detector-bundle-v1.schema.json",
+  "title": "PALISADE closed detector bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "model_version", "profile", "enabled_detectors"],
+  "properties": {
+    "schema_version": { "const": "palisade.detector-bundle.v1" },
+    "model_version": { "$ref": "#/$defs/id" },
+    "profile": { "const": "transparent-baseline-v1" },
+    "enabled_detectors": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["protocol_consistency_v2", "sequence_velocity_v2", "navigation_graph_v1", "decoy_interaction_v2", "campaign_surface_v1", "external_verdicts_v3", "edge_intelligence_v1"]
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.:-]{2,63}$" }
+  }
+}

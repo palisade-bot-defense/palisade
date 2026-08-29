@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/core"
+	decisionengine "github.com/palisade-bot-defense/palisade/internal/engine"
+	"github.com/palisade-bot-defense/palisade/internal/policy"
 	"github.com/palisade-bot-defense/palisade/internal/replay"
 	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
 )
@@ -364,9 +366,22 @@ func TestServeRolloutRequiresStableSessionAndMeasurementSink(t *testing.T) {
 }
 
 func TestRolloutPathsMustBeConfiguredTogether(t *testing.T) {
-	_, err := loadRollout("synthetic-plan", "", []byte("0123456789abcdef0123456789abcdef"), time.Now())
+	_, err := loadRollout("synthetic-plan", "", []byte("0123456789abcdef0123456789abcdef"), policy.DefaultVersion, decisionengine.ModelVersion, time.Now())
 	if err == nil || !strings.Contains(err.Error(), "configured together") {
 		t.Fatalf("partial rollout error=%v", err)
+	}
+}
+
+func TestRuntimeArtifactPathsMustBeConfiguredTogether(t *testing.T) {
+	for _, args := range [][]string{
+		{"--dev", "--policy-bundle", "synthetic"},
+		{"--dev", "--policy-public-key", "synthetic"},
+		{"--dev", "--detector-bundle", "synthetic"},
+		{"--dev", "--detector-public-key", "synthetic"},
+	} {
+		if err := serve(args); err == nil || !strings.Contains(err.Error(), "configured together") {
+			t.Fatalf("args=%v error=%v", args, err)
+		}
 	}
 }
 

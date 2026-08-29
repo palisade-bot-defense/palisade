@@ -32,6 +32,8 @@ describe("aggregate endpoint evidence", () => {
     const summary = createDemoSummary(new Date("2026-08-28T12:00:00Z"));
     expect(summary.runtime.mode).toBe("shadow");
     expect(summary.runtime.model_version).toBe("transparent-baseline-v13");
+    expect(summary.runtime.policy_artifact?.state).toBe("current");
+    expect(summary.runtime.detector_artifact?.revision).toBe(2);
     expect(summary.analysis?.readiness.automatic_enforcement).toBe(false);
     expect(summary.traffic.enforced.challenge).toBe(0);
     expect(summary.traffic.computed.challenge).toBeGreaterThan(0);

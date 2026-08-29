@@ -38,6 +38,20 @@ func TestShadowModeOverridesRiskyComputedAction(t *testing.T) {
 	}
 }
 
+func TestSignedConfigurationExpiryStopsDecisions(t *testing.T) {
+	current := newTestEngine(t, core.RuntimeModeShadow)
+	now := time.Unix(1_800_000_000, 0).UTC()
+	current.now = func() time.Time { return now }
+	current.configExpires = now
+	if _, err := current.Decide(context.Background(), highRiskRequest()); !errors.Is(err, ErrConfigurationExpired) {
+		t.Fatalf("expired configuration error=%v", err)
+	}
+	current.configExpires = now.Add(time.Second)
+	if _, err := current.Decide(context.Background(), highRiskRequest()); err != nil {
+		t.Fatalf("current configuration rejected: %v", err)
+	}
+}
+
 func TestServerIssuedDecoyHitBecomesOneTimeEvidenceNotAutomaticBlock(t *testing.T) {
 	current := newTestEngine(t, core.RuntimeModeShadow)
 	current.detectors = detector.NewRegistry(detector.DecoyInteraction{})

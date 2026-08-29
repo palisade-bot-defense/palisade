@@ -32,6 +32,7 @@ shadow-analysis*.json
 !schemas/shadow-analysis-report-v3.schema.json
 !schemas/shadow-analysis-report-v4.schema.json
 *.private
+*.signed.json
 *.rollout.json
 rollout-plan*.json
 !schemas/rollout-plan-v1.schema.json

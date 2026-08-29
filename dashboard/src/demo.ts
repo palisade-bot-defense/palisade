@@ -5,10 +5,14 @@ const proportion = (count: number, total: number, lower = 0, upper = 0) => ({
 });
 
 export const createDemoSummary = (now: Date): Summary => ({
-  schema_version: "palisade.admin-summary.v9",
+  schema_version: "palisade.admin-summary.v10",
   generated_at: now.toISOString(),
   uptime_seconds: 7540,
-  runtime: { mode: "shadow", policy_version: "default-v5", model_version: "transparent-baseline-v13" },
+  runtime: {
+    mode: "shadow", policy_version: "default-v5", model_version: "transparent-baseline-v13",
+    policy_artifact: { artifact_type: "policy_bundle", artifact_id: "default-v5", revision: 4, expires_at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(), state: "current" },
+    detector_artifact: { artifact_type: "detector_bundle", artifact_id: "transparent-baseline-v13", revision: 2, expires_at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(), state: "current" },
+  },
   capabilities: { shadow_log: true, event_shadow: true, event_shadow_proof_contexts: true, analysis_report: true },
   traffic: {
     accepted_event_batches: 412, accepted_events: 2864, decisions: 480, origin_checks: 442,

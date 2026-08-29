@@ -48,6 +48,7 @@ internal/events
 internal/fusion
 internal/httpapi
 internal/localsequence
+internal/localartifact
 internal/offlineimport
 internal/policy
 internal/replay
