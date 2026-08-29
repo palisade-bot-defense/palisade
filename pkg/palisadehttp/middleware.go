@@ -8,6 +8,8 @@ import (
 	"net/netip"
 	"strings"
 	"time"
+
+	"github.com/palisade-bot-defense/palisade/pkg/palisadecontract"
 )
 
 func (m *Middleware) Handler(next http.Handler) http.Handler {
@@ -167,22 +169,9 @@ func (m *Middleware) handleUnavailable(w http.ResponseWriter, r *http.Request, n
 }
 
 func validClassification(classification Classification) bool {
-	switch classification.Action {
-	case "read", "write", "create", "update", "delete", "search", "compare", "login", "logout", "register", "checkout", "purchase", "events", "other":
-	default:
-		return false
-	}
-	switch classification.EndpointClass {
-	case "public_content", "compare_index", "compare_noindex", "challenge_worker", "other_public", "account", "login", "checkout", "other":
-		switch classification.EvaluationCohort {
-		case "", "standard", "reduced_motion", "keyboard_only", "fallback_path", "sensor_missing", "unknown":
-			return true
-		default:
-			return false
-		}
-	default:
-		return false
-	}
+	return palisadecontract.ValidRequestAction(classification.Action) &&
+		palisadecontract.ValidEndpointClass(classification.EndpointClass) &&
+		palisadecontract.ValidOptionalUnknownClass(classification.EvaluationCohort, palisadecontract.ValidEvaluationCohort)
 }
 
 func validSignals(signals Signals) bool {
@@ -205,42 +194,21 @@ func validSignals(signals Signals) bool {
 	default:
 		return false
 	}
-	if !validCrawlerClass(signals.CrawlerClass) || !validCrawlerVerification(signals.CrawlerVerification) {
+	if !palisadecontract.ValidOptionalUnknownClass(signals.CrawlerClass, palisadecontract.ValidCrawlerClass) ||
+		!palisadecontract.ValidOptionalUnknownClass(signals.CrawlerVerification, palisadecontract.ValidCrawlerVerification) {
 		return false
 	}
 	if !validEdgeIntelligence(signals) {
 		return false
 	}
-	if signals.VerifiedBot && (signals.CrawlerClass == CrawlerClassUnknown || signals.CrawlerVerification == CrawlerVerificationUnknown) {
+	if !palisadecontract.ValidCrawlerIdentity(signals.VerifiedBot, signals.CrawlerClass, signals.CrawlerVerification) {
 		return false
 	}
-	switch signals.ChallengeVerdict {
-	case "", "suspicious", "failed", "blocked", "allowed", "passed", "unknown":
-		return true
-	default:
-		return false
-	}
+	return palisadecontract.ValidOptionalUnknownClass(signals.ChallengeVerdict, palisadecontract.ValidChallengeVerdict)
 }
 
 func validEdgeIntelligence(signals Signals) bool {
-	if !oneOf(signals.EdgeFingerprintClass, "", "unknown", "browser_consistent", "automation_consistent", "anomalous") ||
-		!oneOf(signals.EdgeFingerprintMethod, "", "unknown", "tls", "http2", "tls_http2") ||
-		!oneOf(signals.NetworkReputation, "", "unknown", "low_risk", "elevated_risk", "high_risk") ||
-		!oneOf(signals.NetworkType, "", "unknown", "residential", "mobile", "hosting", "enterprise", "education", "anonymizer") {
-		return false
-	}
-	classKnown := signals.EdgeFingerprintClass != "" && signals.EdgeFingerprintClass != "unknown"
-	methodKnown := signals.EdgeFingerprintMethod != "" && signals.EdgeFingerprintMethod != "unknown"
-	return classKnown == methodKnown
-}
-
-func oneOf(value string, values ...string) bool {
-	for _, candidate := range values {
-		if value == candidate {
-			return true
-		}
-	}
-	return false
+	return palisadecontract.ValidEdgeIntelligence(signals.EdgeFingerprintClass, signals.EdgeFingerprintMethod, signals.NetworkReputation, signals.NetworkType)
 }
 
 func integerString(value int) string {

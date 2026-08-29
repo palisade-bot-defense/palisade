@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-bot-defense/palisade/pkg/palisadecontract"
 )
 
 var (
@@ -67,7 +68,7 @@ func (s *Service) IssueEventContext(sessionID, requestAction, endpointClass stri
 }
 
 func (s *Service) issue(sessionID, action, requestAction, endpointClass string, ttl time.Duration, now time.Time) (string, error) {
-	if len(sessionID) < 8 || len(sessionID) > 128 || action == "" || len(action) > 80 || strings.ContainsAny(sessionID+action, "\r\n\x00") {
+	if len(sessionID) < 8 || len(sessionID) > 128 || !palisadecontract.ValidProofAction(action) || strings.ContainsAny(sessionID+action, "\r\n\x00") {
 		return "", errors.New("session and action are required")
 	}
 	if ttl <= 0 || ttl > 5*time.Minute {
@@ -122,7 +123,7 @@ func (s *Service) VerifyAndConsume(raw, expectedSession, expectedAction string, 
 	nonce, nonceErr := base64.RawURLEncoding.DecodeString(claims.Nonce)
 	validLifetime := claims.ExpiresAt > claims.IssuedAt && claims.ExpiresAt-claims.IssuedAt <= int64((5*time.Minute)/time.Second)
 	if claims.Version != 1 || claims.SessionID != expectedSession || claims.Action != expectedAction || nonceErr != nil || len(nonce) != 16 || !validLifetime || !contextPaired || !contextAllowed ||
-		len(claims.SessionID) < 8 || len(claims.SessionID) > 128 || claims.Action == "" || len(claims.Action) > 80 || strings.ContainsAny(claims.SessionID+claims.Action, "\r\n\x00") ||
+		len(claims.SessionID) < 8 || len(claims.SessionID) > 128 || !palisadecontract.ValidProofAction(claims.Action) || strings.ContainsAny(claims.SessionID+claims.Action, "\r\n\x00") ||
 		len(claims.RequestAction) > 80 || len(claims.EndpointClass) > 64 || strings.ContainsAny(claims.RequestAction+claims.EndpointClass, "\r\n\x00") {
 		return Claims{}, ErrInvalidToken
 	}

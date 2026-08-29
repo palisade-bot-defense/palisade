@@ -847,6 +847,33 @@ func TestFailureModeIsExplicitAndEnforced(t *testing.T) {
 	}
 }
 
+func TestRequestClassificationRejectsEventProofAndFreeFormActionsLocally(t *testing.T) {
+	var serviceCalls atomic.Int32
+	service := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { serviceCalls.Add(1) }))
+	defer service.Close()
+	for _, action := range []string{"events", "GET /private", "vendor-action"} {
+		t.Run(action, func(t *testing.T) {
+			guard, err := New(Config{
+				BaseURL: service.URL, APIKey: "adapter-key", FailureMode: FailOpen,
+				Classifier: StaticClassification(action, "public_content"),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			response := httptest.NewRecorder()
+			guard.Handler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				t.Fatal("invalid local classification reached the protected application")
+			})).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "https://origin.example/private", nil))
+			if response.Code != http.StatusInternalServerError {
+				t.Fatalf("invalid action %q response = %d", action, response.Code)
+			}
+		})
+	}
+	if serviceCalls.Load() != 0 {
+		t.Fatalf("invalid local classifications made %d service calls", serviceCalls.Load())
+	}
+}
+
 func TestMiddlewareAppliesProgressiveDelayThrottleAndBlock(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0).UTC()
 	for _, test := range []struct {

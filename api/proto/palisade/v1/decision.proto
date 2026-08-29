@@ -11,42 +11,163 @@ service DecisionService {
   rpc Decide(DecideRequest) returns (DecideResponse);
 }
 
+// Closed normalized enums for palisade.normalized-signal-contract.v1. The
+// reference runtime currently exposes HTTP; these typed messages freeze the
+// protobuf semantic contract before a public gRPC transport is implemented.
+enum RequestAction {
+  REQUEST_ACTION_UNSPECIFIED = 0;
+  REQUEST_ACTION_READ = 1;
+  REQUEST_ACTION_WRITE = 2;
+  REQUEST_ACTION_CREATE = 3;
+  REQUEST_ACTION_UPDATE = 4;
+  REQUEST_ACTION_DELETE = 5;
+  REQUEST_ACTION_SEARCH = 6;
+  REQUEST_ACTION_COMPARE = 7;
+  REQUEST_ACTION_LOGIN = 8;
+  REQUEST_ACTION_LOGOUT = 9;
+  REQUEST_ACTION_REGISTER = 10;
+  REQUEST_ACTION_CHECKOUT = 11;
+  REQUEST_ACTION_PURCHASE = 12;
+  REQUEST_ACTION_OTHER = 13;
+}
+
+enum EndpointClass {
+  ENDPOINT_CLASS_UNSPECIFIED = 0;
+  ENDPOINT_CLASS_PUBLIC_CONTENT = 1;
+  ENDPOINT_CLASS_COMPARE_INDEX = 2;
+  ENDPOINT_CLASS_COMPARE_NOINDEX = 3;
+  ENDPOINT_CLASS_CHALLENGE_WORKER = 4;
+  ENDPOINT_CLASS_OTHER_PUBLIC = 5;
+  ENDPOINT_CLASS_ACCOUNT = 6;
+  ENDPOINT_CLASS_LOGIN = 7;
+  ENDPOINT_CLASS_CHECKOUT = 8;
+  ENDPOINT_CLASS_OTHER = 9;
+}
+
+enum EvaluationCohort {
+  EVALUATION_COHORT_UNKNOWN = 0;
+  EVALUATION_COHORT_STANDARD = 1;
+  EVALUATION_COHORT_REDUCED_MOTION = 2;
+  EVALUATION_COHORT_KEYBOARD_ONLY = 3;
+  EVALUATION_COHORT_FALLBACK_PATH = 4;
+  EVALUATION_COHORT_SENSOR_MISSING = 5;
+}
+
+enum ChallengeVerdict {
+  CHALLENGE_VERDICT_UNKNOWN = 0;
+  CHALLENGE_VERDICT_SUSPICIOUS = 1;
+  CHALLENGE_VERDICT_FAILED = 2;
+  CHALLENGE_VERDICT_BLOCKED = 3;
+  CHALLENGE_VERDICT_ALLOWED = 4;
+  CHALLENGE_VERDICT_PASSED = 5;
+}
+
+enum CrawlerClass {
+  CRAWLER_CLASS_UNKNOWN = 0;
+  CRAWLER_CLASS_SEARCH_INDEXER = 1;
+  CRAWLER_CLASS_ANSWER_ENGINE = 2;
+  CRAWLER_CLASS_TRAINING_CRAWLER = 3;
+  CRAWLER_CLASS_USER_TRIGGERED_AGENT = 4;
+  CRAWLER_CLASS_PREVIEW = 5;
+  CRAWLER_CLASS_MONITORING = 6;
+  CRAWLER_CLASS_OTHER = 7;
+}
+
+enum CrawlerVerification {
+  CRAWLER_VERIFICATION_UNKNOWN = 0;
+  CRAWLER_VERIFICATION_IP_UA_REGISTRY = 1;
+  CRAWLER_VERIFICATION_FCRDNS_UA = 2;
+  CRAWLER_VERIFICATION_HTTP_SIGNATURE = 3;
+}
+
+enum TransportProtocol {
+  TRANSPORT_PROTOCOL_UNKNOWN = 0;
+  TRANSPORT_PROTOCOL_HTTP1 = 1;
+  TRANSPORT_PROTOCOL_HTTP2 = 2;
+  TRANSPORT_PROTOCOL_HTTP3 = 3;
+}
+
+enum TransportSecurity {
+  TRANSPORT_SECURITY_UNKNOWN = 0;
+  TRANSPORT_SECURITY_DIRECT_TLS = 1;
+  TRANSPORT_SECURITY_TRUSTED_PROXY_TLS = 2;
+  TRANSPORT_SECURITY_PLAINTEXT = 3;
+}
+
+enum ClientAddressSource {
+  CLIENT_ADDRESS_SOURCE_UNKNOWN = 0;
+  CLIENT_ADDRESS_SOURCE_DIRECT = 1;
+  CLIENT_ADDRESS_SOURCE_TRUSTED_PROXY = 2;
+  CLIENT_ADDRESS_SOURCE_INVALID_TRUSTED_PROXY = 3;
+}
+
+enum EdgeFingerprintClass {
+  EDGE_FINGERPRINT_CLASS_UNKNOWN = 0;
+  EDGE_FINGERPRINT_CLASS_BROWSER_CONSISTENT = 1;
+  EDGE_FINGERPRINT_CLASS_AUTOMATION_CONSISTENT = 2;
+  EDGE_FINGERPRINT_CLASS_ANOMALOUS = 3;
+}
+
+enum EdgeFingerprintMethod {
+  EDGE_FINGERPRINT_METHOD_UNKNOWN = 0;
+  EDGE_FINGERPRINT_METHOD_TLS = 1;
+  EDGE_FINGERPRINT_METHOD_HTTP2 = 2;
+  EDGE_FINGERPRINT_METHOD_TLS_HTTP2 = 3;
+}
+
+enum NetworkReputation {
+  NETWORK_REPUTATION_UNKNOWN = 0;
+  NETWORK_REPUTATION_LOW_RISK = 1;
+  NETWORK_REPUTATION_ELEVATED_RISK = 2;
+  NETWORK_REPUTATION_HIGH_RISK = 3;
+}
+
+enum NetworkType {
+  NETWORK_TYPE_UNKNOWN = 0;
+  NETWORK_TYPE_RESIDENTIAL = 1;
+  NETWORK_TYPE_MOBILE = 2;
+  NETWORK_TYPE_HOSTING = 3;
+  NETWORK_TYPE_ENTERPRISE = 4;
+  NETWORK_TYPE_EDUCATION = 5;
+  NETWORK_TYPE_ANONYMIZER = 6;
+}
+
 message Observations {
   bool user_agent_present = 1;
   // The live service replaces this claim with its server-side event-store
   // count before evaluation. An unverified claim never creates benign evidence.
   uint32 browser_event_count = 2;
   uint32 honeypot_hits = 3;
-  string challenge_verdict = 4;
+  ChallengeVerdict challenge_verdict = 4;
   double external_risk_score = 5;
   bool policy_alert = 6;
   bool verified_bot = 7;
   // Closed normalized classes only; no raw peer or client address is sent.
-  string transport_protocol = 8;
-  string transport_security = 9;
-  string client_address_source = 10;
+  TransportProtocol transport_protocol = 8;
+  TransportSecurity transport_security = 9;
+  ClientAddressSource client_address_source = 10;
   // Closed crawler purpose and proof method. A user-agent alone is never a
   // verified identity; training crawlers are not auto-allowed.
-  string crawler_class = 11;
-  string crawler_verification = 12;
+  CrawlerClass crawler_class = 11;
+  CrawlerVerification crawler_verification = 12;
   // Closed edge classifications only. Raw JA4/HTTP2 fingerprints, ASN, IP and
   // vendor labels never enter the PALISADE decision service.
-  string edge_fingerprint_class = 13;
-  string edge_fingerprint_method = 14;
-  string network_reputation = 15;
-  string network_type = 16;
+  EdgeFingerprintClass edge_fingerprint_class = 13;
+  EdgeFingerprintMethod edge_fingerprint_method = 14;
+  NetworkReputation network_reputation = 15;
+  NetworkType network_type = 16;
 }
 
 message DecideRequest {
   string session_id = 1;
-  string action = 2;
+  RequestAction action = 2;
   // Closed deployment classification; raw paths and URLs are forbidden.
-  string endpoint_class = 3;
+  EndpointClass endpoint_class = 3;
   uint64 sequence = 4;
   string proof_token = 5;
   Observations observations = 6;
   // Trusted coarse evaluation tag; omitted/empty values normalize to unknown.
-  string evaluation_cohort = 7;
+  EvaluationCohort evaluation_cohort = 7;
 }
 
 message DecideResponse {

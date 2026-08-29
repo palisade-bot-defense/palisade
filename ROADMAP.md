@@ -121,7 +121,7 @@ abandonment budget; rollback is exercised and timed.
 
 Deliverables:
 
-- stabilize the normalized HTTP and protobuf adapter contracts;
+- [x] stabilize the normalized HTTP and protobuf adapter contracts;
 - publish generic reference integrations for common reverse-proxy patterns,
   starting with the existing Go origin middleware;
 - [x] define conformance fixtures so community adapters can be certified without

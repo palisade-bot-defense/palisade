@@ -51,6 +51,12 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
   pass, response, outage and malformed-response scenarios against the Go
   reference implementation and includes negative assertions for application
   URLs, queries, bodies, user agents and cookies.
+- Normalized-signal contract tests require the public Go validators,
+  language-neutral catalog, OpenAPI enums and typed protobuf enums to remain
+  identical. Poisoning cases reject unknown and trailing catalog fields,
+  free-form request actions, incomplete verified-crawler tuples, unpaired edge
+  classifications and duplicate protobuf field or enum numbers. The public
+  contract package is included in the per-package 70% coverage gate.
 - Challenge accessibility contract tests cover semantic status output, visible
   focus styling, 44-pixel controls, reduced-motion and forced-color CSS, absence
   of focus hijacking, a working no-JavaScript form, closed form parsing, safe

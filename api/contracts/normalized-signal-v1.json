@@ -1,0 +1,36 @@
+{
+  "schema_version": "palisade.normalized-signal-contract.v1",
+  "scope": "decision_and_origin_adapter",
+  "closed": true,
+  "raw_values_allowed": false,
+  "request_actions": ["read", "write", "create", "update", "delete", "search", "compare", "login", "logout", "register", "checkout", "purchase", "other"],
+  "proof_actions": ["read", "write", "create", "update", "delete", "search", "compare", "login", "logout", "register", "checkout", "purchase", "events", "other"],
+  "endpoint_classes": ["public_content", "compare_index", "compare_noindex", "challenge_worker", "other_public", "account", "login", "checkout", "other"],
+  "evaluation_cohorts": ["standard", "reduced_motion", "keyboard_only", "fallback_path", "sensor_missing", "unknown"],
+  "challenge_verdicts": ["suspicious", "failed", "blocked", "allowed", "passed", "unknown"],
+  "crawler_classes": ["unknown", "search_indexer", "answer_engine", "training_crawler", "user_triggered_agent", "preview", "monitoring", "other"],
+  "crawler_verifications": ["unknown", "ip_ua_registry", "fcrdns_ua", "http_signature"],
+  "transport_protocols": ["http1", "http2", "http3", "unknown"],
+  "transport_securities": ["direct_tls", "trusted_proxy_tls", "plaintext", "unknown"],
+  "client_address_sources": ["direct", "trusted_proxy", "invalid_trusted_proxy", "unknown"],
+  "edge_fingerprint_classes": ["unknown", "browser_consistent", "automation_consistent", "anomalous"],
+  "edge_fingerprint_methods": ["unknown", "tls", "http2", "tls_http2"],
+  "network_reputations": ["unknown", "low_risk", "elevated_risk", "high_risk"],
+  "network_types": ["unknown", "residential", "mobile", "hosting", "enterprise", "education", "anonymizer"],
+  "decision_actions": ["allow", "observe", "delay", "throttle", "challenge", "block"],
+  "runtime_modes": ["shadow", "canary", "enforce"],
+  "enforcement_handlings": ["pass", "delay", "throttle", "challenge", "block"],
+  "numeric_bounds": {
+    "browser_event_count": { "minimum": 0, "maximum": 10000 },
+    "honeypot_hits": { "minimum": 0, "maximum": 100 },
+    "external_risk_score": { "minimum": 0, "maximum": 1 }
+  },
+  "invariants": {
+    "omitted_optional_class": "unknown",
+    "edge_fingerprint_pairing": "class_and_method_known_together",
+    "verified_crawler_pairing": "non_unknown_class_and_verification_required",
+    "browser_event_claim": "neutral_until_server_verified",
+    "challenge_passed": "outcome_not_human_identity"
+  },
+  "forbidden_raw_classes": ["request_url", "query_string", "request_body", "user_agent", "ip_address", "asn", "tls_fingerprint", "http2_fingerprint", "vendor_label", "vendor_score"]
+}

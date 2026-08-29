@@ -1,6 +1,10 @@
 package core
 
-import "time"
+import (
+	"time"
+
+	"github.com/palisade-bot-defense/palisade/pkg/palisadecontract"
+)
 
 type Dimension string
 
@@ -58,24 +62,7 @@ type Observations struct {
 // HTTP/2 fingerprint, ASN, IP, vendor label or free-form reputation values are
 // deliberately outside the PALISADE decision contract.
 func ValidEdgeIntelligence(class, method, reputation, networkType string) bool {
-	if !allowed(class, "", "unknown", "browser_consistent", "automation_consistent", "anomalous") ||
-		!allowed(method, "", "unknown", "tls", "http2", "tls_http2") ||
-		!allowed(reputation, "", "unknown", "low_risk", "elevated_risk", "high_risk") ||
-		!allowed(networkType, "", "unknown", "residential", "mobile", "hosting", "enterprise", "education", "anonymizer") {
-		return false
-	}
-	classKnown := class != "" && class != "unknown"
-	methodKnown := method != "" && method != "unknown"
-	return classKnown == methodKnown
-}
-
-func allowed(value string, values ...string) bool {
-	for _, candidate := range values {
-		if value == candidate {
-			return true
-		}
-	}
-	return false
+	return palisadecontract.ValidEdgeIntelligence(class, method, reputation, networkType)
 }
 
 // CrawlerClass is an operator-controlled purpose class, not an identity claim.
@@ -107,27 +94,20 @@ func NormalizeCrawlerClass(value CrawlerClass) (CrawlerClass, bool) {
 	if value == "" {
 		return CrawlerClassUnknown, true
 	}
-	switch value {
-	case CrawlerClassUnknown, CrawlerClassSearchIndexer, CrawlerClassAnswerEngine,
-		CrawlerClassTrainingCrawler, CrawlerClassUserTriggeredAgent,
-		CrawlerClassPreview, CrawlerClassMonitoring, CrawlerClassOther:
-		return value, true
-	default:
+	if !palisadecontract.ValidCrawlerClass(string(value)) {
 		return "", false
 	}
+	return value, true
 }
 
 func NormalizeCrawlerVerification(value CrawlerVerification) (CrawlerVerification, bool) {
 	if value == "" {
 		return CrawlerVerificationUnknown, true
 	}
-	switch value {
-	case CrawlerVerificationUnknown, CrawlerVerificationIPUARegistry,
-		CrawlerVerificationFCrDNSUA, CrawlerVerificationHTTPSignature:
-		return value, true
-	default:
+	if !palisadecontract.ValidCrawlerVerification(string(value)) {
 		return "", false
 	}
+	return value, true
 }
 
 // VerifiedPublicCrawler is the sole gate that lets beneficial automation
@@ -181,13 +161,10 @@ func NormalizeEvaluationCohort(value EvaluationCohort) (EvaluationCohort, bool) 
 	if value == "" {
 		return EvaluationCohortUnknown, true
 	}
-	switch value {
-	case EvaluationCohortStandard, EvaluationCohortReducedMotion, EvaluationCohortKeyboardOnly,
-		EvaluationCohortFallbackPath, EvaluationCohortSensorMissing, EvaluationCohortUnknown:
-		return value, true
-	default:
+	if !palisadecontract.ValidEvaluationCohort(string(value)) {
 		return "", false
 	}
+	return value, true
 }
 
 type DecisionRequest struct {
@@ -214,24 +191,14 @@ type SessionSnapshot struct {
 }
 
 func ValidEndpointClass(value string) bool {
-	switch value {
-	case "public_content", "compare_index", "compare_noindex", "challenge_worker", "other_public", "account", "login", "checkout", "other":
-		return true
-	default:
-		return false
-	}
+	return palisadecontract.ValidEndpointClass(value)
 }
 
 // ValidRequestAction accepts only deployment-independent action classes. It
 // deliberately excludes paths, methods and application-specific free text so
 // trusted adapters cannot accidentally turn request metadata into a signal.
 func ValidRequestAction(value string) bool {
-	switch value {
-	case "read", "write", "create", "update", "delete", "search", "compare", "login", "logout", "register", "checkout", "purchase", "other":
-		return true
-	default:
-		return false
-	}
+	return palisadecontract.ValidRequestAction(value)
 }
 
 type DetectorInput struct {

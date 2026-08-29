@@ -167,6 +167,17 @@ func TestDecisionRejectsRawEndpointClass(t *testing.T) {
 	}
 }
 
+func TestDecisionRejectsFreeFormRequestAction(t *testing.T) {
+	current := newTestEngine(t, core.RuntimeModeShadow)
+	for _, action := range []string{"events", "GET /private", "vendor-action", "read\npoison"} {
+		request := highRiskRequest()
+		request.Action = action
+		if _, err := current.Decide(context.Background(), request); !errors.Is(err, ErrInvalidRequest) {
+			t.Fatalf("free-form request action %q error = %v", action, err)
+		}
+	}
+}
+
 func TestDecisionRejectsFreeFormTransportClasses(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -218,6 +229,11 @@ func TestDecisionRejectsFreeFormCrawlerIdentityClasses(t *testing.T) {
 	}{
 		{name: "crawler class", mutate: func(observations *core.Observations) { observations.CrawlerClass = "googlebot-or-user-agent" }},
 		{name: "verification", mutate: func(observations *core.Observations) { observations.CrawlerVerification = "user-agent-only" }},
+		{name: "verified without class", mutate: func(observations *core.Observations) { observations.VerifiedBot = true }},
+		{name: "verified without method", mutate: func(observations *core.Observations) {
+			observations.VerifiedBot = true
+			observations.CrawlerClass = core.CrawlerClassSearchIndexer
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
