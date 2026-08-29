@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/sovereignty-report-v1.schema.json",
+  "title": "PALISADE sovereignty report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "product", "product_invariants", "deployment_declaration", "assessment", "limitations"],
+  "properties": {
+    "schema_version": { "const": "palisade.sovereignty-report.v1" },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "PALISADE" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "product_invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mandatory_vendor_control_plane", "mandatory_telemetry_export", "mandatory_external_runtime_call", "decision_api_input", "raw_network_identifiers", "browser_collection", "evaluation", "decision_explanation", "enforcement_promotion"],
+      "properties": {
+        "mandatory_vendor_control_plane": { "const": false },
+        "mandatory_telemetry_export": { "const": false },
+        "mandatory_external_runtime_call": { "const": false },
+        "decision_api_input": { "const": "closed_normalized_signals" },
+        "raw_network_identifiers": { "const": "rejected_by_public_decision_api" },
+        "browser_collection": { "const": "bounded_counts_without_content_or_exact_coordinates" },
+        "evaluation": { "const": "optional_local_encrypted" },
+        "decision_explanation": { "const": "stable_reason_codes_and_versions" },
+        "enforcement_promotion": { "const": "signed_scoped_expiring_rollout" }
+      }
+    },
+    "deployment_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "processing_location", "storage_location", "external_runtime_services", "operator_held_keys"],
+      "properties": {
+        "status": { "enum": ["incomplete", "complete"] },
+        "processing_location": { "enum": ["not_declared", "on_prem_eu", "eu_region", "on_prem_non_eu", "non_eu_region", "mixed"] },
+        "storage_location": { "enum": ["not_declared", "none", "same_as_processing", "eu_only", "non_eu_or_mixed"] },
+        "external_runtime_services": { "enum": ["not_declared", "none", "present"] },
+        "operator_held_keys": { "enum": ["not_declared", "yes", "no"] }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product_has_no_mandatory_vendor_egress", "deployment_posture", "reasons"],
+      "properties": {
+        "product_has_no_mandatory_vendor_egress": { "const": true },
+        "deployment_posture": { "enum": ["insufficient_declaration", "operator_attested_eu_bound", "operator_review_required"] },
+        "reasons": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "type": "string", "minLength": 1, "maxLength": 160 } }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    }
+  }
+}

@@ -35,6 +35,7 @@ import (
 	"github.com/palisade-bot-defense/palisade/internal/sessioncookie"
 	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
 	"github.com/palisade-bot-defense/palisade/internal/shadowlog"
+	"github.com/palisade-bot-defense/palisade/internal/sovereignty"
 	"github.com/palisade-bot-defense/palisade/internal/token"
 )
 
@@ -49,13 +50,15 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: palisade <serve|doctor|replay|import-offline|verify-shadow-log|analyze-shadow-log|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
+		return errors.New("usage: palisade <serve|doctor|sovereignty-report|replay|import-offline|verify-shadow-log|analyze-shadow-log|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
 	}
 	switch args[0] {
 	case "serve":
 		return serve(args[1:])
 	case "doctor":
 		return doctor()
+	case "sovereignty-report":
+		return sovereigntyReport(args[1:], os.Stdout)
 	case "replay":
 		return runReplay(args[1:])
 	case "import-offline":
@@ -78,6 +81,32 @@ func run(args []string) error {
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+func sovereigntyReport(args []string, output io.Writer) error {
+	flags := flag.NewFlagSet("sovereignty-report", flag.ContinueOnError)
+	processingLocation := flags.String("processing-location", sovereignty.NotDeclared, "operator declaration: not_declared, on_prem_eu, eu_region, on_prem_non_eu, non_eu_region or mixed")
+	storageLocation := flags.String("storage-location", sovereignty.NotDeclared, "operator declaration: not_declared, none, same_as_processing, eu_only or non_eu_or_mixed")
+	externalRuntimeServices := flags.String("external-runtime-services", sovereignty.NotDeclared, "operator declaration: not_declared, none or present")
+	operatorHeldKeys := flags.String("operator-held-keys", sovereignty.NotDeclared, "operator declaration: not_declared, yes or no")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("sovereignty-report accepts no positional arguments")
+	}
+	report, err := sovereignty.NewReport(version, sovereignty.Declaration{
+		ProcessingLocation:      *processingLocation,
+		StorageLocation:         *storageLocation,
+		ExternalRuntimeServices: *externalRuntimeServices,
+		OperatorHeldKeys:        *operatorHeldKeys,
+	})
+	if err != nil {
+		return err
+	}
+	encoder := json.NewEncoder(output)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(report)
 }
 
 func analyzeShadowLog(args []string) error {

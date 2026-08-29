@@ -70,6 +70,39 @@ func TestRuntimeModeParsingRequiresExplicitEnforce(t *testing.T) {
 	}
 }
 
+func TestSovereigntyReportSeparatesProductFactsFromOperatorAttestation(t *testing.T) {
+	var output bytes.Buffer
+	err := sovereigntyReport([]string{
+		"--processing-location", "on_prem_eu",
+		"--storage-location", "same_as_processing",
+		"--external-runtime-services", "none",
+		"--operator-held-keys", "yes",
+	}, &output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	for _, expected := range []string{
+		`"schema_version": "palisade.sovereignty-report.v1"`,
+		`"mandatory_telemetry_export": false`,
+		`"status": "complete"`,
+		`"deployment_posture": "operator_attested_eu_bound"`,
+		"operator-declared and are not technically verified",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("report missing %q: %s", expected, text)
+		}
+	}
+}
+
+func TestSovereigntyReportRejectsFreeFormDeploymentData(t *testing.T) {
+	var output bytes.Buffer
+	err := sovereigntyReport([]string{"--processing-location", "private-customer-name"}, &output)
+	if err == nil || !strings.Contains(err.Error(), "--processing-location") || output.Len() != 0 {
+		t.Fatalf("free-form declaration result: err=%v output=%q", err, output.String())
+	}
+}
+
 func TestNoindexCompareComputesStepUpButRemainsShadowObserve(t *testing.T) {
 	engine, _, err := buildReplayEngine(core.RuntimeModeShadow)
 	if err != nil {

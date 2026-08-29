@@ -25,10 +25,9 @@ const repositoryParts = [
 ] as const;
 
 const stages = [
-  { number: "01", name: "Connect", copy: "Add the same-origin sensor or trusted origin adapter. Palisade accepts bounded signals, not raw vendor payloads." },
-  { number: "02", name: "Measure", copy: "Run in shadow mode and keep encrypted decision and outcome records inside the deployment boundary." },
-  { number: "03", name: "Understand", copy: "Separate automation, abuse intent and continuity. Review aggregate recommendations and stable reason codes." },
-  { number: "04", name: "Respond", copy: "Promote only a reviewed, signed and expiring canary with a defined rollback." },
+  { number: "01", name: "Sovereignty", copy: "Run the reference service and local evaluation on infrastructure you choose, without a mandatory Palisade cloud or telemetry export." },
+  { number: "02", name: "Evidence", copy: "Separate automation, abuse intent and continuity. Keep stable reasons, versions and replay evidence for each decision." },
+  { number: "03", name: "Rollout", copy: "Promote only measured, scoped, signed and expiring enforcement with an explicit rollback." },
 ] as const;
 
 const scenarios = {
@@ -77,15 +76,15 @@ export function App() {
       <main id="top">
         <section className="hero-section">
           <div className="hero-copy">
-            <p className="eyebrow"><span /> OPEN-SOURCE SIGNAL FUSION FOR BOT DEFENSE</p>
-            <h1>Turn bot signals into <em>decisions you can explain.</em></h1>
-            <p className="hero-lede">Palisade is a self-hosted decision layer for normalized edge, reputation, policy and behavioral evidence. It starts in shadow mode and does not pretend that one signal can prove who is human.</p>
+            <p className="eyebrow"><span /> EU-FIRST · OPEN-SOURCE BOT DEFENSE</p>
+            <h1>Bot defense you can <em>run, inspect and prove.</em></h1>
+            <p className="hero-lede">Keep traffic evidence on infrastructure you choose. Palisade fuses bounded signals into explainable decisions, measures outcomes locally and lets risky enforcement advance only through signed, reversible rollout.</p>
             <div className="hero-actions">
               <a className="button primary" href="#repository">Explore the repository</a>
               <a className="button secondary" href={githubUrl}>View source <span aria-hidden="true">↗</span></a>
             </div>
             <ul className="trust-list" aria-label="Core guarantees">
-              <li>Open source</li><li>Self-hosted</li><li>Shadow-first</li><li>No cross-site identity graph</li>
+              <li>Open source</li><li>Fully self-hosted</li><li>No required telemetry</li><li>Explainable rollout</li>
             </ul>
           </div>
 
@@ -114,9 +113,9 @@ export function App() {
 
         <section className="section platform-section" id="how-it-works">
           <div className="section-heading">
-            <p className="eyebrow">ONE AUDITABLE CONTROL LOOP</p>
-            <h2>Enforcement has to earn its evidence.</h2>
-            <p>Palisade does not turn a user agent, browser trait or reputation flag into an automatic block. It fuses bounded evidence, preserves uncertainty and requires a measured promotion path.</p>
+            <p className="eyebrow">THREE VERIFIABLE CONTRACTS</p>
+            <h2>Trust should be something you can inspect.</h2>
+            <p>Palisade binds data sovereignty, decision evidence and safe rollout into one local control loop. A user agent, browser trait or reputation flag never becomes an automatic verdict.</p>
           </div>
           <div className="stage-grid">{stages.map((stage) => <article key={stage.number}><span>{stage.number}</span><h3>{stage.name}</h3><p>{stage.copy}</p></article>)}</div>
         </section>
@@ -136,9 +135,9 @@ export function App() {
 
         <section className="section deployment-section" id="repository">
           <div className="section-heading compact">
-            <p className="eyebrow">ONE OPEN-SOURCE PROJECT</p>
-            <h2>Run the entire decision loop on your infrastructure.</h2>
-            <p>The repository contains the data path, reference integration and local evaluation workflow. There is no managed-service tier or central telemetry requirement.</p>
+            <p className="eyebrow">THE COMPLETE OPEN CONTROL LOOP</p>
+            <h2>Choose where every Palisade component runs.</h2>
+            <p>The repository contains the data path, reference integration, Sovereignty Report and local evaluation workflow. There is no managed-service tier, hosted control plane or central telemetry requirement.</p>
           </div>
           <div className="product-grid">
             {repositoryParts.map((part) => (
@@ -154,12 +153,12 @@ export function App() {
         </section>
 
         <section className="section trust-section" id="trust">
-          <div className="section-heading compact"><p className="eyebrow">SECURITY BY BOUNDARY</p><h2>Your defense layer should not become another data leak.</h2></div>
+          <div className="section-heading compact"><p className="eyebrow">SOVEREIGNTY BY BOUNDARY</p><h2>Your defense layer should not become another data leak.</h2></div>
           <div className="trust-grid">
-            <article><span>01</span><h3>Local measurement</h3><p>Encrypted append-only shadow records stay inside the deployment boundary with explicit rotation and retention.</p></article>
+            <article><span>01</span><h3>No required vendor egress</h3><p>The reference service needs no Palisade account, control plane, telemetry collector or third-party runtime call.</p></article>
             <article><span>02</span><h3>Closed inputs</h3><p>The decision API accepts normalized bounded signals, not URLs, bodies, cookies or arbitrary upstream payloads.</p></article>
             <article><span>03</span><h3>Controlled rollout</h3><p>Risky live actions require an expiring signed plan, endpoint scope, stable cohort and documented rollback.</p></article>
-            <article><span>04</span><h3>Auditable reasons</h3><p>Every decision carries stable reason codes plus policy and model versions for deterministic replay.</p></article>
+            <article><span>04</span><h3>Machine-readable posture</h3><p>The Sovereignty Report separates Palisade product invariants from operator-declared, unverified deployment facts.</p></article>
           </div>
         </section>
 
@@ -180,6 +179,7 @@ export function App() {
             <details><summary>Which signals can it use?</summary><p>Trusted adapters can submit normalized protocol, transport, reputation, crawler, policy and server-continuity evidence. The browser sensor adds bounded behavior counts. Raw vendor payloads are not accepted by the public decision API.</p></details>
             <details><summary>Do I need to upload traffic logs?</summary><p>No. Normal operation uses closed signals, and optional encrypted measurement remains local. Historical imports are local-only and raw deployment data must never enter the repository or CI.</p></details>
             <details><summary>Can I self-host the complete project?</summary><p>Yes. The core is AGPL-3.0-only and the browser sensor is Apache-2.0. The project currently focuses exclusively on the open-source, self-hosted path.</p></details>
+            <details><summary>Does self-hosting make a deployment GDPR compliant?</summary><p>No. Palisade removes mandatory vendor egress and supports minimization, but the operator must still assess purpose, legal basis, transparency, retention, processors, terminal access and deployment-specific data flows.</p></details>
           </div>
         </section>
 
@@ -190,7 +190,7 @@ export function App() {
       </main>
 
       <footer className="site-footer">
-        <div><img src={logoUrl} alt="PALISADE" /><p>Open-source signal fusion for bot defense.</p></div>
+        <div><img src={logoUrl} alt="PALISADE" /><p>EU-first bot defense you can run, inspect and prove.</p></div>
         <div className="footer-links"><a href={githubUrl}>GitHub</a><a href={`${githubUrl}/blob/main/SECURITY.md`}>Security</a><a href={`${githubUrl}/blob/main/LICENSING.md`}>Licensing</a></div>
         <p className="legal">Core AGPL-3.0-only · Sensor Apache-2.0 · No tracking on this site</p>
       </footer>

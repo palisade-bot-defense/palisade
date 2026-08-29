@@ -18,6 +18,8 @@ describe("public SEO and GEO artifacts", () => {
     expect(artifacts.robots).toContain("Sitemap: https://palisade.example/sitemap.xml");
     expect(artifacts.sitemap).toContain("<loc>https://palisade.example/</loc>");
     expect(artifacts.llms).toContain("no cross-site identity graph");
+    expect(artifacts.llms).toContain("no mandatory PALISADE cloud");
+    expect(artifacts.llms).toContain("sovereignty, decision evidence and measured rollout");
     expect(artifacts.llms).not.toContain("guaranteed");
   });
 

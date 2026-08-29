@@ -52,6 +52,22 @@ assessed separately.
 > the [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md)
 > before enabling real traffic or enforcement.
 
+Generate the deterministic [Sovereignty Report](docs/SOVEREIGNTY.md) to keep
+PALISADE product invariants separate from closed, operator-declared deployment
+facts:
+
+```sh
+go run ./cmd/palisade sovereignty-report \
+  --processing-location eu_region \
+  --storage-location eu_only \
+  --external-runtime-services none \
+  --operator-held-keys yes
+```
+
+The result is machine-readable but deliberately not a compliance certificate.
+See [product differentiation](docs/DIFFERENTIATION.md) for the target users,
+market boundary, defensible open-source assets and claims policy.
+
 ## What exists today
 
 The first vertical slice is runnable: a Go decision service, short-lived replay-protected proof tokens, an optional server-issued signed continuity cookie, bounded in-memory sessions, detector evidence, three-dimensional score fusion, CEL policy evaluation, deterministic JSONL replay, a privacy-limited browser sensor, an embedded control-room dashboard, encrypted local analysis, signed reversible rollout plans and a session/action/endpoint-bound native challenge lifecycle.
@@ -231,7 +247,7 @@ The first deployment should ingest normalized challenge, external-risk and polic
 
 Authorized historical exports can be normalized with the local-only `palisade import-offline` command. Raw inputs and normalized outputs must stay outside every Git worktree. The importer accepts only `offline_export`, never emits raw rows, and treats upstream policy outcomes as weak labels rather than ground truth. Deployment-local and opt-in community ingestion are future, separate trust boundaries and are not accepted by this command.
 
-See the [architecture and stack](docs/ARCHITECTURE.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
+See the [architecture and stack](docs/ARCHITECTURE.md), [product differentiation](docs/DIFFERENTIATION.md), [Sovereignty Report](docs/SOVEREIGNTY.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
 
 ## Project status and license
 

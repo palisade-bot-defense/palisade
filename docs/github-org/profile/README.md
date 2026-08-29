@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <strong>EU-first, self-hosted bot defense.</strong><br>
-  Keep traffic data under your control. Explain every decision.
+  <strong>EU-first bot defense you can run, inspect and prove.</strong><br>
+  Keep evidence under your control. Explain every decision and rollout.
 </p>
 
 PALISADE is an open-source defensive-security project for operators that need
@@ -15,6 +15,10 @@ cloud. It can run on-premises or in an operator-selected EU region with no
 PALISADE account, central telemetry service or cross-site identity graph.
 
 ## Why PALISADE
+
+PALISADE binds three verifiable contracts into one local control loop:
+**sovereignty** without mandatory vendor egress, **evidence** with stable reasons
+and replay, and **rollout** that is measured, signed and reversible.
 
 - **Self-hosted by design:** processing location, keys, retention and policies
   remain under operator control.
@@ -29,6 +33,8 @@ PALISADE account, central telemetry service or cross-site identity graph.
   in the public repository.
 - **Auditable decisions:** stable reason codes and versioned policies replace an
   opaque remote bot score.
+- **Machine-readable posture:** the Sovereignty Report separates PALISADE
+  product invariants from operator-declared deployment facts.
 - **Actually open source:** AGPL-3.0-only core and Apache-2.0 browser sensor.
 
 PALISADE separates three questions that bot controls often collapse into one:
@@ -65,7 +71,7 @@ of humanity.
 |---|---|---|
 | [`palisade`](https://github.com/palisade-bot-defense/palisade) | Early prototype · shadow first | Decision service, sensor, policy engine, replay, local evaluation, and deployment contracts |
 
-Start with the [project overview](https://github.com/palisade-bot-defense/palisade#readme), then read the [roadmap](https://github.com/palisade-bot-defense/palisade/blob/main/ROADMAP.md), [evaluation protocol](https://github.com/palisade-bot-defense/palisade/blob/main/docs/EVALUATION.md), [privacy boundaries](https://github.com/palisade-bot-defense/palisade/blob/main/docs/privacy/DATA_BOUNDARIES.md), and [EU deployment checklist](https://github.com/palisade-bot-defense/palisade/blob/main/docs/privacy/DEPLOYMENT_CHECKLIST.md).
+Start with the [project overview](https://github.com/palisade-bot-defense/palisade#readme), then read the [product differentiation](https://github.com/palisade-bot-defense/palisade/blob/main/docs/DIFFERENTIATION.md), [Sovereignty Report](https://github.com/palisade-bot-defense/palisade/blob/main/docs/SOVEREIGNTY.md), [roadmap](https://github.com/palisade-bot-defense/palisade/blob/main/ROADMAP.md), [evaluation protocol](https://github.com/palisade-bot-defense/palisade/blob/main/docs/EVALUATION.md), and [EU deployment checklist](https://github.com/palisade-bot-defense/palisade/blob/main/docs/privacy/DEPLOYMENT_CHECKLIST.md).
 
 > [!IMPORTANT]
 > PALISADE does not claim perfect bot detection or an unsolvable challenge. The current prototype must begin in shadow mode and has no production-supported release.

@@ -676,6 +676,9 @@ func TestNativeChallengeHTTPFlowRecordsOutcomeAndRejectsReplay(t *testing.T) {
 	if viewResponse.Code != http.StatusOK || json.Unmarshal(viewResponse.Body.Bytes(), &metadata) != nil || metadata.VerificationToken == "" {
 		t.Fatalf("challenge metadata = %d %s", viewResponse.Code, viewResponse.Body.String())
 	}
+	if wait := time.Until(metadata.ReadyAt); wait > 0 {
+		time.Sleep(wait + time.Millisecond)
+	}
 
 	verifyBody, _ := json.Marshal(map[string]string{"challenge_id": challengeID, "verification_token": metadata.VerificationToken})
 	verify := httptest.NewRequest(http.MethodPost, "/v1/challenge/verify", bytes.NewReader(verifyBody))

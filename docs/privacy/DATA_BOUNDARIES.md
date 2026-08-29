@@ -62,6 +62,10 @@ stored in this map or sent as observations.
 
 Scores are decision support, not identity claims. Operators need an appeal/fallback path for challenged people and must measure false positives by endpoint and client cohort.
 
+The [Sovereignty Report](../SOVEREIGNTY.md) inventories PALISADE product
+invariants separately from closed operator declarations. It does not inspect
+network flows or turn self-hosting into a legal-compliance claim.
+
 The evaluation cohort is not detector evidence. It must not contain free text,
 account or device identifiers, browser fingerprints, medical diagnoses or
 demographic inference. Empty input becomes `unknown`; unknown values fail

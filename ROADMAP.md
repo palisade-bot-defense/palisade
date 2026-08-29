@@ -1,61 +1,179 @@
-# Open-source roadmap
+# Product roadmap
 
-PALISADE advances through measured gates. This roadmap prioritizes a useful,
-self-hosted open-source signal-fusion and decision layer—not a promise of a
-universally accurate bot detector.
+PALISADE is building an open-source, EU-first bot-defense control loop that can
+show **where evidence stayed, why a decision was made and how enforcement was
+approved**. The objective is not a mythical challenge that every person can
+solve and no bot can solve. Adaptive attackers make that guarantee impossible.
+The objective is to combine bounded local evidence, attacker cost and measured
+outcomes while keeping harm to legitimate users within an explicit budget.
 
-## Now — prove the decision loop
+The product strategy and market boundary are documented in
+[Differentiation](docs/DIFFERENTIATION.md). The machine-readable privacy contract
+starts with the [Sovereignty Report](docs/SOVEREIGNTY.md).
 
-- Make the local quick start reproducible, including a synthetic replay and a
-  populated Operator Console without production credentials or private data.
-- Run one representative shadow deployment with route-specific endpoint
-  classes, measured coverage and uniquely linked delayed outcomes.
-- Diagnose and remove collection artifacts before tuning detector thresholds.
-- Normalize strong deployment-owned edge evidence, including protocol/TLS
-  fingerprints, address provenance and reputation, behind explicit trust
-  boundaries; raw vendor payloads stay outside the public decision API.
-- Publish aggregate latency, coverage, unknown-label and challenge-outcome
-  results together with their limitations.
-- Expand poisoning, proxy-misconfiguration, missing-signal, accessibility and
-  privacy regression tests.
+## Product contracts
 
-Exit gate: no raw personal data in repository or CI; p95 added in-process
-decision latency below 10 ms; representative confirmed-human and confirmed-abuse
-outcomes linked to exact decisions; false-positive and recall estimates reported
-with confidence intervals. Until then, automatic blocking remains off.
+1. **Sovereignty contract:** no mandatory PALISADE cloud, vendor telemetry
+   export or third-party runtime call; the operator chooses processing, storage,
+   keys and optional upstream services.
+2. **Evidence contract:** every decision exposes separate automation, abuse
+   intent and continuity scores, stable reason codes, policy/model versions and
+   deterministic replay evidence.
+3. **Rollout contract:** risky enforcement begins in shadow mode and can advance
+   only through measured, scoped, signed, expiring and reversible artifacts.
 
-## Next — calibrate and integrate
+These contracts are the durable product boundary. Individual detectors,
+challenges and adapters can improve without weakening it.
 
-- Calibrate automation, abuse intent and continuity separately by endpoint
-  class on time-separated data and unseen attack families.
-- Publish documented adapters for reverse proxies, reputation providers and
-  policy-alert sources using the closed normalized signal contract.
-- Publish scrubbed synthetic replay fixtures and detector evaluation templates.
-- Make policies and detector bundles independently reviewable, signed and
-  replaceable without making policy updates opaque.
-- Exercise the full reversible progression: observe → delay → throttle →
-  accessible step-up → temporary block.
+## North-star scorecard
 
-Exit gate: a reviewed canary improves the chosen endpoint outcome without
-exceeding its false-positive or abandonment budget, and rollback is tested.
+Every release candidate reports all applicable values, including missing data:
 
-## Later — harden proven needs
+- confirmed abuse reaching protected outcomes, by endpoint class;
+- confirmed-human false-positive and abandonment intervals;
+- coverage, unknown-label rate and delayed-outcome linkage rate;
+- challenge completion, fallback and unresolved rates;
+- p50/p95/p99 added decision latency and failure behavior;
+- retained data classes, maximum retention and configured external egress;
+- rollback time and the fraction of enforcement covered by a signed rollout.
 
-- Add shared challenge/session state only when multi-replica measurements
-  justify it.
-- Add WebAuthn or account re-authentication where identity assurance matters.
-- Add independently maintained crawler-registry update tooling with signed,
-  expiring local artifacts and fail-closed verification.
-- Commission independent privacy, accessibility and adversarial reviews.
-- Grow community integrations under the existing AGPL-3.0-only core and
-  Apache-2.0 sensor license boundary.
+No single detection-rate number can replace this scorecard. Results from
+synthetic fixtures, one deployment or weak upstream labels are never presented
+as general efficacy.
 
-## Not planned for now
+## v0.2 — prove data sovereignty
 
-- Hosted SaaS, managed operations, billing, enterprise product tiers or sales
-  funnels.
-- A central telemetry cloud or cross-site identity graph.
-- Claims of 100% detection, a universally unsolvable challenge or a calibrated
-  false-positive rate without representative labels.
-- Treating automation as abuse by itself.
-- Shipping opaque decisions without stable reasons and replay evidence.
+Deliverables:
+
+- publish the deterministic `palisade sovereignty-report` command and versioned
+  JSON Schema;
+- document product invariants separately from unverified operator declarations;
+- add a static runtime-egress inventory and regression test for every new
+  network client in the reference service;
+- inventory collected, derived, persisted and exported fields in a
+  machine-readable data map;
+- produce a reproducible local release checklist without GitHub Actions or
+  mandatory hosted build infrastructure;
+- keep private logs, normalized deployment datasets, keys and reports outside
+  every Git worktree by construction and documentation.
+
+Exit gate: a clean reference deployment can generate a reviewable sovereignty
+report; all runtime egress and persisted data classes are accounted for; local
+privacy and license checks pass from a clean checkout.
+
+## v0.3 — prove the local evidence loop
+
+Deliverables:
+
+- complete a generic, local-only import path for operator-authorized exports;
+- derive bounded minute-scale sequence features such as burst shape, endpoint
+  transitions, decoy interaction and challenge lifecycle without emitting raw
+  IP addresses, URLs, form data or exact pointer paths;
+- distinguish collection artifacts, automation evidence, harmful intent and
+  session continuity in reports;
+- evaluate by endpoint class on chronological holdouts and unseen attack
+  families instead of random row splits;
+- link delayed confirmed-human and operator-confirmed-abuse outcomes to the exact
+  decision while reporting ambiguous and missing labels;
+- publish synthetic adversarial fixtures for replay, poisoning, missing signals,
+  spoofed headers, accessibility and adapter failures.
+
+Exit gate: at least one representative private shadow deployment produces
+uniquely linked outcomes for both confirmed-human and confirmed-abuse cohorts,
+reports confidence intervals and stays below 10 ms p95 added in-process decision
+latency. No automatic blocking is enabled.
+
+## v0.4 — make response adaptive and humane
+
+Deliverables:
+
+- add deployment-owned, server-generated decoy and honeypot contracts whose
+  hits are evidence rather than an automatic verdict;
+- vary bounded response cost by endpoint value, evidence confidence, recent
+  behavior and retry history;
+- harden one-time, action-bound challenge redemption against replay and relay;
+- provide keyboard, screen-reader, reduced-motion and non-JavaScript fallback
+  paths with equal security accounting;
+- test the progression `observe → delay → throttle → accessible step-up →
+  temporary block` under load and failure;
+- make challenge abandonment and fallback first-class rollout budgets.
+
+Exit gate: a signed canary improves a chosen protected outcome on a chronological
+holdout without exceeding its confirmed-human, accessibility, latency or
+abandonment budget; rollback is exercised and timed.
+
+## v0.5 — build the open deployment ecosystem
+
+Deliverables:
+
+- stabilize the normalized HTTP and protobuf adapter contracts;
+- publish generic reference integrations for common reverse-proxy patterns,
+  starting with the existing Go origin middleware;
+- define conformance fixtures so community adapters can be certified without
+  production traffic or PALISADE-operated infrastructure;
+- support signed, expiring local artifacts for crawler registries, policies,
+  detector bundles and rollout plans;
+- document compatibility with local upstream signals such as WAF verdicts,
+  reputation classes and challenge outcomes without embedding vendor payloads;
+- create maintainer, security-response and release-signing processes that do not
+  depend on one private deployment.
+
+Exit gate: two independently implemented adapters pass the same privacy,
+failure-policy and decision-contract suite; upgrading or rolling back an
+artifact does not require data export to the project.
+
+## v0.9 — independent evidence
+
+Deliverables:
+
+- commission independent application-security, privacy/data-protection and
+  accessibility reviews and publish remediations;
+- run documented red-team exercises against evasion, poisoning, proof relay,
+  session reset, resource exhaustion and rollout compromise;
+- publish reproducible aggregate benchmarks with dataset limitations and no raw
+  deployment records;
+- freeze v1 schemas, compatibility policy, threat model and operator runbooks;
+- prepare a defensive publication and trademark policy for the open protocols
+  and PALISADE name after specialist legal review.
+
+Exit gate: all critical findings are fixed or explicitly accepted, the release
+can be reproduced locally from a signed source tag, and a new operator can
+complete shadow deployment and rollback using public documentation alone.
+
+## v1.0 — trustworthy self-hosted baseline
+
+The first stable release requires:
+
+- the three product contracts to be implemented and covered by regression
+  tests;
+- versioned migration paths for every persisted or exchanged artifact;
+- a measured reference deployment with published aggregate limitations;
+- no unresolved critical security, privacy or accessibility findings;
+- a supportable maintainer and vulnerability-disclosure process;
+- no dependency on private PALISADE-operated services.
+
+Version 1.0 will still not claim universal bot detection, universal legal
+compliance or an unsolvable challenge.
+
+## Private-data lane
+
+Production exports may contain personal data and attack intelligence. They are
+never project inputs and must remain on operator-controlled systems. Development
+against private data happens in a separate local directory with operator-held
+keys. Only reviewed aggregate metrics, synthetic fixtures or deliberately
+anonymized artifacts may be proposed for publication. Pseudonymization alone is
+not anonymization.
+
+Community users can bring their own data to their own PALISADE installation.
+Participation never requires submitting IP addresses, identifiers, traffic
+records or model-training data to the project.
+
+## Explicit non-goals
+
+- a hosted SaaS, managed operations, billing or commercial feature tiers;
+- a mandatory central telemetry cloud or cross-site identity graph;
+- direct integration with a maintainer's private products or production data;
+- treating automation, residential origin or a browser-like fingerprint as
+  proof of harmful intent or humanity;
+- opaque auto-learning that can activate blocking without measured review;
+- claims of 100% separation, zero false positives or automatic GDPR compliance.
