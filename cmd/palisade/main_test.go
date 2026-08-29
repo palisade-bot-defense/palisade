@@ -103,6 +103,19 @@ func TestSovereigntyReportRejectsFreeFormDeploymentData(t *testing.T) {
 	}
 }
 
+func TestShadowHoldoutRequiresPredeclaredUTCBoundaryAndPrivateOutput(t *testing.T) {
+	if err := evaluateShadowHoldout(nil); err == nil || !strings.Contains(err.Error(), "requires --dir") {
+		t.Fatalf("missing shadow holdout arguments error = %v", err)
+	}
+	err := evaluateShadowHoldout([]string{
+		"--dir", "synthetic-private-shadow", "--key-file", "synthetic-private-key",
+		"--holdout-start", "2026-08-29T12:00:00+02:00", "--output", "synthetic-private-report",
+	})
+	if !errors.Is(err, shadowanalysis.ErrInvalidHoldout) {
+		t.Fatalf("non-UTC shadow holdout boundary error = %v", err)
+	}
+}
+
 func TestNoindexCompareComputesStepUpButRemainsShadowObserve(t *testing.T) {
 	engine, _, err := buildReplayEngine(core.RuntimeModeShadow)
 	if err != nil {

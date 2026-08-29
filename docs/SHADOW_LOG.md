@@ -97,6 +97,19 @@ remain outside PALISADE. These new classes create conservative suspicious
 evidence only and must begin a fresh shadow comparison window; a browser-like,
 residential or low-risk class is never a confirmed-human label.
 
+`transparent-baseline-v12` adds downgrade-only response-cost scaling inside a
+signed rollout. Throttle and temporary-block durations now range from fixed
+minimums to the plan's signed maxima using closed endpoint, evidence-confidence,
+recent-session and retry-history factors. Stable factor reason codes make this
+visible in encrypted decisions. Existing v11 decisions remain valid historical
+measurements, but a v11-signed rollout cannot load into the v12 runtime.
+
+`transparent-baseline-v13` adds native, server-generated decoy capabilities.
+The in-process lifecycle binds an opaque one-time capability to a session and
+closed endpoint class and emits `DECOY_CAPABILITY_REDEEMED` only after a
+backend-authenticated hit. A v12-signed rollout cannot load into the v13
+runtime; begin a fresh shadow comparison window for the new evidence source.
+
 This collection bridge requires the encrypted sink and signed session cookie.
 It rejects signed rollout configuration and therefore cannot enforce. Disable
 it before enabling the origin middleware or a rollout; otherwise flush-based
@@ -161,11 +174,11 @@ palisade analyze-shadow-log \
   --output /private/local/palisade-shadow/analysis.json
 ```
 
-The command streams decrypted records through bounded aggregation and writes only the closed `palisade.shadow-analysis.v3` report. It reports decision/action distributions, shadow/canary/enforce counts, exact canary rollout counts, score summaries, raw outcome-event coverage and bounded reason/policy/model counts. A separate bounded SHA-256 decision-ID join produces endpoint/cohort confusion matrices, false-positive rate, abuse recall/precision and mature challenge completion/failure/abandonment/fallback rates with Wilson 95% intervals. Decision IDs and digests are never emitted. Duplicate decisions, conflicting labels, duplicate terminal outcomes, endpoint mismatches, unknown IDs, legacy unlinked outcomes and unresolved mature challenges remain explicit. Canary comparisons remain grouped by rollout ID and endpoint and are descriptive rather than causal. `--output` creates a new `0600` file outside Git and never overwrites an existing report.
+The command streams decrypted records through bounded aggregation and writes only the closed `palisade.shadow-analysis.v4` report. It reports decision/action distributions, shadow/canary/enforce counts, exact canary rollout counts, score summaries, raw outcome-event coverage and bounded reason/policy/model counts. A separate bounded SHA-256 decision-ID join produces endpoint/cohort confusion matrices, false-positive rate, abuse recall/precision and mature challenge completion/failure/abandonment/fallback rates with Wilson 95% intervals. Decision IDs and digests are never emitted. Duplicate decisions, conflicting labels, duplicate terminal outcomes, endpoint mismatches, unknown IDs, legacy unlinked outcomes and unresolved mature challenges remain explicit. Canary comparisons remain grouped by rollout ID and endpoint and are descriptive rather than causal. The v4 `canary_challenge_budgets` groups only mature, unique challenge links by the exact rollout and endpoint for promotion review; it cannot be pooled across rollouts. `--output` creates a new `0600` file outside Git and never overwrites an existing report.
 
 Default scan budgets are 4096 managed files, 10 million records, 16 GiB of encrypted input and one million decision links. `--max-files`, `--max-records`, `--max-encrypted-bytes` and `--max-decision-links` may lower or raise them only within compiled hard caps; the linkage hard maximum is five million. Distinct reason, policy and model values are also bounded; exceeding a budget fails closed instead of growing memory without limit.
 
-The v3 recommendation gates are deliberately conservative:
+The v4 recommendation gates are deliberately conservative:
 
 - at least 1000 decisions across a representative traffic cycle;
 - at least 24 hours between the first and last authenticated record before a rollout can be signed;
@@ -177,9 +190,15 @@ The v3 recommendation gates are deliberately conservative:
 
 Meeting the data gates produces only `operator_review_candidate` and `review_reversible_canary`. `automatic_enforcement` is always `false`. Wilson intervals quantify sampling uncertainty for the named aggregate proportion; they do not repair missing linkage, contaminated labels or cohort selection and therefore do not establish a false-positive rate. Accessibility results, rollback readiness and operator approval remain external release gates. Sparse or contaminated labels produce concrete data-collection recommendations rather than an enforcement recommendation.
 
-Promotion uses the separate [signed rollout workflow](ROLLOUT.md). Full enforcement review requires at least 1000 recorded decisions attributed to the exact named predecessor canary on the exact recommended endpoint; unrelated historical canaries or a different endpoint do not satisfy that gate.
+To evaluate the exact linked decision stream on a time-separated boundary, run
+the separate [`evaluate-shadow-holdout`](SHADOW_HOLDOUT.md) command. Delayed
+outcomes remain assigned to baseline or holdout by their decision's record
+time, never by outcome arrival time. Its report is aggregate, owner-only and
+cannot authorize enforcement.
 
-The current contracts are [`schemas/shadow-record-v3.schema.json`](../schemas/shadow-record-v3.schema.json) and [`schemas/shadow-analysis-report-v3.schema.json`](../schemas/shadow-analysis-report-v3.schema.json). Shadow-record v3 adds the closed `delay` action; the reader keeps authenticated v1 and v2 records readable, while rejecting `delay` in older record versions. Aggregate report v3 treats the zero-valued `delay` counter as an optional additive field so existing validated reports remain readable. All newly written decisions include a canonical cohort and all new outcomes require linkage. Historical v1/v2 analysis reports are rejected by the v3 runtime and must be regenerated locally from encrypted logs. Keep generated reports beside the private logs, outside Git. They are aggregate but may still disclose operational security posture and should not be published automatically.
+Promotion uses the separate [signed rollout workflow](ROLLOUT.md). Full enforcement review requires at least 1000 recorded decisions and at least 100 mature uniquely linked challenges attributed to the exact named predecessor canary on the exact recommended endpoint. The terminal-outcome coverage Wilson lower bound must be at least 90%; abandonment and accessible-fallback Wilson upper bounds must each be at most 10%. Unrelated historical canaries or a different endpoint do not satisfy any of these gates.
+
+The current contracts are [`schemas/shadow-record-v3.schema.json`](../schemas/shadow-record-v3.schema.json), [`schemas/shadow-analysis-report-v4.schema.json`](../schemas/shadow-analysis-report-v4.schema.json) and [`schemas/shadow-holdout-report-v1.schema.json`](../schemas/shadow-holdout-report-v1.schema.json). Shadow-record v3 adds the closed `delay` action; the reader keeps authenticated v1 and v2 records readable, while rejecting `delay` in older record versions. Analysis report v4 adds exact rollout-and-endpoint challenge budgets. All newly written decisions include a canonical cohort and all new outcomes require linkage. Historical v1-v3 analysis reports are rejected by the v4 runtime and must be regenerated locally from encrypted logs. Keep generated reports beside the private logs, outside Git. They are aggregate but may still disclose operational security posture and should not be published automatically.
 
 AES-GCM detects changes to records that are present, while sequential counters detect internal gaps and reordering. It cannot prove that an entire file was deleted or rolled back, and a crash can leave the newest frame incomplete; verification then fails that file. Use host audit logging, a protected append-only filesystem or independent encrypted backups when deletion resistance or crash recovery is required. Retention intentionally deletes complete managed files, so the sink is append-only within its active retention set rather than immutable forever.
 

@@ -137,7 +137,7 @@ The response separates what PALISADE recommends from what it actually applies:
   "reason_codes": ["STEP_UP_REQUIRED", "SHADOW_ACTION_OVERRIDDEN"],
   "evidence": [],
   "policy_version": "default-v5",
-  "model_version": "transparent-baseline-v11",
+  "model_version": "transparent-baseline-v13",
   "expires_at": "2026-08-27T12:00:30Z"
 }
 ```

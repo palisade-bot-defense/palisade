@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"regexp"
 	"slices"
@@ -22,16 +23,29 @@ import (
 )
 
 const (
-	SchemaVersion              = "palisade.rollout-plan.v1"
-	MaximumCanaryBasisPoints   = uint32(1000)
-	FullRolloutBasisPoints     = uint32(10_000)
-	MinimumCanaryDecisions     = uint64(1000)
-	MaximumCanaryDuration      = 7 * 24 * time.Hour
-	MaximumEnforceDuration     = 24 * time.Hour
-	DefaultDelaySeconds        = 1
-	DefaultThrottleSeconds     = 5
-	DefaultChallengeTTLSeconds = 300
-	DefaultBlockSeconds        = 300
+	SchemaVersion                      = "palisade.rollout-plan.v2"
+	MaximumCanaryBasisPoints           = uint32(1000)
+	FullRolloutBasisPoints             = uint32(10_000)
+	MinimumCanaryDecisions             = uint64(1000)
+	MaximumCanaryDuration              = 7 * 24 * time.Hour
+	MaximumEnforceDuration             = 24 * time.Hour
+	DefaultDelaySeconds                = 1
+	DefaultThrottleSeconds             = 5
+	DefaultChallengeTTLSeconds         = 300
+	DefaultBlockSeconds                = 300
+	DefaultMinMatureChallenges         = uint64(100)
+	DefaultMinChallengeOutcomeCoverage = 0.90
+	DefaultMaxChallengeAbandonmentRate = 0.10
+	DefaultMaxChallengeFallbackRate    = 0.10
+	maximumResponseCostTier            = 4
+)
+
+const (
+	ReasonResponseCostBaseline = "RESPONSE_COST_BASELINE"
+	ReasonResponseCostEndpoint = "RESPONSE_COST_ENDPOINT_VALUE"
+	ReasonResponseCostEvidence = "RESPONSE_COST_CONFIDENT_EVIDENCE"
+	ReasonResponseCostBehavior = "RESPONSE_COST_RECENT_BEHAVIOR"
+	ReasonResponseCostRetry    = "RESPONSE_COST_RETRY_HISTORY"
 )
 
 var (
@@ -43,23 +57,27 @@ var (
 )
 
 type Plan struct {
-	SchemaVersion        string           `json:"schema_version"`
-	RolloutID            string           `json:"rollout_id"`
-	ApprovalID           string           `json:"approval_id"`
-	PredecessorRolloutID string           `json:"predecessor_rollout_id"`
-	CreatedAt            string           `json:"created_at"`
-	ExpiresAt            string           `json:"expires_at"`
-	SourceReportSHA256   string           `json:"source_report_sha256"`
-	SourceReadinessState string           `json:"source_readiness_state"`
-	PolicyVersion        string           `json:"policy_version"`
-	ModelVersion         string           `json:"model_version"`
-	Stage                core.RuntimeMode `json:"stage"`
-	EndpointClasses      []string         `json:"endpoint_classes"`
-	MaxAction            core.Action      `json:"max_action"`
-	CanaryBasisPoints    uint32           `json:"canary_basis_points"`
-	ThrottleSeconds      int              `json:"throttle_seconds"`
-	ChallengeTTLSeconds  int              `json:"challenge_ttl_seconds"`
-	BlockSeconds         int              `json:"block_seconds"`
+	SchemaVersion               string           `json:"schema_version"`
+	RolloutID                   string           `json:"rollout_id"`
+	ApprovalID                  string           `json:"approval_id"`
+	PredecessorRolloutID        string           `json:"predecessor_rollout_id"`
+	CreatedAt                   string           `json:"created_at"`
+	ExpiresAt                   string           `json:"expires_at"`
+	SourceReportSHA256          string           `json:"source_report_sha256"`
+	SourceReadinessState        string           `json:"source_readiness_state"`
+	PolicyVersion               string           `json:"policy_version"`
+	ModelVersion                string           `json:"model_version"`
+	Stage                       core.RuntimeMode `json:"stage"`
+	EndpointClasses             []string         `json:"endpoint_classes"`
+	MaxAction                   core.Action      `json:"max_action"`
+	CanaryBasisPoints           uint32           `json:"canary_basis_points"`
+	ThrottleSeconds             int              `json:"throttle_seconds"`
+	ChallengeTTLSeconds         int              `json:"challenge_ttl_seconds"`
+	BlockSeconds                int              `json:"block_seconds"`
+	MinMatureChallenges         uint64           `json:"min_mature_challenges"`
+	MinChallengeOutcomeCoverage float64          `json:"min_challenge_outcome_coverage"`
+	MaxChallengeAbandonmentRate float64          `json:"max_challenge_abandonment_rate"`
+	MaxChallengeFallbackRate    float64          `json:"max_challenge_fallback_rate"`
 }
 
 type SignedPlan struct {
@@ -68,18 +86,22 @@ type SignedPlan struct {
 }
 
 type PrepareOptions struct {
-	RolloutID            string
-	ApprovalID           string
-	PredecessorRolloutID string
-	Stage                core.RuntimeMode
-	EndpointClasses      []string
-	MaxAction            core.Action
-	CanaryBasisPoints    uint32
-	ThrottleSeconds      int
-	ChallengeTTLSeconds  int
-	BlockSeconds         int
-	CreatedAt            time.Time
-	ExpiresAt            time.Time
+	RolloutID                   string
+	ApprovalID                  string
+	PredecessorRolloutID        string
+	Stage                       core.RuntimeMode
+	EndpointClasses             []string
+	MaxAction                   core.Action
+	CanaryBasisPoints           uint32
+	ThrottleSeconds             int
+	ChallengeTTLSeconds         int
+	BlockSeconds                int
+	MinMatureChallenges         uint64
+	MinChallengeOutcomeCoverage float64
+	MaxChallengeAbandonmentRate float64
+	MaxChallengeFallbackRate    float64
+	CreatedAt                   time.Time
+	ExpiresAt                   time.Time
 }
 
 type Result struct {
@@ -88,6 +110,16 @@ type Result struct {
 	RolloutID string
 	Reasons   []string
 	Directive core.EnforcementDirective
+}
+
+// AdaptiveContext contains only bounded, closed runtime aggregates. It must
+// never contain an address, URL, fingerprint, raw event or free-form label.
+type AdaptiveContext struct {
+	SuspiciousEvidenceConfidence float64
+	RequestCount                 uint64
+	EndpointTransitions          uint64
+	RecentEnforcements           uint8
+	PrematureRetries             uint8
 }
 
 type Controller struct {
@@ -126,6 +158,18 @@ func prepareSignedPlan(report shadowanalysis.Report, reportBytes []byte, options
 	if options.BlockSeconds == 0 {
 		options.BlockSeconds = DefaultBlockSeconds
 	}
+	if options.MinMatureChallenges == 0 {
+		options.MinMatureChallenges = DefaultMinMatureChallenges
+	}
+	if options.MinChallengeOutcomeCoverage == 0 {
+		options.MinChallengeOutcomeCoverage = DefaultMinChallengeOutcomeCoverage
+	}
+	if options.MaxChallengeAbandonmentRate == 0 {
+		options.MaxChallengeAbandonmentRate = DefaultMaxChallengeAbandonmentRate
+	}
+	if options.MaxChallengeFallbackRate == 0 {
+		options.MaxChallengeFallbackRate = DefaultMaxChallengeFallbackRate
+	}
 	endpoints := append([]string(nil), options.EndpointClasses...)
 	sort.Strings(endpoints)
 	plan := Plan{
@@ -136,6 +180,8 @@ func prepareSignedPlan(report shadowanalysis.Report, reportBytes []byte, options
 		PolicyVersion: policyVersion, ModelVersion: modelVersion, Stage: options.Stage,
 		EndpointClasses: endpoints, MaxAction: options.MaxAction, CanaryBasisPoints: options.CanaryBasisPoints,
 		ThrottleSeconds: options.ThrottleSeconds, ChallengeTTLSeconds: options.ChallengeTTLSeconds, BlockSeconds: options.BlockSeconds,
+		MinMatureChallenges: options.MinMatureChallenges, MinChallengeOutcomeCoverage: options.MinChallengeOutcomeCoverage,
+		MaxChallengeAbandonmentRate: options.MaxChallengeAbandonmentRate, MaxChallengeFallbackRate: options.MaxChallengeFallbackRate,
 	}
 	if err := plan.Validate(options.CreatedAt); err != nil {
 		return SignedPlan{}, err
@@ -224,7 +270,9 @@ func (p Plan) Validate(now time.Time) error {
 	} else {
 		return ErrInvalidPlan
 	}
-	if p.ThrottleSeconds < 1 || p.ThrottleSeconds > 60 || p.ChallengeTTLSeconds < 30 || p.ChallengeTTLSeconds > 900 || p.BlockSeconds < 60 || p.BlockSeconds > 3600 {
+	if p.ThrottleSeconds < 1 || p.ThrottleSeconds > 60 || p.ChallengeTTLSeconds < 30 || p.ChallengeTTLSeconds > 900 || p.BlockSeconds < 60 || p.BlockSeconds > 3600 ||
+		p.MinMatureChallenges < 1 || p.MinMatureChallenges > 1_000_000 || !validBudgetRate(p.MinChallengeOutcomeCoverage) ||
+		!validBudgetRate(p.MaxChallengeAbandonmentRate) || !validBudgetRate(p.MaxChallengeFallbackRate) {
 		return ErrInvalidPlan
 	}
 	if len(p.EndpointClasses) < 1 || len(p.EndpointClasses) > 4 || !sort.StringsAreSorted(p.EndpointClasses) {
@@ -238,6 +286,10 @@ func (p Plan) Validate(now time.Time) error {
 	return nil
 }
 
+func validBudgetRate(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0) && value > 0 && value <= 1
+}
+
 func NewController(signed SignedPlan, publicKey ed25519.PublicKey, cohortKey []byte, policyVersion, modelVersion string, now time.Time) (*Controller, error) {
 	if err := Verify(signed, publicKey, now); err != nil {
 		return nil, err
@@ -249,6 +301,10 @@ func NewController(signed SignedPlan, publicKey ed25519.PublicKey, cohortKey []b
 }
 
 func (c *Controller) Apply(sessionID, endpoint string, computed core.Action, now time.Time) Result {
+	return c.ApplyWithContext(sessionID, endpoint, computed, AdaptiveContext{}, now)
+}
+
+func (c *Controller) ApplyWithContext(sessionID, endpoint string, computed core.Action, context AdaptiveContext, now time.Time) Result {
 	result := Result{Action: computed, Mode: c.plan.Stage, RolloutID: c.plan.RolloutID}
 	expiresAt, _ := time.Parse(time.RFC3339, c.plan.ExpiresAt)
 	if !expiresAt.After(now.UTC()) {
@@ -275,6 +331,11 @@ func (c *Controller) Apply(sessionID, endpoint string, computed core.Action, now
 		result.Reasons = append(result.Reasons, "ROLLOUT_ACTION_CAPPED")
 	}
 	result.Directive = directive(result.Action, now, c.plan)
+	if result.Action == core.ActionThrottle || result.Action == core.ActionBlock {
+		var reasons []string
+		result.Directive, reasons = adaptiveDirective(result.Action, endpoint, context, now, c.plan)
+		result.Reasons = append(result.Reasons, reasons...)
+	}
 	return result
 }
 
@@ -282,6 +343,20 @@ func (c *Controller) Plan() Plan { return c.plan }
 
 func DefaultDirective(action core.Action, now time.Time) core.EnforcementDirective {
 	return directive(action, now, Plan{})
+}
+
+func AdaptiveContextFrom(snapshot core.SessionSnapshot, evidence []core.Evidence) AdaptiveContext {
+	context := AdaptiveContext{
+		RequestCount: snapshot.RequestCount, EndpointTransitions: snapshot.EndpointTransitions,
+		RecentEnforcements: snapshot.RecentEnforcements, PrematureRetries: snapshot.PrematureRetries,
+	}
+	for _, item := range evidence {
+		if item.Direction == core.DirectionSuspicious && item.Strength >= .5 && item.Strength <= 1 &&
+			item.Confidence >= 0 && item.Confidence <= 1 && item.Confidence > context.SuspiciousEvidenceConfidence {
+			context.SuspiciousEvidenceConfidence = item.Confidence
+		}
+	}
+	return context
 }
 
 func (c *Controller) bucket(sessionID string) uint32 {
@@ -336,6 +411,65 @@ func directive(action core.Action, now time.Time, plan Plan) core.EnforcementDir
 		}
 	}
 	return result
+}
+
+func adaptiveDirective(action core.Action, endpoint string, context AdaptiveContext, now time.Time, plan Plan) (core.EnforcementDirective, []string) {
+	tier, reasons := responseCostTier(endpoint, context)
+	result := directive(action, now, plan)
+	switch action {
+	case core.ActionThrottle:
+		result.RetryAfterSeconds = scaledResponseSeconds(1, result.RetryAfterSeconds, tier)
+		result.ExpiresAt = now.Add(time.Duration(result.RetryAfterSeconds) * time.Second)
+	case core.ActionBlock:
+		result.RetryAfterSeconds = scaledResponseSeconds(60, result.RetryAfterSeconds, tier)
+		result.ExpiresAt = now.Add(time.Duration(result.RetryAfterSeconds) * time.Second)
+	}
+	if rolloutExpiry, err := time.Parse(time.RFC3339, plan.ExpiresAt); err == nil && rolloutExpiry.Before(result.ExpiresAt) {
+		result.ExpiresAt = rolloutExpiry
+		remaining := int(rolloutExpiry.Sub(now).Seconds())
+		if remaining < 1 {
+			remaining = 1
+		}
+		if remaining < result.RetryAfterSeconds {
+			result.RetryAfterSeconds = remaining
+		}
+	}
+	return result, reasons
+}
+
+func responseCostTier(endpoint string, context AdaptiveContext) (int, []string) {
+	tier := 0
+	reasons := make([]string, 0, maximumResponseCostTier)
+	if endpoint == "compare_index" || endpoint == "compare_noindex" {
+		tier++
+		reasons = append(reasons, ReasonResponseCostEndpoint)
+	}
+	if context.SuspiciousEvidenceConfidence >= .75 && context.SuspiciousEvidenceConfidence <= 1 {
+		tier++
+		reasons = append(reasons, ReasonResponseCostEvidence)
+	}
+	if context.RequestCount >= 50 || context.EndpointTransitions >= 6 {
+		tier++
+		reasons = append(reasons, ReasonResponseCostBehavior)
+	}
+	if context.RecentEnforcements >= 2 || context.PrematureRetries >= 1 {
+		tier++
+		reasons = append(reasons, ReasonResponseCostRetry)
+	}
+	if tier == 0 {
+		reasons = append(reasons, ReasonResponseCostBaseline)
+	}
+	return tier, reasons
+}
+
+func scaledResponseSeconds(minimum, maximum, tier int) int {
+	if maximum <= minimum || tier <= 0 {
+		return minimum
+	}
+	if tier >= maximumResponseCostTier {
+		return maximum
+	}
+	return minimum + ((maximum-minimum)*tier+maximumResponseCostTier-1)/maximumResponseCostTier
 }
 
 func dominantVersion(values []shadowanalysis.CountedValue, decisions uint64) (string, error) {

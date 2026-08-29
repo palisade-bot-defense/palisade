@@ -8,6 +8,9 @@ PALISADE should decide from behavior without reconstructing a person's content.
 - Quantized movement magnitude and scroll depth.
 - Visibility and navigation lifecycle transitions.
 - Sequence gaps and bounded session aggregates.
+- Saturating counts of recent enforced responses and retries before an active
+  Retry-After boundary; both expire with the five-minute session and are never
+  persisted as a client history.
 - Server-side protocol consistency signals.
 - Closed transport protocol/security and client-address provenance classes;
   never the peer, proxy or client address itself.
@@ -21,6 +24,10 @@ PALISADE should decide from behavior without reconstructing a person's content.
   verification result.
 - Random, server-issued session identifiers authenticated by an HttpOnly cookie; they are continuity handles, not identity claims.
 - Reason codes and normalized verdicts from challenge systems, external risk providers and policy-alert sources.
+- Opaque server-generated decoy capabilities plus the closed `link|form|api`
+  surface and `touched|submitted` interaction classes. Capabilities are bound
+  to an opaque session and closed endpoint class; no trap URL or form content
+  enters PALISADE.
 - One closed, deployment-supplied evaluation cohort (`standard`, `reduced_motion`, `keyboard_only`, `fallback_path`, `sensor_missing`, `unknown`) used only for aggregate safety measurement.
 
 ## Prohibited
@@ -69,6 +76,11 @@ deletion controls.
 
 Default event/session retention is five minutes in memory. Optional shadow persistence records only the bounded decision fields and normalized outcomes documented in [SHADOW_LOG.md](../SHADOW_LOG.md). It is disabled unless both a local directory and key file are configured. Records are individually authenticated and encrypted, session IDs are replaced with keyed pilot-local link keys, timestamps are quantized to seconds, retention is configurable, and paths must be owner-only and outside Git worktrees. This is not permission to persist browser events, request bodies, cookies, tokens, IP addresses, user agents or raw traffic.
 
+The response-cost controller reuses that five-minute session entry for two
+saturating counters and an in-memory Retry-After deadline. These values may
+only increase bounded response duration up to a signed plan maximum; they are
+not detector labels, are not exported, and reset on TTL expiry or restart.
+
 When event-triggered shadow evaluation is enabled, accepted browser events stay
 in that same bounded memory store; only the resulting closed decision is sent
 to the encrypted recorder. The browser receives only a `recorded|dropped`
@@ -81,13 +93,24 @@ The `__Host-palisade_session` cookie contains only a random identifier plus issu
 
 Native challenge state is memory-only and contains a random challenge ID, the
 closed session/decision/action/endpoint/rollout bindings, attempt/state fields,
-expiries and only a hash of the one-time redemption capability. It never stores
+expiries, a hash of the server-only origin-flow capability and only a hash of
+the one-time redemption capability. It never stores
 the original URL, query, request body, IP address, user agent, cookie or sensor
 events. Only closed challenge outcomes may enter the encrypted shadow sink.
 
+Native decoy state is also memory-only and bounded. Issuance retains only a
+SHA-256 digest of the random capability, a domain-separated digest of the
+opaque session handle, one closed endpoint/surface class and an expiry. A
+successful backend-authenticated hit consumes the capability exactly once and
+queues at most 100 normalized hits for five minutes. The next matching
+decision consumes that evidence at most once. A decoy hit is suspicious intent
+evidence, not an identity label and not a standalone block condition.
+
 The reference Go origin adapter additionally holds bounded, expiring sequence,
 pending-challenge and one-time retry maps. It binds the retry to method, escaped
-path and raw query with a process-random HMAC. Only the digest is retained; the
+path, raw query and decision sequence with a process-random HMAC. The pending
+entry also retains one opaque 32-byte origin-flow capability until redemption.
+Only digests and that capability are retained; the
 application URL, query, body, user-agent value and PALISADE tokens are never
 stored in this map or sent as observations.
 

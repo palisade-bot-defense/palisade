@@ -128,3 +128,7 @@ defines fail-closed expectations for random-split leakage, boundary windows,
 unknown labels, conflicting labels, collection loss, seen/unseen families,
 annotation poisoning, challenge-humanity inference and resource exhaustion. It
 contains no deployment records or reusable identifiers.
+
+The broader [public adversarial conformance suite](ADVERSARIAL_FIXTURES.md)
+connects this holdout contract with executable replay, missing-signal,
+header-spoofing, accessibility and origin-adapter failure scenarios.

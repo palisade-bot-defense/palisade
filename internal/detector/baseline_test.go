@@ -299,8 +299,17 @@ func TestDecoyInteractionIsSeparateIntentEvidence(t *testing.T) {
 		if hits == 0 && len(evidence) != 0 {
 			t.Fatalf("zero hits evidence = %+v", evidence)
 		}
-		if hits > 0 && (len(evidence) != 1 || evidence[0].Detector != "decoy_interaction_v1" || evidence[0].Dimension != core.DimensionIntent || evidence[0].Strength > 1) {
+		if hits > 0 && (len(evidence) != 1 || evidence[0].Detector != "decoy_interaction_v2" || evidence[0].Dimension != core.DimensionIntent || evidence[0].Strength > 1) {
 			t.Fatalf("hits=%d evidence=%+v", hits, evidence)
 		}
+	}
+	verified, err := (DecoyInteraction{}).Evaluate(context.Background(), core.DetectorInput{
+		Request: core.DecisionRequest{Observations: core.Observations{HoneypotHits: 1, VerifiedDecoyHits: 1}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(verified) != 2 || verified[1].Code != "DECOY_CAPABILITY_REDEEMED" || verified[1].Confidence <= verified[0].Confidence {
+		t.Fatalf("verified evidence = %+v", verified)
 	}
 }

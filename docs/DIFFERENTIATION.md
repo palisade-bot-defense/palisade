@@ -77,7 +77,7 @@ become more valuable when inspected and adopted:
    records and delayed-outcome linkage with explicit uncertainty.
 5. **Measured rollout artifacts:** review and rollout schemas that cryptographically
    bind action, endpoint, cohort, expiry, evidence thresholds and rollback.
-6. **Humane challenge protocol:** one-time action/session binding, accessibility
+6. **Humane challenge protocol:** one-time action/session/origin-flow binding, accessibility
    accounting and progressive cost rather than a single visual puzzle.
 7. **Evaluation method:** chronological holdouts, unknown-label accounting,
    confidence intervals and poisoning/misconfiguration test fixtures. The

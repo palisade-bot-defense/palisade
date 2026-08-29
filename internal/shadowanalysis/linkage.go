@@ -32,6 +32,8 @@ type linkedDecision struct {
 	recordedAt       time.Time
 	predictedRisky   bool
 	challenged       bool
+	mode             core.RuntimeMode
+	rolloutID        string
 	outcomeEndpoint  string
 	endpointConflict bool
 	outcomeEvents    uint64
@@ -74,6 +76,8 @@ func (a *analyzer) observeLinkedDecision(entry *shadowlog.DecisionEntry, recorde
 	link.recordedAt = parsedAt
 	link.predictedRisky = isRisky(entry.ComputedAction)
 	link.challenged = entry.Action == core.ActionChallenge
+	link.mode = entry.Mode
+	link.rolloutID = entry.RolloutID
 	return nil
 }
 
@@ -119,6 +123,7 @@ func (a *analyzer) finishLinkage(source shadowlog.Verification) {
 	matureBefore := lastAt.Add(-ChallengeOutcomeMaturity)
 	slices := make(map[evaluationSliceKey]*linkedAccumulator)
 	endpoints := make(map[string]*linkedAccumulator)
+	canaryBudgets := make(map[canaryEndpointKey]*linkedAccumulator)
 	for _, link := range a.links {
 		if !link.decisionSeen {
 			a.report.Linkage.UnknownDecisionOutcomeEvents += link.outcomeEvents
@@ -149,6 +154,15 @@ func (a *analyzer) finishLinkage(source shadowlog.Verification) {
 		}
 		slice.observe(link, matched, matureBefore)
 		endpoint.observe(link, matched, matureBefore)
+		if link.mode == core.RuntimeModeCanary && link.rolloutID != "" {
+			key := canaryEndpointKey{rolloutID: link.rolloutID, endpoint: link.endpoint}
+			budget := canaryBudgets[key]
+			if budget == nil {
+				budget = &linkedAccumulator{}
+				canaryBudgets[key] = budget
+			}
+			budget.observe(link, matched, matureBefore)
+		}
 	}
 	for name, accumulator := range endpoints {
 		if endpoint := a.endpoints[name]; endpoint != nil {
@@ -161,6 +175,7 @@ func (a *analyzer) finishLinkage(source shadowlog.Verification) {
 	}
 	a.report.Linkage.ConfirmedLabelCoverage = Proportion(a.report.Linkage.ConfirmedDecisionLabels, source.Decisions)
 	a.report.EvaluationSlices = sortedEvaluationSlices(slices)
+	a.report.CanaryChallengeBudgets = a.sortedCanaryChallengeBudgets(canaryBudgets)
 }
 
 func (a *linkedAccumulator) observe(link *linkedDecision, outcomesMatched bool, matureBefore time.Time) {
@@ -244,6 +259,43 @@ func sortedEvaluationSlices(values map[evaluationSliceKey]*linkedAccumulator) []
 	}
 	if result == nil {
 		return []EvaluationSlice{}
+	}
+	return result
+}
+
+func (a *analyzer) sortedCanaryChallengeBudgets(values map[canaryEndpointKey]*linkedAccumulator) []CanaryChallengeBudget {
+	keys := make([]canaryEndpointKey, 0, len(a.canaryEndpoints))
+	for key := range a.canaryEndpoints {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(left, right int) bool {
+		if keys[left].rolloutID == keys[right].rolloutID {
+			return keys[left].endpoint < keys[right].endpoint
+		}
+		return keys[left].rolloutID < keys[right].rolloutID
+	})
+	result := make([]CanaryChallengeBudget, 0, len(keys))
+	for _, key := range keys {
+		evaluation := LinkedEvaluation{}
+		if accumulator := values[key]; accumulator != nil {
+			evaluation = accumulator.finish()
+		} else {
+			evaluation = finalizeLinkedEvaluation(evaluation)
+		}
+		terminal := evaluation.ChallengePassed + evaluation.ChallengeFailed + evaluation.ChallengeAbandoned + evaluation.FallbackUsed
+		result = append(result, CanaryChallengeBudget{
+			RolloutID: key.rolloutID, EndpointClass: key.endpoint, MatureChallenges: evaluation.MatureChallenges,
+			ChallengePassed: evaluation.ChallengePassed, ChallengeFailed: evaluation.ChallengeFailed,
+			ChallengeAbandoned: evaluation.ChallengeAbandoned, FallbackUsed: evaluation.FallbackUsed,
+			UnresolvedMatureChallenges: evaluation.UnresolvedMatureChallenges,
+			AmbiguousChallengeOutcomes: evaluation.AmbiguousChallengeOutcomes,
+			TerminalOutcomeCoverage:    Proportion(terminal, evaluation.MatureChallenges),
+			ChallengeAbandonmentRate:   evaluation.ChallengeAbandonmentRate,
+			FallbackRate:               evaluation.FallbackRate,
+		})
+	}
+	if result == nil {
+		return []CanaryChallengeBudget{}
 	}
 	return result
 }

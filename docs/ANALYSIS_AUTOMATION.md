@@ -14,7 +14,7 @@ encrypted *.plog + key
 analyze-shadow-log --watch-interval
           │ validate + fsync + atomic same-directory rename
           v
-owner-only palisade.shadow-analysis.v3 report
+owner-only palisade.shadow-analysis.v4 report
           │ bounded read + closed JSON decode + aggregate validation
           v
 serve --admin-analysis-report
@@ -62,8 +62,9 @@ palisade serve \
   --admin-analysis-refresh 30s
 ```
 
-The v3 report contains only aggregate endpoint totals, linked endpoint/cohort
-Wilson 95% intervals and rollout/endpoint canary comparisons. A bounded local
+The v4 report contains only aggregate endpoint totals, linked endpoint/cohort
+Wilson 95% intervals, rollout/endpoint canary comparisons and exact
+rollout/endpoint challenge budgets. A bounded local
 join uses decision-ID digests but emits no IDs or digests. False-positive rate,
 recall and precision require unique confirmed decision labels. Challenge rates
 use only mature challenged decisions and keep unresolved or ambiguous outcomes
@@ -85,8 +86,10 @@ the prior report and exposes `analysis_status.state = invalid_update`.
 - A review candidate needs risky shadow actions plus at least 100 uniquely
   linked confirmed-human and 100 confirmed-abuse decisions on the exact
   proposed public endpoint.
-- Enforcement review additionally needs at least 1,000 decisions from the exact
-  predecessor canary on that same endpoint.
+- Enforcement review additionally needs at least 1,000 decisions and 100 mature,
+  uniquely linked challenge outcomes from the exact predecessor canary on that
+  same endpoint. Conservative Wilson bounds require at least 90% terminal-outcome
+  coverage and at most 10% abandonment and 10% fallback usage.
 - A review proposal is generated only on explicit operator invocation and
   cannot be loaded by the serving process.
 - Process counters continue independently when analysis is unavailable.

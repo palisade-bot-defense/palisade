@@ -15,6 +15,7 @@ import (
 
 	"github.com/palisade-bot-defense/palisade/internal/challenge"
 	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-bot-defense/palisade/internal/decoy"
 	"github.com/palisade-bot-defense/palisade/internal/events"
 	"github.com/palisade-bot-defense/palisade/internal/sessioncookie"
 	"github.com/palisade-bot-defense/palisade/internal/shadowlog"
@@ -23,8 +24,76 @@ import (
 
 type fakeEngine struct{}
 
+const testChallengeBinding = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+
 func (fakeEngine) Decide(context.Context, core.DecisionRequest) (core.Decision, error) {
 	return core.Decision{DecisionID: "test", Action: core.ActionAllow, ExpiresAt: time.Now()}, nil
+}
+
+func TestBackendDecoyLifecycleIsAuthenticatedClosedAndOneTime(t *testing.T) {
+	service, err := decoy.New(decoy.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := New(fakeEngine{}, nil, "api-key", slog.Default()).WithDecoys(service).Handler()
+
+	unauthorized := httptest.NewRequest(http.MethodPost, "/v1/decoy/issue", bytes.NewBufferString(`{"session_id":"session-12345678","endpoint_class":"login","surface":"form"}`))
+	unauthorizedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(unauthorizedResponse, unauthorized)
+	if unauthorizedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthorized status = %d", unauthorizedResponse.Code)
+	}
+
+	issue := httptest.NewRequest(http.MethodPost, "/v1/decoy/issue", bytes.NewBufferString(`{"session_id":"session-12345678","endpoint_class":"login","surface":"form","ttl_seconds":60}`))
+	issue.Header.Set("Authorization", "Bearer api-key")
+	issueResponse := httptest.NewRecorder()
+	handler.ServeHTTP(issueResponse, issue)
+	if issueResponse.Code != http.StatusCreated {
+		t.Fatalf("issue status=%d body=%s", issueResponse.Code, issueResponse.Body.String())
+	}
+	var issued decoy.Capability
+	if err := json.Unmarshal(issueResponse.Body.Bytes(), &issued); err != nil {
+		t.Fatal(err)
+	}
+	if len(issued.Capability) != 43 {
+		t.Fatalf("capability length = %d", len(issued.Capability))
+	}
+
+	hitBody := fmt.Sprintf(`{"capability":%q,"interaction":"submitted"}`, issued.Capability)
+	hit := httptest.NewRequest(http.MethodPost, "/v1/decoy/hit", bytes.NewBufferString(hitBody))
+	hit.Header.Set("Authorization", "Bearer api-key")
+	hitResponse := httptest.NewRecorder()
+	handler.ServeHTTP(hitResponse, hit)
+	if hitResponse.Code != http.StatusAccepted {
+		t.Fatalf("hit status=%d body=%s", hitResponse.Code, hitResponse.Body.String())
+	}
+	if hits := service.TakeHits("session-12345678", "login", time.Now().UTC()); hits != 1 {
+		t.Fatalf("verified hits = %d", hits)
+	}
+
+	replay := httptest.NewRequest(http.MethodPost, "/v1/decoy/hit", bytes.NewBufferString(hitBody))
+	replay.Header.Set("Authorization", "Bearer api-key")
+	replayResponse := httptest.NewRecorder()
+	handler.ServeHTTP(replayResponse, replay)
+	if replayResponse.Code != http.StatusConflict {
+		t.Fatalf("replay status=%d body=%s", replayResponse.Code, replayResponse.Body.String())
+	}
+
+	raw := httptest.NewRequest(http.MethodPost, "/v1/decoy/issue", bytes.NewBufferString(`{"session_id":"session-12345678","endpoint_class":"/private?token=raw","surface":"form"}`))
+	raw.Header.Set("Authorization", "Bearer api-key")
+	rawResponse := httptest.NewRecorder()
+	handler.ServeHTTP(rawResponse, raw)
+	if rawResponse.Code != http.StatusBadRequest {
+		t.Fatalf("raw endpoint status=%d body=%s", rawResponse.Code, rawResponse.Body.String())
+	}
+
+	overflow := httptest.NewRequest(http.MethodPost, "/v1/decoy/issue", bytes.NewBufferString(`{"session_id":"session-12345678","endpoint_class":"login","surface":"form","ttl_seconds":9223372036854775807}`))
+	overflow.Header.Set("Authorization", "Bearer api-key")
+	overflowResponse := httptest.NewRecorder()
+	handler.ServeHTTP(overflowResponse, overflow)
+	if overflowResponse.Code != http.StatusBadRequest {
+		t.Fatalf("overflow status=%d body=%s", overflowResponse.Code, overflowResponse.Body.String())
+	}
 }
 
 type recordingEngine struct{ request core.DecisionRequest }
@@ -605,6 +674,7 @@ func TestOriginCheckAppliesOnlyValidatedDirectiveStatus(t *testing.T) {
 			server := New(fixedEngine{decision: decision}, tokens, "key", slog.Default()).WithSessionCookies(cookies, true).WithChallenges(challengeService)
 			request := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"`+claims.SessionID+`","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
 			request.AddCookie(&issuedCookie)
+			request.Header.Set("X-Palisade-Challenge-Binding", testChallengeBinding)
 			response := httptest.NewRecorder()
 			server.Handler().ServeHTTP(response, request)
 			if response.Code != test.status || response.Body.Len() != 0 {
@@ -650,6 +720,7 @@ func TestNativeChallengeHTTPFlowRecordsOutcomeAndRejectsReplay(t *testing.T) {
 
 	origin := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"`+claims.SessionID+`","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
 	origin.AddCookie(&issuedCookie)
+	origin.Header.Set("X-Palisade-Challenge-Binding", testChallengeBinding)
 	originResponse := httptest.NewRecorder()
 	handler.ServeHTTP(originResponse, origin)
 	challengeID := originResponse.Header().Get("X-Palisade-Challenge-ID")
@@ -691,8 +762,18 @@ func TestNativeChallengeHTTPFlowRecordsOutcomeAndRejectsReplay(t *testing.T) {
 	}
 
 	redeemBody, _ := json.Marshal(map[string]string{
-		"challenge_id": challengeID, "redemption_token": verification.RedemptionToken, "action": "read", "endpoint_class": "public_content",
+		"challenge_id": challengeID, "redemption_token": verification.RedemptionToken, "redemption_binding": testChallengeBinding, "action": "read", "endpoint_class": "public_content",
 	})
+	relayBody, _ := json.Marshal(map[string]string{
+		"challenge_id": challengeID, "redemption_token": verification.RedemptionToken, "redemption_binding": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", "action": "read", "endpoint_class": "public_content",
+	})
+	relay := httptest.NewRequest(http.MethodPost, "/v1/challenge/redeem", bytes.NewReader(relayBody))
+	relay.AddCookie(&issuedCookie)
+	relayResponse := httptest.NewRecorder()
+	handler.ServeHTTP(relayResponse, relay)
+	if relayResponse.Code != http.StatusBadRequest || len(recorder.outcomes) != 0 {
+		t.Fatalf("relayed challenge binding = %d outcomes=%+v", relayResponse.Code, recorder.outcomes)
+	}
 	redeem := httptest.NewRequest(http.MethodPost, "/v1/challenge/redeem", bytes.NewReader(redeemBody))
 	redeem.AddCookie(&issuedCookie)
 	redeemResponse := httptest.NewRecorder()
@@ -736,7 +817,7 @@ func TestFailedChallengeIssuanceIsNotRecordedAsApplied(t *testing.T) {
 	}, core.Decision{
 		DecisionID: "capacity-holder", Action: core.ActionChallenge, Mode: core.RuntimeModeCanary,
 		RolloutID: "canary-capacity", Directive: directive,
-	}, now); err != nil {
+	}, testChallengeBinding, now); err != nil {
 		t.Fatal(err)
 	}
 	recorder := &recordingShadow{}
@@ -750,6 +831,7 @@ func TestFailedChallengeIssuanceIsNotRecordedAsApplied(t *testing.T) {
 		WithChallenges(challengeService)
 	request := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"`+claims.SessionID+`","action":"read","endpoint_class":"public_content","sequence":2,"observations":{}}`))
 	request.AddCookie(&issuedCookie)
+	request.Header.Set("X-Palisade-Challenge-Binding", testChallengeBinding)
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusServiceUnavailable || recorder.decisions != 0 {

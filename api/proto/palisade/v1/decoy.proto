@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package palisade.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/palisade-bot-defense/palisade/gen/palisade/v1;palisadev1";
+
+// DecoyService is a backend-authenticated contract. Deployments render and
+// handle their own traps; PALISADE receives only closed classes and an opaque
+// one-time capability.
+service DecoyService {
+  rpc IssueDecoy(IssueDecoyRequest) returns (DecoyCapability);
+  rpc RecordDecoyHit(RecordDecoyHitRequest) returns (google.protobuf.Empty);
+}
+
+message IssueDecoyRequest {
+  string session_id = 1;
+  string endpoint_class = 2;
+  string surface = 3;
+  uint32 ttl_seconds = 4;
+}
+
+message DecoyCapability {
+  string capability = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message RecordDecoyHitRequest {
+  string capability = 1;
+  // submitted is valid only for a capability issued with surface=form.
+  string interaction = 2;
+}

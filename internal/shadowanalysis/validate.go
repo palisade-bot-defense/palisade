@@ -44,7 +44,8 @@ func ValidateReport(report Report) error {
 		!validScore(report.Scores.AccountContinuity, report.Decisions.Total) || !validEndpoints(report) ||
 		!validRankedValues(report.TopReasonCodes, DefaultTopReasonCodes) ||
 		!validCountedValues(report.PolicyVersions, report.Decisions.Total) || !validCountedValues(report.ModelVersions, report.Decisions.Total) ||
-		!validCountedValues(report.CanaryRollouts, report.Decisions.Modes.Canary) || !validCanaryComparisons(report) || !validLinkage(report) {
+		!validCountedValues(report.CanaryRollouts, report.Decisions.Modes.Canary) || !validCanaryComparisons(report) ||
+		!validCanaryChallengeBudgets(report) || !validLinkage(report) {
 		return ErrInvalidReport
 	}
 	config, err := normalizeConfig(Config{})
@@ -282,6 +283,66 @@ func validCanaryComparisons(report Report) bool {
 	}
 	for _, rollout := range report.CanaryRollouts {
 		if rollouts[rollout.Value] != rollout.Count {
+			return false
+		}
+	}
+	return true
+}
+
+func validCanaryChallengeBudgets(report Report) bool {
+	if report.CanaryComparisons == nil || report.CanaryChallengeBudgets == nil ||
+		len(report.CanaryChallengeBudgets) != len(report.CanaryComparisons) || len(report.CanaryChallengeBudgets) > DefaultMaxDistinctMetadata {
+		return false
+	}
+	comparisons := make(map[string]CanaryComparison, len(report.CanaryComparisons))
+	type challengeTotals struct {
+		mature, passed, failed, abandoned, fallback, unresolved, ambiguous uint64
+	}
+	endpointTotals := make(map[string]*challengeTotals)
+	for _, comparison := range report.CanaryComparisons {
+		comparisons[comparison.RolloutID+"\x00"+comparison.EndpointClass] = comparison
+	}
+	previousRollout, previousEndpoint := "", ""
+	for _, budget := range report.CanaryChallengeBudgets {
+		comparison, exists := comparisons[budget.RolloutID+"\x00"+budget.EndpointClass]
+		var resolved, total uint64
+		if !exists || (previousRollout != "" && (budget.RolloutID < previousRollout || (budget.RolloutID == previousRollout && budget.EndpointClass <= previousEndpoint))) ||
+			budget.MatureChallenges > comparison.CanaryDecisions ||
+			!add(&resolved, budget.ChallengePassed) || !add(&resolved, budget.ChallengeFailed) || !add(&resolved, budget.ChallengeAbandoned) ||
+			!add(&resolved, budget.FallbackUsed) || !add(&total, resolved) || !add(&total, budget.UnresolvedMatureChallenges) || !add(&total, budget.AmbiguousChallengeOutcomes) ||
+			total != budget.MatureChallenges ||
+			!validProportion(budget.TerminalOutcomeCoverage) || budget.TerminalOutcomeCoverage.Count != resolved || budget.TerminalOutcomeCoverage.Total != budget.MatureChallenges ||
+			!validProportion(budget.ChallengeAbandonmentRate) || budget.ChallengeAbandonmentRate.Count != budget.ChallengeAbandoned || budget.ChallengeAbandonmentRate.Total != budget.MatureChallenges ||
+			!validProportion(budget.FallbackRate) || budget.FallbackRate.Count != budget.FallbackUsed || budget.FallbackRate.Total != budget.MatureChallenges {
+			return false
+		}
+		totals := endpointTotals[budget.EndpointClass]
+		if totals == nil {
+			totals = &challengeTotals{}
+			endpointTotals[budget.EndpointClass] = totals
+		}
+		if !add(&totals.mature, budget.MatureChallenges) || !add(&totals.passed, budget.ChallengePassed) || !add(&totals.failed, budget.ChallengeFailed) ||
+			!add(&totals.abandoned, budget.ChallengeAbandoned) || !add(&totals.fallback, budget.FallbackUsed) ||
+			!add(&totals.unresolved, budget.UnresolvedMatureChallenges) || !add(&totals.ambiguous, budget.AmbiguousChallengeOutcomes) {
+			return false
+		}
+		delete(comparisons, budget.RolloutID+"\x00"+budget.EndpointClass)
+		previousRollout, previousEndpoint = budget.RolloutID, budget.EndpointClass
+	}
+	if len(comparisons) != 0 {
+		return false
+	}
+	for endpoint, totals := range endpointTotals {
+		var linked *LinkedEvaluation
+		for index := range report.Endpoints {
+			if report.Endpoints[index].EndpointClass == endpoint {
+				linked = &report.Endpoints[index].LinkedEvaluation
+				break
+			}
+		}
+		if linked == nil || totals.mature > linked.MatureChallenges || totals.passed > linked.ChallengePassed || totals.failed > linked.ChallengeFailed ||
+			totals.abandoned > linked.ChallengeAbandoned || totals.fallback > linked.FallbackUsed || totals.unresolved > linked.UnresolvedMatureChallenges ||
+			totals.ambiguous > linked.AmbiguousChallengeOutcomes {
 			return false
 		}
 	}

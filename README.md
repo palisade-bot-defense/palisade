@@ -84,10 +84,16 @@ PALISADE keeps three questions separate:
 Every decision response includes the enforced `action`, the unmodified
 `computed_action`, the runtime `mode`, stable reason codes, policy/model
 versions and an expiry time. The current reported versions are policy
-`default-v5` and model `transparent-baseline-v11`. The progressive action
+`default-v5` and model `transparent-baseline-v13`. The progressive action
 vocabulary is `allow → observe → delay → throttle → challenge → block`:
 `delay` is a one-second retry response, never a sleep in the PALISADE hot path,
 and is enforced only by a valid signed rollout.
+
+Signed rollouts treat their throttle and temporary-block durations as hard
+maxima. Model v12 scales only those durations from a humane minimum using
+closed endpoint value, sufficiently strong suspicious-evidence confidence,
+bounded recent session behavior and short-lived retry history. It never raises
+the policy action, exceeds the signed maximum or persists this response state.
 
 Beneficial crawler handling requires a purpose class, a strong local
 verification method and an indexable public endpoint; a user-agent or
@@ -156,6 +162,8 @@ For a sensor-only shadow deployment, a static `--event-shadow-action` plus `--ev
 | `POST /v1/session` | Backend-authenticated issuance of a Secure, HttpOnly, SameSite=Lax continuity cookie |
 | `POST /v1/events` | Same-origin, privacy-limited browser event batches; one-time proof required in production |
 | `POST /v1/token` | Authenticated, short-lived action proof issuance |
+| `POST /v1/decoy/issue` | Backend-authenticated issuance of a session/endpoint-bound opaque decoy capability |
+| `POST /v1/decoy/hit` | Consume a native decoy capability once and queue closed evidence for the next matching decision |
 | `POST /v1/decision` | Explainable risk decision |
 | `POST /v1/origin-check` | Score once and return the bounded HTTP enforcement result for origin middleware |
 | `POST /v1/origin-coverage` | Accept authenticated cumulative protected-handler counts from reference adapters |
@@ -172,7 +180,7 @@ contains decisions, sessions, tokens, source paths or raw shadow-log records.
 See the [Operator Console guide](docs/OPERATOR_CONSOLE.md).
 
 The signed cookie prevents clients from inventing a trusted session identifier, but does not prove that a person, account or unique device is present; starting fresh sessions remains possible. A valid cookie contributes only continuity evidence. The browser sensor never sends keystrokes, form values, DOM text or exact pointer coordinates. See [privacy boundaries](docs/privacy/DATA_BOUNDARIES.md).
-The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contracts live under [`api/proto`](api/proto). The [signal-source guide](docs/SIGNAL_SOURCES.md) contains trust boundaries, request examples and the checked detector extension procedure. The [native challenge guide](docs/CHALLENGE.md) documents the origin handshake, accessibility contract, exact one-time binding and single-instance limit.
+The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contracts live under [`api/proto`](api/proto). The [signal-source guide](docs/SIGNAL_SOURCES.md) contains trust boundaries, request examples and the checked detector extension procedure. The [native decoy guide](docs/DECOYS.md) specifies the backend lifecycle and evidence semantics. The [native challenge guide](docs/CHALLENGE.md) documents the origin handshake, accessibility contract, exact one-time binding and single-instance limit.
 
 Applications built with Go `net/http` can use the included [`pkg/palisadehttp`](pkg/palisadehttp) reference middleware. It creates signed continuity sessions, submits only normalized signals, applies pass/delay/throttle/challenge/block results, renders the same-origin accessible challenge and grants exactly one retry for the original method and request target. It also provides a backend-only route-classified sensor-proof helper and, after a validated pass, an opaque request-scoped outcome handle for linking a closed result to the exact decision without handling a raw PALISADE session ID. Its availability policy is an explicit deployment choice. See the [origin-adapter guide](docs/ORIGIN_ADAPTER.md).
 
@@ -220,7 +228,7 @@ go run ./cmd/palisade serve \
   --shadow-log-key-file /private/local/palisade-shadow/shadow.key
 ```
 
-The default rotation limits are 64 MiB or one hour; default retention is seven days. `POST /v1/outcome` requires the backend bearer credential, the exact `decision_id`, and a closed label with compatible provenance and confidence. `analyze-shadow-log` authenticates and decrypts retained files locally, joins outcomes to decisions under a fixed memory budget, and emits only aggregate counts, endpoint/cohort Wilson 95% intervals, same-endpoint shadow/canary comparisons and deterministic recommendations. False-positive rate, abuse recall and precision use only uniquely linked confirmed labels; ambiguous, duplicate, mismatched and legacy-unlinked outcomes are counted separately. Challenge rates use only challenged decisions old enough for the 15-minute outcome window, with unresolved and conflicting results explicit. The coarse cohort vocabulary is deployment-supplied and never inferred as identity, disability or fingerprint evidence. The Operator Console polls the atomically replaced report, retains the last valid version after a rejected update and never receives the log key. Recommendations can hold the deployment in shadow mode or nominate a reversible canary for operator review; they never activate enforcement. `prepare-review` requires risky shadow actions plus at least 100 uniquely linked confirmed-human and 100 uniquely linked operator-confirmed-abuse decisions on the exact proposed endpoint. `prepare-rollout` can sign only that exact reviewed hash and scope. See the [automated analysis operations](docs/ANALYSIS_AUTOMATION.md), [signed review and rollout guide](docs/ROLLOUT.md) and [shadow-log threat model](docs/SHADOW_LOG.md) before enabling it.
+The default rotation limits are 64 MiB or one hour; default retention is seven days. `POST /v1/outcome` requires the backend bearer credential, the exact `decision_id`, and a closed label with compatible provenance and confidence. `analyze-shadow-log` authenticates and decrypts retained files locally, joins outcomes to decisions under a fixed memory budget, and emits only aggregate counts, endpoint/cohort Wilson 95% intervals, same-endpoint shadow/canary comparisons and deterministic recommendations. False-positive rate, abuse recall and precision use only uniquely linked confirmed labels; ambiguous, duplicate, mismatched and legacy-unlinked outcomes are counted separately. Challenge rates use only challenged decisions old enough for the 15-minute outcome window, with unresolved and conflicting results explicit. The coarse cohort vocabulary is deployment-supplied and never inferred as identity, disability or fingerprint evidence. The Operator Console polls the atomically replaced report, retains the last valid version after a rejected update and never receives the log key. Recommendations can hold the deployment in shadow mode or nominate a reversible canary for operator review; they never activate enforcement. `prepare-review` requires risky shadow actions plus at least 100 uniquely linked confirmed-human and 100 uniquely linked operator-confirmed-abuse decisions on the exact proposed endpoint. Promotion from a challenge-capable canary additionally requires 1,000 decisions and 100 mature uniquely linked challenges from the exact rollout and endpoint, with conservative Wilson bounds for terminal-outcome coverage, abandonment and accessible fallback. `prepare-rollout` can sign only that exact reviewed hash, scope and budget. See the [automated analysis operations](docs/ANALYSIS_AUTOMATION.md), [signed review and rollout guide](docs/ROLLOUT.md) and [shadow-log threat model](docs/SHADOW_LOG.md) before enabling it.
 
 The browser sensor defaults to—and enforces a minimum of—one bounded flush every 15 seconds. Its proof callback is called with the literal action `events`; minting that proof for `read` or another action is rejected. Accepted batches receive `202`. With event-triggered shadow evaluation enabled, `X-Palisade-Shadow-Evaluation` reports `recorded` or `dropped`; a dropped evaluation never causes the already accepted batch to be retried.
 
@@ -263,8 +271,12 @@ emits only bounded aggregate sequence features under a versioned contract; see
 predeclared chronological boundary and optional unseen-family slice without
 persisting sequence or family identifiers; see
 [local holdout evaluation](docs/LOCAL_HOLDOUT_EVALUATION.md).
+For the authenticated encrypted decision stream itself,
+`palisade evaluate-shadow-holdout` assigns exactly linked delayed outcomes by
+decision time and reports separate baseline/holdout endpoint and accessibility
+slices; see [chronological linked shadow holdout](docs/SHADOW_HOLDOUT.md).
 
-See the [architecture and stack](docs/ARCHITECTURE.md), [product differentiation](docs/DIFFERENTIATION.md), [Sovereignty Report](docs/SOVEREIGNTY.md), [runtime egress inventory](docs/RUNTIME_EGRESS.md), [machine-readable data map](docs/DATA_MAP.md), [generic local import](docs/LOCAL_IMPORT.md), [local sequence analysis](docs/LOCAL_SEQUENCE_ANALYSIS.md), [local holdout evaluation](docs/LOCAL_HOLDOUT_EVALUATION.md), [local release process](docs/RELEASING.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
+See the [architecture and stack](docs/ARCHITECTURE.md), [product differentiation](docs/DIFFERENTIATION.md), [Sovereignty Report](docs/SOVEREIGNTY.md), [runtime egress inventory](docs/RUNTIME_EGRESS.md), [machine-readable data map](docs/DATA_MAP.md), [generic local import](docs/LOCAL_IMPORT.md), [local sequence analysis](docs/LOCAL_SEQUENCE_ANALYSIS.md), [local holdout evaluation](docs/LOCAL_HOLDOUT_EVALUATION.md), [chronological linked shadow holdout](docs/SHADOW_HOLDOUT.md), [public adversarial fixtures](docs/ADVERSARIAL_FIXTURES.md), [local release process](docs/RELEASING.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
 
 ## Project status and license
 

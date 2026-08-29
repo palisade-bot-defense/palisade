@@ -32,7 +32,11 @@ func TestReviewProposalIsDeterministicAndChoosesNarrowestEligibleEndpoint(t *tes
 	}
 	if first.State != ReviewStateCandidate || first.AutomaticActivation || first.RecommendedScope == nil ||
 		!reflect.DeepEqual(first.RecommendedScope.EndpointClasses, []string{"public_content"}) ||
-		first.RecommendedScope.MaxAction != core.ActionThrottle || first.RecommendedScope.CanaryBasisPoints != 100 {
+		first.RecommendedScope.MaxAction != core.ActionChallenge || first.RecommendedScope.CanaryBasisPoints != 100 ||
+		first.RecommendedScope.MinMatureChallenges != DefaultMinMatureChallenges ||
+		first.RecommendedScope.MinChallengeOutcomeCoverage != DefaultMinChallengeOutcomeCoverage ||
+		first.RecommendedScope.MaxChallengeAbandonmentRate != DefaultMaxChallengeAbandonmentRate ||
+		first.RecommendedScope.MaxChallengeFallbackRate != DefaultMaxChallengeFallbackRate {
 		t.Fatalf("unsafe or unexpected proposal: %+v", first)
 	}
 }
@@ -115,6 +119,79 @@ func TestReviewProposalRejectsReorderedSourceWindowAndGateSet(t *testing.T) {
 	proposal.Gates[0], proposal.Gates[1] = proposal.Gates[1], proposal.Gates[0]
 	if err := proposal.Validate(); !errors.Is(err, ErrInvalidReview) {
 		t.Fatalf("reordered gates error=%v", err)
+	}
+}
+
+func TestEnforcementReviewAppliesExactChallengeBudgets(t *testing.T) {
+	tests := []struct {
+		name       string
+		passed     uint64
+		abandoned  uint64
+		fallback   uint64
+		unresolved uint64
+		gate       string
+	}{
+		{name: "mature challenge sample", gate: "PREDECESSOR_CHALLENGE_SAMPLE"},
+		{name: "terminal outcome coverage", passed: 160, unresolved: 40, gate: "CHALLENGE_OUTCOME_COVERAGE_BUDGET"},
+		{name: "abandonment", passed: 180, abandoned: 20, gate: "CHALLENGE_ABANDONMENT_BUDGET"},
+		{name: "accessible fallback", passed: 180, fallback: 20, gate: "CHALLENGE_FALLBACK_BUDGET"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			report := candidateReport(2000, MinimumCanaryDecisions)
+			setCanaryChallengeFixture(&report, test.passed, test.abandoned, test.fallback, test.unresolved)
+			proposal, err := BuildReviewProposal(report, encodedReport(t, report), ReviewOptions{Stage: core.RuntimeModeEnforce, PredecessorRolloutID: "canary-source"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if proposal.State != ReviewStateHold || proposal.RecommendedScope != nil || !hasGate(proposal.Gates, test.gate, ReviewGateHold) {
+				t.Fatalf("budget did not hold enforcement: %+v", proposal)
+			}
+		})
+	}
+}
+
+func TestReviewScopeBudgetTamperingIsRejected(t *testing.T) {
+	report := candidateReport(2000, 0)
+	proposal, err := BuildReviewProposal(report, encodedReport(t, report), ReviewOptions{Stage: core.RuntimeModeCanary})
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal.RecommendedScope.MaxChallengeAbandonmentRate += 0.01
+	if err := proposal.Validate(); !errors.Is(err, ErrInvalidReview) {
+		t.Fatalf("tampered challenge budget error=%v", err)
+	}
+}
+
+func setCanaryChallengeFixture(report *shadowanalysis.Report, passed, abandoned, fallback, unresolved uint64) {
+	mature := passed + abandoned + fallback + unresolved
+	report.CanaryChallengeBudgets[0] = shadowanalysis.CanaryChallengeBudget{
+		RolloutID: "canary-source", EndpointClass: "public_content", MatureChallenges: mature,
+		ChallengePassed: passed, ChallengeAbandoned: abandoned, FallbackUsed: fallback, UnresolvedMatureChallenges: unresolved,
+		TerminalOutcomeCoverage:  shadowanalysis.Proportion(passed+abandoned+fallback, mature),
+		ChallengeAbandonmentRate: shadowanalysis.Proportion(abandoned, mature), FallbackRate: shadowanalysis.Proportion(fallback, mature),
+	}
+	for index := range report.Endpoints {
+		if report.Endpoints[index].EndpointClass != "public_content" {
+			continue
+		}
+		linked := &report.Endpoints[index].LinkedEvaluation
+		linked.MatureChallenges = MinimumCanaryDecisions
+		linked.ChallengePassed = MinimumCanaryDecisions - abandoned - fallback - unresolved
+		linked.ChallengeFailed = 0
+		linked.ChallengeAbandoned = abandoned
+		linked.FallbackUsed = fallback
+		linked.UnresolvedMatureChallenges = unresolved
+		linked.AmbiguousChallengeOutcomes = 0
+		linked.ChallengePassRate = shadowanalysis.Proportion(linked.ChallengePassed, linked.MatureChallenges)
+		linked.ChallengeFailureRate = shadowanalysis.Proportion(0, linked.MatureChallenges)
+		linked.ChallengeAbandonmentRate = shadowanalysis.Proportion(abandoned, linked.MatureChallenges)
+		linked.FallbackRate = shadowanalysis.Proportion(fallback, linked.MatureChallenges)
+		for sliceIndex := range report.EvaluationSlices {
+			if report.EvaluationSlices[sliceIndex].EndpointClass == "public_content" {
+				report.EvaluationSlices[sliceIndex].Evaluation = *linked
+			}
+		}
 	}
 }
 

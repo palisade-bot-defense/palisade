@@ -17,7 +17,7 @@ It is not a packet sniffer, a general log warehouse or a raw-vendor-event bus.
 | Contracts | OpenAPI 3.1 and protobuf | HTTP and future typed service contracts |
 | Offline research | Python and Go CLIs | Local-only import, replay, evaluation and aggregate reporting |
 | Runtime state | Bounded in-memory stores | Five-minute event/session windows for the current single-process baseline |
-| Challenge state | Bounded in-memory capability store | Short-lived session/action/endpoint binding and atomic one-time redemption |
+| Challenge state | Bounded in-memory capability store | Short-lived session/action/endpoint/origin-flow binding and atomic one-time redemption |
 | Local measurement | AES-256-GCM files | Optional append-only decision/outcome stream with rotation and retention |
 | Rollout review | Deterministic closed JSON | Report-hash binding, machine gates, narrow recommended scope and explicit operator checklist; never executable |
 | Rollout approval | Ed25519 signed JSON | Expiring endpoint/action/cohort scope reviewed by an operator |
@@ -56,7 +56,8 @@ encrypted records ───────── analyze-shadow-log ─> aggregate 
 loopback console ─────────── validated report feed <─────┘
 aggregate report ───────── prepare-review ─────> non-executable hash-bound proposal
 review proposal ────────── operator signature ─> bounded canary/enforce plan
-origin middleware ───────── POST /v1/origin-check ─> 204 / 429 / 403
+bounded session retry history ─┐
+origin middleware ───────── POST /v1/origin-check ─┴> signed-max adaptive 204 / 429 / 403
                                                       │ challenge
                                                       v
 signed browser session ──── /v1/challenge/* ────────> one-time bound redemption
@@ -92,9 +93,19 @@ machine and operator gate, but its artifact is not accepted by the runtime.
 
 An expiring Ed25519-signed plan binds operator approval to the exact aggregate
 report hash and reproducible review proposal, including runtime policy/model,
-endpoint class, stable canary cohort and maximum action. The signing CLI has no
-scope-widening flags. Full enforcement review must reference the exact measured
-predecessor canary on the exact same endpoint.
+endpoint class, stable canary cohort, maximum action and prospective challenge
+budgets. The signing CLI has no scope-widening flags. Full enforcement review
+must reference the exact measured predecessor canary on the exact same endpoint
+and pass conservative mature-sample, outcome-coverage, abandonment and fallback
+Wilson bounds.
+
+Within an active plan, response-cost adaptation is a downgrade-only runtime
+step after policy evaluation and action capping. It can scale throttle and
+temporary-block duration between fixed humane minima and signed maxima using
+only a closed endpoint class, suspicious-evidence confidence and the existing
+five-minute session counters. Retry history is stored in that same bounded
+entry and resets on expiry or restart. It cannot promote an action, alter the
+challenge lifecycle or create a new persistent identity graph.
 
 ## Trust and persistence boundaries
 
@@ -111,7 +122,9 @@ predecessor canary on the exact same endpoint.
   discover or certify those external flows.
 - The reference middleware never forwards the application URL, query, body or
   user-agent value. A process-random HMAC of method and request target binds a
-  completed challenge to one local retry without persisting that target.
+  completed challenge to one local retry without persisting that target. A
+  second server-only capability binds PALISADE redemption to that exact origin
+  flow and decision sequence; only its hash is retained by PALISADE.
 - Live session/event state is currently process-local and expires in memory.
 - Challenge state is process-local, bounded to 100,000 entries and expires in
   at most 15 minutes. Restart invalidates outstanding capabilities; replicas

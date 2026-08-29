@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	Family               = "timed_confirmation_v1"
+	Family               = "timed_confirmation_v2"
 	DefaultMaxEntries    = 100_000
 	DefaultDelay         = 2 * time.Second
 	DefaultMaxAttempts   = 5
@@ -89,6 +89,7 @@ type record struct {
 	attempts         int
 	state            string
 	redemptionHash   [sha256.Size]byte
+	bindingHash      [sha256.Size]byte
 	redemptionExpiry time.Time
 }
 
@@ -129,7 +130,7 @@ func New(config Config) (*Service, error) {
 		return nil, errors.New("invalid challenge configuration")
 	}
 	derive := hmac.New(sha256.New, config.Secret)
-	_, _ = derive.Write([]byte("palisade:challenge:v1:key"))
+	_, _ = derive.Write([]byte("palisade:challenge:v2:key"))
 	return &Service{
 		key: derive.Sum(nil), maxEntries: config.MaxEntries, delay: config.Delay, maxAttempts: config.MaxAttempts,
 		redemptionTTL: config.RedemptionTTL, random: config.Random, outcome: config.Outcome,
@@ -143,12 +144,12 @@ func (s *Service) SetOutcomeHandler(handler func(Outcome)) {
 	s.outcome = handler
 }
 
-func (s *Service) Issue(request core.DecisionRequest, decision core.Decision, now time.Time) (Metadata, error) {
+func (s *Service) Issue(request core.DecisionRequest, decision core.Decision, redemptionBinding string, now time.Time) (Metadata, error) {
 	now = now.UTC()
 	if decision.Action != core.ActionChallenge || decision.Directive.Handling != "challenge" || decision.Directive.HTTPStatus != 403 ||
 		(decision.Mode != core.RuntimeModeCanary && decision.Mode != core.RuntimeModeEnforce) || decision.DecisionID == "" || decision.RolloutID == "" ||
 		!validBinding(request.SessionID, 8, 128) || !validBinding(request.Action, 1, 80) || !validBinding(request.EndpointClass, 1, 64) ||
-		!validBinding(decision.DecisionID, 1, 128) || !validBinding(decision.RolloutID, 1, 128) || !request.Observations.ServerSessionVerified || !decision.Directive.ExpiresAt.After(now) ||
+		!validBinding(decision.DecisionID, 1, 128) || !validBinding(decision.RolloutID, 1, 128) || !validCapability(redemptionBinding) || !request.Observations.ServerSessionVerified || !decision.Directive.ExpiresAt.After(now) ||
 		decision.Directive.ExpiresAt.After(now.Add(MaximumChallengeTTL)) {
 		return Metadata{}, ErrInvalidChallenge
 	}
@@ -157,7 +158,9 @@ func (s *Service) Issue(request core.DecisionRequest, decision core.Decision, no
 	expired := s.sweepLocked(now)
 	if existingID := s.byDecision[decision.DecisionID]; existingID != "" {
 		existing := s.records[existingID]
-		if existing == nil || existing.sessionID != request.SessionID || existing.action != request.Action || existing.endpointClass != request.EndpointClass || existing.rolloutID != decision.RolloutID || !existing.expiresAt.Equal(decision.Directive.ExpiresAt.UTC()) {
+		bindingHash := sha256.Sum256([]byte(redemptionBinding))
+		if existing == nil || existing.sessionID != request.SessionID || existing.action != request.Action || existing.endpointClass != request.EndpointClass || existing.rolloutID != decision.RolloutID ||
+			!existing.expiresAt.Equal(decision.Directive.ExpiresAt.UTC()) || !hmac.Equal(existing.bindingHash[:], bindingHash[:]) {
 			handler := s.outcome
 			s.mu.Unlock()
 			emit(handler, expired)
@@ -200,9 +203,9 @@ func (s *Service) Issue(request core.DecisionRequest, decision core.Decision, no
 	record := &record{
 		id: id, sessionID: request.SessionID, decisionID: decision.DecisionID, action: request.Action,
 		endpointClass: request.EndpointClass, rolloutID: decision.RolloutID, readyAt: now.Add(s.delay),
-		expiresAt: decision.Directive.ExpiresAt.UTC(), state: "issued",
+		expiresAt: decision.Directive.ExpiresAt.UTC(), state: "issued", bindingHash: sha256.Sum256([]byte(redemptionBinding)),
 	}
-	if record.readyAt.After(record.expiresAt) {
+	if !record.readyAt.Before(record.expiresAt) {
 		s.mu.Unlock()
 		return Metadata{}, ErrInvalidChallenge
 	}
@@ -281,7 +284,7 @@ func (s *Service) Verify(id, sessionID, verificationToken string, now time.Time)
 	return result, nil
 }
 
-func (s *Service) Redeem(id, sessionID, redemptionToken, action, endpointClass string, now time.Time) error {
+func (s *Service) Redeem(id, sessionID, redemptionToken, redemptionBinding, action, endpointClass string, now time.Time) error {
 	now = now.UTC()
 	s.mu.Lock()
 	record, outcome, err := s.lookupLocked(id, sessionID, now)
@@ -304,7 +307,9 @@ func (s *Service) Redeem(id, sessionID, redemptionToken, action, endpointClass s
 		return ErrExpired
 	}
 	presented := sha256.Sum256([]byte(redemptionToken))
-	if action != record.action || endpointClass != record.endpointClass || !hmac.Equal(presented[:], record.redemptionHash[:]) {
+	presentedBinding := sha256.Sum256([]byte(redemptionBinding))
+	if !validCapability(redemptionBinding) || action != record.action || endpointClass != record.endpointClass ||
+		!hmac.Equal(presented[:], record.redemptionHash[:]) || !hmac.Equal(presentedBinding[:], record.bindingHash[:]) {
 		s.mu.Unlock()
 		return ErrInvalidRedemption
 	}
@@ -421,6 +426,7 @@ func (s *Service) verificationToken(record *record) string {
 		_, _ = mac.Write([]byte{byte(len(value) >> 8), byte(len(value))})
 		_, _ = mac.Write([]byte(value))
 	}
+	_, _ = mac.Write(record.bindingHash[:])
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
@@ -453,4 +459,17 @@ func emitOne(handler func(Outcome), outcome *Outcome) {
 
 func validBinding(value string, minimum, maximum int) bool {
 	return len(value) >= minimum && len(value) <= maximum && !strings.ContainsAny(value, "\r\n\x00")
+}
+
+func validCapability(value string) bool {
+	if len(value) != 43 {
+		return false
+	}
+	for _, character := range value {
+		if !((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') || character == '_' || character == '-') {
+			return false
+		}
+	}
+	return true
 }

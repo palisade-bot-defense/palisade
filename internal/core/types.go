@@ -45,6 +45,9 @@ type Observations struct {
 	NetworkReputation     string              `json:"network_reputation,omitempty"`
 	NetworkType           string              `json:"network_type,omitempty"`
 	ServerSessionVerified bool                `json:"-"`
+	// VerifiedDecoyHits is populated only by PALISADE's in-process decoy store.
+	// A JSON caller cannot claim this stronger provenance.
+	VerifiedDecoyHits int `json:"-"`
 	// BrowserEventsVerified is set only by a trusted in-process boundary after
 	// reading the server-side event store. A caller-supplied count must never
 	// create benign continuity evidence by itself.
@@ -206,6 +209,8 @@ type SessionSnapshot struct {
 	MaxSequenceGap          uint64    `json:"max_sequence_gap"`
 	DistinctEndpointClasses uint8     `json:"distinct_endpoint_classes"`
 	EndpointTransitions     uint64    `json:"endpoint_transitions"`
+	RecentEnforcements      uint8     `json:"recent_enforcements"`
+	PrematureRetries        uint8     `json:"premature_retries"`
 }
 
 func ValidEndpointClass(value string) bool {

@@ -64,6 +64,10 @@ type EndpointEvidence = {
   evaluation: { computed_risky_rate: Proportion; challenge_failure_rate: Proportion; challenge_abandonment_rate: Proportion; fallback_outcome_share: Proportion; unknown_outcome_share: Proportion; confirmed_labels: number; abuse_label_share: Proportion };
   linked_evaluation: LinkedEvaluation;
 };
+type CanaryChallengeBudget = {
+  rollout_id: string; endpoint_class: string; mature_challenges: number;
+  terminal_outcome_coverage: Proportion; challenge_abandonment_rate: Proportion; fallback_rate: Proportion;
+};
 type Analysis = {
   source: { first_at: string; last_at: string; decisions: number; outcomes: number };
   readiness: { state: string; operator_action: string; automatic_enforcement: boolean; reason_codes: string[] };
@@ -74,6 +78,7 @@ type Analysis = {
   evaluation_slices: { endpoint_class: string; evaluation_cohort: string; evaluation: LinkedEvaluation }[];
   endpoints: EndpointEvidence[];
   canary_comparisons: { rollout_id: string; endpoint_class: string; comparable: boolean; canary_decisions: number; computed_risk_difference: { estimate: number; lower_95: number; upper_95: number } }[];
+  canary_challenge_budgets: CanaryChallengeBudget[];
   recommendations: Recommendation[];
 };
 export type Summary = {
@@ -98,6 +103,11 @@ const formatNumber = (value: number) => new Intl.NumberFormat().format(value);
 const formatPercent = (value: number) => new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 1 }).format(value);
 export const formatInterval = (value: Proportion) => value.total === 0 ? "no sample" : `${formatPercent(value.rate)} · 95% ${formatPercent(value.lower_95)}–${formatPercent(value.upper_95)}`;
 export const countComparableCanaries = (values: { comparable: boolean }[]) => values.filter((value) => value.comparable).length;
+export const challengeBudgetState = (value: CanaryChallengeBudget) => value.mature_challenges < 100
+  ? "sample incomplete"
+  : value.terminal_outcome_coverage.lower_95 < 0.9 || value.challenge_abandonment_rate.upper_95 > 0.1 || value.fallback_rate.upper_95 > 0.1
+    ? "promotion hold"
+    : "within signed defaults";
 export const scoreEvidenceState = (value: ScoreSummary) => value.minimum === 0.5 && value.maximum === 0.5 && value.mean === 0.5
   ? "No evidence observed · neutral prior"
   : value.minimum === value.maximum
@@ -145,6 +155,7 @@ const reasonCopy: Record<string, string> = {
   SHADOW_ACTION_OVERRIDDEN: "A risky computed action was safely reduced in shadow mode.",
   NAVIGATION_SURFACE_SWEEP: "A session crossed many closed endpoint classes unusually quickly.",
   HONEYPOT_INTERACTION: "A trusted origin adapter reported interaction with a decoy surface.",
+  DECOY_CAPABILITY_REDEEMED: "A PALISADE-issued, session-and-endpoint-bound decoy capability was consumed exactly once.",
   COMPARE_NOINDEX_CAMPAIGN_SURFACE: "The request reached a public comparison surface associated with the configured campaign pattern.",
   POLICY_ALERT: "A trusted deployment policy adapter reported elevated abuse intent.",
   EXTERNAL_RISK: "A trusted external adapter contributed a normalized risk signal.",
@@ -166,6 +177,11 @@ const reasonCopy: Record<string, string> = {
   SESSION_BURST_FAST: "A session produced a high request volume in a short window.",
   SESSION_VOLUME_HIGH: "A session crossed the conservative volume threshold.",
   UA_MISSING: "The trusted origin observed no User-Agent header.",
+  RESPONSE_COST_BASELINE: "The signed rollout used its minimum bounded response duration because no escalation factor matched.",
+  RESPONSE_COST_ENDPOINT_VALUE: "The request reached a higher-value closed endpoint class within the signed rollout scope.",
+  RESPONSE_COST_CONFIDENT_EVIDENCE: "Strong suspicious evidence met the closed confidence threshold for bounded response cost.",
+  RESPONSE_COST_RECENT_BEHAVIOR: "The five-minute session crossed the bounded request or endpoint-transition threshold.",
+  RESPONSE_COST_RETRY_HISTORY: "The session repeated enforcement or retried before the active response interval elapsed.",
 };
 export const explainReason = (code: string) => reasonCopy[code] ?? "Stable detector or policy reason; inspect the matching versioned rule before changing enforcement.";
 
@@ -433,6 +449,19 @@ export function App() {
                       <p className="comparison-note" key={`${slice.endpoint_class}:${slice.evaluation_cohort}`}><code>{slice.endpoint_class}</code> · {slice.evaluation_cohort.replaceAll("_", " ")} · false positives {formatInterval(slice.evaluation.false_positive_rate)} · challenge pass {formatInterval(slice.evaluation.challenge_pass_rate)}</p>
                     ))}
                     {summary.analysis.canary_comparisons.length > 0 && <p className="comparison-note">{formatNumber(summary.analysis.canary_comparisons.length)} canary endpoint group{summary.analysis.canary_comparisons.length === 1 ? "" : "s"} recorded; {formatNumber(comparableCanaries)} have a same-window shadow baseline. Intervals describe aggregate uncertainty, not causality.</p>}
+                  </div>
+                  <div className="challenge-budgets">
+                    <div className="subsection-title"><div><p className="eyebrow">SIGNED CANARY EVIDENCE</p><h3>Challenge rollout budgets</h3></div><span>exact rollout + endpoint</span></div>
+                    {summary.analysis.canary_challenge_budgets.length > 0 ? summary.analysis.canary_challenge_budgets.slice(0, 4).map((budget) => (
+                      <div className="budget-row" key={`${budget.rollout_id}:${budget.endpoint_class}`}>
+                        <div><code>{budget.rollout_id}</code><small>{budget.endpoint_class} · {formatNumber(budget.mature_challenges)} mature</small></div>
+                        <div><span>outcome coverage</span><b>{formatInterval(budget.terminal_outcome_coverage)}</b></div>
+                        <div><span>abandonment</span><b>{formatInterval(budget.challenge_abandonment_rate)}</b></div>
+                        <div><span>accessible fallback</span><b>{formatInterval(budget.fallback_rate)}</b></div>
+                        <em className={challengeBudgetState(budget).includes("hold") ? "hold" : ""}>{challengeBudgetState(budget)}</em>
+                      </div>
+                    )) : <p className="inline-empty">No challenge-capable canary has produced mature, uniquely linked outcomes yet.</p>}
+                    <p className="comparison-note">Fallback is a safety path, not a failed challenge or a human label. A high rate pauses promotion; it never justifies removing accessibility.</p>
                   </div>
                   <div className="recommendations"><h3>Next recommended work</h3>{summary.analysis.recommendations.slice(0, 4).map((item) => <div className="recommendation" key={item.code}><span className={item.priority}>{item.priority}</span><div><code>{item.code}</code><p>{item.message}</p></div></div>)}</div>
                   <p className="safety-note">Source through: <b>{summary.analysis.source.last_at || "no records yet"}</b><br />Ambiguous labels: <b>{formatNumber(summary.analysis.linkage.ambiguous_ground_truth_decisions)}</b> · ambiguous challenge outcomes: <b>{formatNumber(summary.analysis.linkage.ambiguous_challenge_decisions)}</b><br />Automatic enforcement: <b>{summary.analysis.readiness.automatic_enforcement ? "enabled" : "disabled"}</b> · Operator action: <code>{summary.analysis.readiness.operator_action}</code></p>

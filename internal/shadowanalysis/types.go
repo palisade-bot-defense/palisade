@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	SchemaVersion              = "palisade.shadow-analysis.v3"
+	SchemaVersion              = "palisade.shadow-analysis.v4"
 	DefaultMinDecisions        = uint64(1000)
 	DefaultMinOutcomeCoverage  = 0.10
 	DefaultMinConfirmedHumans  = uint64(100)
@@ -45,21 +45,22 @@ type Config struct {
 }
 
 type Report struct {
-	SchemaVersion     string                 `json:"schema_version"`
-	Source            shadowlog.Verification `json:"source"`
-	Readiness         Readiness              `json:"readiness"`
-	Decisions         DecisionSummary        `json:"decisions"`
-	Outcomes          OutcomeSummary         `json:"outcomes"`
-	Scores            ScoreSummaries         `json:"scores"`
-	Endpoints         []EndpointSummary      `json:"endpoints"`
-	TopReasonCodes    []CountedValue         `json:"top_reason_codes"`
-	PolicyVersions    []CountedValue         `json:"policy_versions"`
-	ModelVersions     []CountedValue         `json:"model_versions"`
-	CanaryRollouts    []CountedValue         `json:"canary_rollouts"`
-	CanaryComparisons []CanaryComparison     `json:"canary_comparisons"`
-	Linkage           LinkageSummary         `json:"linkage"`
-	EvaluationSlices  []EvaluationSlice      `json:"evaluation_slices"`
-	Recommendations   []Recommendation       `json:"recommendations"`
+	SchemaVersion          string                  `json:"schema_version"`
+	Source                 shadowlog.Verification  `json:"source"`
+	Readiness              Readiness               `json:"readiness"`
+	Decisions              DecisionSummary         `json:"decisions"`
+	Outcomes               OutcomeSummary          `json:"outcomes"`
+	Scores                 ScoreSummaries          `json:"scores"`
+	Endpoints              []EndpointSummary       `json:"endpoints"`
+	TopReasonCodes         []CountedValue          `json:"top_reason_codes"`
+	PolicyVersions         []CountedValue          `json:"policy_versions"`
+	ModelVersions          []CountedValue          `json:"model_versions"`
+	CanaryRollouts         []CountedValue          `json:"canary_rollouts"`
+	CanaryComparisons      []CanaryComparison      `json:"canary_comparisons"`
+	CanaryChallengeBudgets []CanaryChallengeBudget `json:"canary_challenge_budgets"`
+	Linkage                LinkageSummary          `json:"linkage"`
+	EvaluationSlices       []EvaluationSlice       `json:"evaluation_slices"`
+	Recommendations        []Recommendation        `json:"recommendations"`
 }
 
 type Readiness struct {
@@ -230,6 +231,24 @@ type CanaryComparison struct {
 	CanaryComputedRisky    ProportionEstimate `json:"canary_computed_risky"`
 	CanaryEnforcedRisky    ProportionEstimate `json:"canary_enforced_risky"`
 	ComputedRiskDifference DifferenceEstimate `json:"computed_risk_difference"`
+}
+
+// CanaryChallengeBudget contains only mature, uniquely linked challenge
+// outcomes for one exact signed rollout and endpoint. It deliberately excludes
+// raw decision IDs and unrelated historical challenge outcomes.
+type CanaryChallengeBudget struct {
+	RolloutID                  string             `json:"rollout_id"`
+	EndpointClass              string             `json:"endpoint_class"`
+	MatureChallenges           uint64             `json:"mature_challenges"`
+	ChallengePassed            uint64             `json:"challenge_passed"`
+	ChallengeFailed            uint64             `json:"challenge_failed"`
+	ChallengeAbandoned         uint64             `json:"challenge_abandoned"`
+	FallbackUsed               uint64             `json:"fallback_used"`
+	UnresolvedMatureChallenges uint64             `json:"unresolved_mature_challenges"`
+	AmbiguousChallengeOutcomes uint64             `json:"ambiguous_challenge_outcomes"`
+	TerminalOutcomeCoverage    ProportionEstimate `json:"terminal_outcome_coverage"`
+	ChallengeAbandonmentRate   ProportionEstimate `json:"challenge_abandonment_rate"`
+	FallbackRate               ProportionEstimate `json:"fallback_rate"`
 }
 
 type CountedValue struct {

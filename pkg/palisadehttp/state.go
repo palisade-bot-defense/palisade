@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"io"
 	"net/http"
 	"sync"
@@ -25,13 +26,14 @@ type grantEntry struct {
 }
 
 type pendingEntry struct {
-	action        string
-	endpointClass string
-	challengeID   string
-	sessionDigest [sha256.Size]byte
-	requestDigest [sha256.Size]byte
-	expires       time.Time
-	reserved      bool
+	action           string
+	endpointClass    string
+	challengeID      string
+	sessionDigest    [sha256.Size]byte
+	requestDigest    [sha256.Size]byte
+	challengeBinding [sha256.Size]byte
+	expires          time.Time
+	reserved         bool
 }
 
 type boundedState struct {
@@ -82,7 +84,7 @@ func (s *boundedState) nextSequence(cookieValue string, now time.Time) (uint64, 
 	return entry.sequence, nil
 }
 
-func (s *boundedState) issuePending(request *http.Request, classification Classification, challengeID, sessionValue string, now time.Time) (http.Cookie, error) {
+func (s *boundedState) issuePending(request *http.Request, classification Classification, challengeID, sessionValue string, challengeBinding [sha256.Size]byte, now time.Time) (http.Cookie, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.cleanupLocked(now)
@@ -96,7 +98,7 @@ func (s *boundedState) issuePending(request *http.Request, classification Classi
 	expires := now.Add(s.pendingTTL)
 	s.pendings[key] = pendingEntry{
 		action: classification.Action, endpointClass: classification.EndpointClass, challengeID: challengeID,
-		sessionDigest: sha256.Sum256([]byte(sessionValue)), requestDigest: s.requestDigest(request), expires: expires,
+		sessionDigest: sha256.Sum256([]byte(sessionValue)), requestDigest: s.requestDigest(request), challengeBinding: challengeBinding, expires: expires,
 	}
 	return http.Cookie{
 		Name: PendingCookieName, Value: value, Path: "/", Expires: expires, MaxAge: int(s.pendingTTL.Seconds()),
@@ -104,7 +106,7 @@ func (s *boundedState) issuePending(request *http.Request, classification Classi
 	}, nil
 }
 
-func (s *boundedState) reserveGrant(pendingValue, challengeID, sessionValue, action, endpointClass string, now time.Time) (http.Cookie, error) {
+func (s *boundedState) reserveGrant(pendingValue, challengeID, sessionValue, action, endpointClass string, now time.Time) (http.Cookie, string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.cleanupLocked(now)
@@ -113,14 +115,14 @@ func (s *boundedState) reserveGrant(pendingValue, challengeID, sessionValue, act
 	sessionDigest := sha256.Sum256([]byte(sessionValue))
 	if !exists || !pending.expires.After(now) || pending.reserved || pending.challengeID != challengeID ||
 		!hmac.Equal(pending.sessionDigest[:], sessionDigest[:]) || pending.action != action || pending.endpointClass != endpointClass {
-		return http.Cookie{}, ErrInvalidPending
+		return http.Cookie{}, "", ErrInvalidPending
 	}
 	if len(s.grants) >= s.maxGrants {
-		return http.Cookie{}, ErrStateCapacity
+		return http.Cookie{}, "", ErrStateCapacity
 	}
 	value, grantKey, err := s.uniqueGrantTokenLocked()
 	if err != nil {
-		return http.Cookie{}, err
+		return http.Cookie{}, "", err
 	}
 	expires := now.Add(s.grantTTL)
 	s.grants[grantKey] = grantEntry{
@@ -132,7 +134,27 @@ func (s *boundedState) reserveGrant(pendingValue, challengeID, sessionValue, act
 	return http.Cookie{
 		Name: RedemptionCookieName, Value: value, Path: "/", Expires: expires, MaxAge: int(s.grantTTL.Seconds()),
 		Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode,
-	}, nil
+	}, base64.RawURLEncoding.EncodeToString(pending.challengeBinding[:]), nil
+}
+
+func (s *boundedState) challengeBinding(request *http.Request, classification Classification, sessionValue string, sequence uint64) [sha256.Size]byte {
+	// This capability crosses only the adapter-to-PALISADE boundary. The browser
+	// receives a random pending-map key, never this target- and sequence-bound MAC.
+	requestDigest := s.requestDigest(request)
+	mac := hmac.New(sha256.New, s.digestKey[:])
+	_, _ = mac.Write([]byte("palisade:origin-challenge-binding:v1\x00"))
+	_, _ = mac.Write([]byte(sessionValue))
+	_, _ = mac.Write([]byte{0})
+	_, _ = mac.Write(requestDigest[:])
+	_, _ = mac.Write([]byte(classification.Action))
+	_, _ = mac.Write([]byte{0})
+	_, _ = mac.Write([]byte(classification.EndpointClass))
+	var encodedSequence [8]byte
+	binary.BigEndian.PutUint64(encodedSequence[:], sequence)
+	_, _ = mac.Write(encodedSequence[:])
+	var result [sha256.Size]byte
+	copy(result[:], mac.Sum(nil))
+	return result
 }
 
 func (s *boundedState) consumeGrant(request *http.Request, classification Classification, now time.Time) bool {

@@ -84,9 +84,9 @@ Deliverables:
   optional unseen-family partition;
 - evaluate by endpoint class on chronological holdouts and unseen attack
   families instead of random row splits;
-- link delayed confirmed-human and operator-confirmed-abuse outcomes to the exact
+- [x] link delayed confirmed-human and operator-confirmed-abuse outcomes to the exact
   decision while reporting ambiguous and missing labels;
-- publish synthetic adversarial fixtures for replay, poisoning, missing signals,
+- [x] publish synthetic adversarial fixtures for replay, poisoning, missing signals,
   spoofed headers, accessibility and adapter failures.
 
 Exit gate: at least one representative private shadow deployment produces
@@ -96,18 +96,22 @@ latency. No automatic blocking is enabled.
 
 ## v0.4 — make response adaptive and humane
 
+Status: implementation complete; the signed canary, chronological holdout and
+measured accessibility/latency/abandonment exit gate remain empirical work for
+an operator-controlled deployment.
+
 Deliverables:
 
-- add deployment-owned, server-generated decoy and honeypot contracts whose
+- [x] add deployment-owned, server-generated decoy and honeypot contracts whose
   hits are evidence rather than an automatic verdict;
-- vary bounded response cost by endpoint value, evidence confidence, recent
+- [x] vary bounded response cost by endpoint value, evidence confidence, recent
   behavior and retry history;
-- harden one-time, action-bound challenge redemption against replay and relay;
-- provide keyboard, screen-reader, reduced-motion and non-JavaScript fallback
+- [x] harden one-time, action-bound challenge redemption against replay and relay;
+- [x] provide keyboard, screen-reader, reduced-motion and non-JavaScript fallback
   paths with equal security accounting;
-- test the progression `observe → delay → throttle → accessible step-up →
+- [x] test the progression `observe → delay → throttle → accessible step-up →
   temporary block` under load and failure;
-- make challenge abandonment and fallback first-class rollout budgets.
+- [x] make challenge abandonment and fallback first-class rollout budgets.
 
 Exit gate: a signed canary improves a chosen protected outcome on a chronological
 holdout without exceeding its confirmed-human, accessibility, latency or

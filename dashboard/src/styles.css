@@ -135,6 +135,14 @@ h1 em { color: var(--cobalt); font-style: normal; }
 .endpoint-row small, .endpoint-row span { margin-top: 3px; color: var(--copy); font-size: 10px; }
 .endpoint-row b { margin-top: 3px; font-size: 11px; line-height: 1.35; }
 .comparison-note { margin: 10px 0 4px; color: var(--copy); font-size: 11px; }
+.challenge-budgets { padding: 18px 28px 8px; border-top: 1px solid var(--line); }
+.budget-row { display: grid; grid-template-columns: minmax(130px, 1.15fr) repeat(3, minmax(120px, 1fr)) auto; gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.budget-row > div { display: grid; gap: 4px; min-width: 0; }
+.budget-row span, .budget-row small { color: var(--muted); font-size: 11px; }
+.budget-row b { color: var(--text); font-size: 12px; }
+.budget-row em { justify-self: end; color: var(--good); font-size: 10px; font-style: normal; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.budget-row em.hold { color: var(--warn); }
+@media (max-width: 920px) { .budget-row { grid-template-columns: 1fr 1fr; } .budget-row em { justify-self: start; } }
 .recommendations { padding: 22px 28px 8px; }
 .recommendations h3 { margin: 0 0 10px; font-size: 15px; }
 .recommendation { display: grid; grid-template-columns: 54px 1fr; gap: 12px; padding: 13px 0; border-top: 1px solid #eeecfa; }

@@ -47,6 +47,10 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
 - Consumer contract tests ensure the server and Go origin adapter agree on
   pass, delay, throttle, challenge and block responses and reject malformed or
   risky shadow responses.
+- Challenge accessibility contract tests cover semantic status output, visible
+  focus styling, 44-pixel controls, reduced-motion and forced-color CSS, absence
+  of focus hijacking, a working no-JavaScript form, closed form parsing, safe
+  same-origin redirect selection and identical fallback outcome handling.
 - Component tests cover privacy-sensitive sensor behavior and truthful
   aggregate dashboard presentation, including explicit protected-handler scope
   and outcome-ingestion loss states.
@@ -73,11 +77,49 @@ duplicate annotation poisoning, hard annotation budgets and absence of
 sequence/family identifiers in serialized reports. The public adversarial
 scenario contract contains no deployment records.
 
+The encrypted-shadow holdout suite separately verifies that partition
+membership follows decision time rather than delayed-outcome arrival, exact
+decision/endpoint linkage is preserved, unknown and ambiguous labels stay in
+the denominator, endpoint/cohort slices sum to their partition and private
+decision IDs never enter the report. File tests require create-only `0600`
+output outside Git.
+
+Adaptive-response tests prove that each closed cost factor changes only the
+bounded throttle or temporary-block duration, weak/benign evidence cannot
+raise cost, signed maxima and rollout expiry remain absolute, and retry history
+expires with the bounded session. Engine integration tests cover the first
+response and a premature retry without relying on wall-clock sleeps.
+
+The v0.4 progression contract runs the ordered sequence `observe → delay →
+throttle → accessible step-up → temporary block` through the rollout boundary
+and asserts its closed handling, status, retry and expiry values. Failure cases
+prove that an expired rollout and an excluded endpoint return to shadow
+`observe`, while a lower signed maximum caps rather than raises the action. A
+synthetic concurrency test applies 32,000 mixed progression decisions and
+requires deterministic results; a separate 8,000-session stress test keeps the
+five-minute response-history store within its configured 256-entry bound under
+concurrent eviction. Both run under `go test -race`; the diagnostic
+`BenchmarkProgressionController` reports the isolated controller cost.
+
+Challenge-budget tests keep promotion evidence scoped to one exact signed
+canary and endpoint. They cover mature-sample insufficiency, missing terminal
+outcomes, abandonment and accessible-fallback Wilson bounds, cross-rollout
+isolation, aggregate arithmetic poisoning, signed-plan tampering and
+non-finite threshold rejection. Fallback usage is tested as a review budget,
+not as proof of abuse or a reason to remove the accessible path.
+
+The versioned [public adversarial suite](ADVERSARIAL_FIXTURES.md) links the
+roadmap threat categories for replay, poisoning, missing signals, spoofed
+headers, accessibility and adapter failures to executable synthetic tests. A
+repository contract fails if a required scenario disappears, changes its
+closed expected result or points at a missing test function.
+
 ## Known gaps
 
 The current baseline does not yet include a real-browser end-to-end suite,
 reverse-proxy/TLS deployment tests, multi-replica challenge-state tests or a
-sustained load environment. Add those with the corresponding product feature;
-do not simulate unsupported production guarantees. False-positive,
+sustained end-to-end load environment. The in-process concurrency contract is
+not a proxy-capacity or production-throughput claim. Add those environments
+with the corresponding product feature; do not simulate unsupported production guarantees. False-positive,
 accessibility and challenge-abandonment rates require linked deployment
 outcomes and cannot be replaced by synthetic test coverage.

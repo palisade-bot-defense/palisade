@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/adversarial-suite-v1.schema.json",
+  "title": "PALISADE public adversarial conformance suite v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scope", "synthetic_only", "scenarios"],
+  "properties": {
+    "schema_version": { "const": "palisade.adversarial-suite.v1" },
+    "scope": { "const": "roadmap_v0_3_public_conformance" },
+    "synthetic_only": { "const": true },
+    "scenarios": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category", "threat", "expected", "test_refs"],
+        "properties": {
+          "id": {
+            "enum": [
+              "deterministic_replay",
+              "challenge_redemption_replay",
+              "proof_token_replay",
+              "coverage_counter_poisoning",
+              "family_annotation_poisoning",
+              "detector_evidence_poisoning",
+              "unverified_browser_sequence",
+              "missing_trusted_transport_signal",
+              "partial_collection_signal",
+              "direct_forwarding_header_spoof",
+              "crawler_identity_header_spoof",
+              "raw_edge_intelligence_spoof",
+              "reduced_motion_cohort_preserved",
+              "accessible_fallback_closes_pending_state",
+              "challenge_pass_not_human_label",
+              "explicit_adapter_failure_modes",
+              "risky_shadow_adapter_response",
+              "unsafe_method_challenge_replay"
+            ]
+          },
+          "category": {
+            "enum": ["replay", "poisoning", "missing_signals", "spoofed_headers", "accessibility", "adapter_failures"]
+          },
+          "threat": { "type": "string", "minLength": 1, "maxLength": 180 },
+          "expected": {
+            "enum": [
+              "byte_identical_output",
+              "reject_second_redemption",
+              "reject_consumed_proof",
+              "reject_counter_regression_or_conflict",
+              "reject_duplicate_family_assignment",
+              "reject_malformed_or_unbounded_evidence",
+              "ignore_unverified_browser_evidence",
+              "retain_unknown_transport_state",
+              "retain_collection_artifact",
+              "ignore_headers_from_untrusted_peer",
+              "do_not_verify_crawler_from_forwarded_spoof",
+              "reject_raw_or_unpaired_edge_values",
+              "preserve_closed_accessibility_cohort",
+              "record_fallback_and_invalidate_pending_grant",
+              "never_promote_challenge_to_human",
+              "apply_declared_fail_open_or_fail_closed",
+              "reject_risky_shadow_contract",
+              "never_buffer_or_replay_unsafe_body"
+            ]
+          },
+          "test_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_./-]+_test\\.go#Test[A-Za-z0-9_]+$",
+              "maxLength": 180
+            }
+          }
+        }
+      }
+    }
+  }
+}

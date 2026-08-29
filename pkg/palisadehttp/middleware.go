@@ -1,6 +1,7 @@
 package palisadehttp
 
 import (
+	"encoding/base64"
 	"errors"
 	"math"
 	"net/http"
@@ -107,7 +108,8 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 			m.handleUnavailable(w, r, next, "sequence", err)
 			return
 		}
-		result, err := m.checkOrigin(r.Context(), cookie, classification, signals, sequence, proof)
+		challengeBinding := m.state.challengeBinding(r, classification, cookie.Value, sequence)
+		result, err := m.checkOrigin(r.Context(), cookie, classification, signals, sequence, proof, base64.RawURLEncoding.EncodeToString(challengeBinding[:]))
 		if err != nil {
 			if m.failureMode == FailOpen {
 				coverageDisposition = coverageBypassed
@@ -132,7 +134,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 				return
 			}
 			if r.Method == http.MethodGet {
-				m.writeChallengePage(w, r, result.challengeID, cookie.Value, classification)
+				m.writeChallengePage(w, r, result.challengeID, cookie.Value, classification, challengeBinding)
 				return
 			}
 			w.Header().Set("X-Palisade-Action", "challenge")

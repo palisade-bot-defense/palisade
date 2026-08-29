@@ -21,6 +21,7 @@ type entry struct {
 	snapshot     core.SessionSnapshot
 	endpointMask uint16
 	lastEndpoint string
+	retryUntil   time.Time
 }
 
 func NewMemoryStore(ttl time.Duration, maxEntries int) *MemoryStore {
@@ -42,6 +43,13 @@ func (m *MemoryStore) Observe(sessionID string, sequence uint64, endpointClass s
 	if exists && now.Sub(current.snapshot.LastSeen) > m.ttl {
 		delete(m.entries, sessionID)
 		exists = false
+	}
+	if exists && !now.Before(current.snapshot.LastSeen) {
+		if current.retryUntil.After(now) {
+			current.snapshot.PrematureRetries = saturatingIncrement8(current.snapshot.PrematureRetries)
+		} else {
+			current.retryUntil = time.Time{}
+		}
 	}
 	if !exists {
 		if len(m.entries) >= m.maxEntries {
@@ -71,6 +79,47 @@ func (m *MemoryStore) Observe(sessionID string, sequence uint64, endpointClass s
 	snapshot.LastSeen = now
 	m.entries[sessionID] = current
 	return *snapshot
+}
+
+// RecordEnforcement attaches only bounded response history to an existing
+// session. It never creates identity state and the counters expire with the
+// same short-lived entry used by the detector snapshot.
+func (m *MemoryStore) RecordEnforcement(sessionID string, directive core.EnforcementDirective, now time.Time) {
+	if !validEnforcementHistoryDirective(directive) {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	current, exists := m.entries[sessionID]
+	if !exists || now.Before(current.snapshot.LastSeen) || now.Sub(current.snapshot.LastSeen) > m.ttl {
+		return
+	}
+	current.snapshot.RecentEnforcements = saturatingIncrement8(current.snapshot.RecentEnforcements)
+	if directive.RetryAfterSeconds > 0 {
+		retryUntil := now.Add(time.Duration(directive.RetryAfterSeconds) * time.Second)
+		if !directive.ExpiresAt.IsZero() && directive.ExpiresAt.Before(retryUntil) {
+			retryUntil = directive.ExpiresAt
+		}
+		if retryUntil.After(now) && retryUntil.After(current.retryUntil) {
+			current.retryUntil = retryUntil
+		}
+	}
+	m.entries[sessionID] = current
+}
+
+func validEnforcementHistoryDirective(directive core.EnforcementDirective) bool {
+	switch directive.Handling {
+	case "delay":
+		return directive.RetryAfterSeconds == 1
+	case "throttle":
+		return directive.RetryAfterSeconds >= 1 && directive.RetryAfterSeconds <= 60
+	case "challenge":
+		return directive.RetryAfterSeconds == 0
+	case "block":
+		return directive.RetryAfterSeconds >= 1 && directive.RetryAfterSeconds <= 3600
+	default:
+		return false
+	}
 }
 
 func (m *MemoryStore) cleanup(now time.Time) {
@@ -122,6 +171,13 @@ func endpointClassBit(value string) uint16 {
 
 func saturatingIncrement(value uint64) uint64 {
 	if value == math.MaxUint64 {
+		return value
+	}
+	return value + 1
+}
+
+func saturatingIncrement8(value uint8) uint8 {
+	if value == math.MaxUint8 {
 		return value
 	}
 	return value + 1

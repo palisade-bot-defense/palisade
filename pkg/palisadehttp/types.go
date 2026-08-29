@@ -29,6 +29,7 @@ var (
 	ErrInvalidClassification = errors.New("invalid PALISADE request classification")
 	ErrInvalidSignals        = errors.New("invalid PALISADE normalized signals")
 	ErrInvalidOutcome        = errors.New("invalid PALISADE normalized outcome")
+	ErrInvalidDecoy          = errors.New("invalid PALISADE decoy contract")
 	ErrCoverageBusy          = errors.New("PALISADE coverage report is already in flight")
 	ErrSessionRequired       = errors.New("PALISADE session cookie is required")
 	ErrStateCapacity         = errors.New("PALISADE adapter state capacity exceeded")

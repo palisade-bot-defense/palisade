@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-bot-defense/palisade/internal/decoy"
 	"github.com/palisade-bot-defense/palisade/internal/detector"
 	"github.com/palisade-bot-defense/palisade/internal/fusion"
 	"github.com/palisade-bot-defense/palisade/internal/policy"
@@ -24,7 +25,7 @@ var (
 	ErrExplicitTimeWithProof = errors.New("explicit decision time is unavailable with proof enforcement")
 )
 
-const ModelVersion = "transparent-baseline-v11"
+const ModelVersion = "transparent-baseline-v13"
 
 type Engine struct {
 	sessions      *session.MemoryStore
@@ -34,6 +35,7 @@ type Engine struct {
 	requireProof  bool
 	mode          core.RuntimeMode
 	rollout       *rollout.Controller
+	decoys        *decoy.Service
 	now           func() time.Time
 	newDecisionID func() string
 }
@@ -76,11 +78,16 @@ func New(sessions *session.MemoryStore, detectors *detector.Registry, policyEngi
 		now:           time.Now,
 		newDecisionID: newID,
 	}
+	engine.decoys = decoy.NewDefault()
 	for _, option := range options {
 		option(engine)
 	}
 	return engine
 }
+
+// Decoys exposes the process-local service so the authenticated HTTP contract
+// and the decision engine share exactly one bounded capability store.
+func (e *Engine) Decoys() *decoy.Service { return e.decoys }
 
 func (e *Engine) Decide(ctx context.Context, request core.DecisionRequest) (core.Decision, error) {
 	return e.decideAt(ctx, request, e.now().UTC())
@@ -108,6 +115,9 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 		}
 	}
 	snapshot := e.sessions.Observe(request.SessionID, request.Sequence, request.EndpointClass, now)
+	if e.decoys != nil {
+		request.Observations.VerifiedDecoyHits = e.decoys.TakeHits(request.SessionID, request.EndpointClass, now)
+	}
 	evidence, err := e.detectors.Evaluate(ctx, core.DetectorInput{Request: request, Session: snapshot})
 	if err != nil {
 		return core.Decision{}, fmt.Errorf("evaluate detectors: %w", err)
@@ -115,7 +125,7 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 	scores := fusion.Calculate(evidence)
 	result, err := e.policy.Evaluate(policy.Input{
 		Scores: scores, EndpointClass: request.EndpointClass,
-		HoneypotHits: request.Observations.HoneypotHits,
+		HoneypotHits: boundedDecoyHits(request.Observations.HoneypotHits, request.Observations.VerifiedDecoyHits),
 		PolicyAlert:  request.Observations.PolicyAlert,
 		VerifiedBot:  core.VerifiedPublicCrawler(request.Observations, request.EndpointClass),
 	})
@@ -129,7 +139,7 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 	directive := rollout.DefaultDirective(action, now)
 	reasons := []string{result.Reason}
 	if e.rollout != nil {
-		applied := e.rollout.Apply(request.SessionID, request.EndpointClass, computedAction, now)
+		applied := e.rollout.ApplyWithContext(request.SessionID, request.EndpointClass, computedAction, rollout.AdaptiveContextFrom(snapshot, evidence), now)
 		action, mode, rolloutID, directive = applied.Action, applied.Mode, applied.RolloutID, applied.Directive
 		reasons = append(reasons, applied.Reasons...)
 		if mode == core.RuntimeModeShadow && computedAction != core.ActionAllow && computedAction != core.ActionObserve {
@@ -143,6 +153,7 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 	for _, item := range evidence {
 		reasons = append(reasons, item.Code)
 	}
+	e.sessions.RecordEnforcement(request.SessionID, directive, now)
 	return core.Decision{
 		DecisionID:     e.newDecisionID(),
 		Action:         action,
@@ -157,6 +168,13 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 		ModelVersion:   ModelVersion,
 		ExpiresAt:      now.Add(30 * time.Second),
 	}, nil
+}
+
+func boundedDecoyHits(claimed, verified int) int {
+	if claimed >= 100 || verified >= 100 || claimed+verified >= 100 {
+		return 100
+	}
+	return claimed + verified
 }
 
 func validateRequest(request core.DecisionRequest) error {

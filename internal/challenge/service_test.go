@@ -12,7 +12,9 @@ import (
 
 var testSecret = []byte("0123456789abcdef0123456789abcdef")
 
-func TestChallengeLifecycleBindsSessionActionAndEndpoint(t *testing.T) {
+const testRedemptionBinding = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+
+func TestChallengeLifecycleBindsSessionActionEndpointAndOriginFlow(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0).UTC()
 	var outcomes []Outcome
 	service, err := New(Config{Secret: testSecret, Delay: time.Second, Outcome: func(outcome Outcome) {
@@ -22,7 +24,7 @@ func TestChallengeLifecycleBindsSessionActionAndEndpoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	request, decision := challengeFixture(now)
-	metadata, err := service.Issue(request, decision, now)
+	metadata, err := service.Issue(request, decision, testRedemptionBinding, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,9 +32,12 @@ func TestChallengeLifecycleBindsSessionActionAndEndpoint(t *testing.T) {
 		!metadata.Accessibility.NonVisual || !metadata.Accessibility.KeyboardOnly || !metadata.Accessibility.FallbackOffered {
 		t.Fatalf("unsafe metadata: %+v", metadata)
 	}
-	idempotent, err := service.Issue(request, decision, now)
+	idempotent, err := service.Issue(request, decision, testRedemptionBinding, now)
 	if err != nil || idempotent.ChallengeID != metadata.ChallengeID || idempotent.VerificationToken != metadata.VerificationToken {
 		t.Fatalf("idempotent issuance = %+v, %v", idempotent, err)
+	}
+	if _, err := service.Issue(request, decision, "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", now); !errors.Is(err, ErrInvalidChallenge) {
+		t.Fatalf("idempotent issuance accepted another origin flow binding: %v", err)
 	}
 	if _, err := service.View(metadata.ChallengeID, "other-session", now); !errors.Is(err, ErrSessionMismatch) {
 		t.Fatalf("session mismatch = %v", err)
@@ -44,19 +49,22 @@ func TestChallengeLifecycleBindsSessionActionAndEndpoint(t *testing.T) {
 	if err != nil || verified.RedemptionToken == "" {
 		t.Fatalf("verification = %+v, %v", verified, err)
 	}
-	if err := service.Redeem(metadata.ChallengeID, request.SessionID, verified.RedemptionToken, "write", request.EndpointClass, now.Add(2*time.Second)); !errors.Is(err, ErrInvalidRedemption) {
+	if err := service.Redeem(metadata.ChallengeID, request.SessionID, verified.RedemptionToken, testRedemptionBinding, "write", request.EndpointClass, now.Add(2*time.Second)); !errors.Is(err, ErrInvalidRedemption) {
 		t.Fatalf("action binding = %v", err)
 	}
-	if err := service.Redeem(metadata.ChallengeID, request.SessionID, verified.RedemptionToken, request.Action, "login", now.Add(2*time.Second)); !errors.Is(err, ErrInvalidRedemption) {
+	if err := service.Redeem(metadata.ChallengeID, request.SessionID, verified.RedemptionToken, testRedemptionBinding, request.Action, "login", now.Add(2*time.Second)); !errors.Is(err, ErrInvalidRedemption) {
 		t.Fatalf("endpoint binding = %v", err)
 	}
-	if err := service.Redeem(metadata.ChallengeID, request.SessionID, verified.RedemptionToken, request.Action, request.EndpointClass, now.Add(2*time.Second)); err != nil {
+	if err := service.Redeem(metadata.ChallengeID, request.SessionID, verified.RedemptionToken, "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", request.Action, request.EndpointClass, now.Add(2*time.Second)); !errors.Is(err, ErrInvalidRedemption) {
+		t.Fatalf("origin flow binding = %v", err)
+	}
+	if err := service.Redeem(metadata.ChallengeID, request.SessionID, verified.RedemptionToken, testRedemptionBinding, request.Action, request.EndpointClass, now.Add(2*time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.Redeem(metadata.ChallengeID, request.SessionID, verified.RedemptionToken, request.Action, request.EndpointClass, now.Add(2*time.Second)); !errors.Is(err, ErrInvalidState) {
+	if err := service.Redeem(metadata.ChallengeID, request.SessionID, verified.RedemptionToken, testRedemptionBinding, request.Action, request.EndpointClass, now.Add(2*time.Second)); !errors.Is(err, ErrInvalidState) {
 		t.Fatalf("redemption replay = %v", err)
 	}
-	if _, err := service.Issue(request, decision, now.Add(2*time.Second)); !errors.Is(err, ErrInvalidState) {
+	if _, err := service.Issue(request, decision, testRedemptionBinding, now.Add(2*time.Second)); !errors.Is(err, ErrInvalidState) {
 		t.Fatalf("completed decision was reissued = %v", err)
 	}
 	if len(outcomes) != 1 || outcomes[0].Kind != "challenge_passed" || outcomes[0].DecisionID != decision.DecisionID {
@@ -72,18 +80,26 @@ func TestChallengeIssuanceRequiresAppliedBoundDirectiveAndVerifiedSession(t *tes
 	}
 	request, decision := challengeFixture(now)
 	request.Observations.ServerSessionVerified = false
-	if _, err := service.Issue(request, decision, now); !errors.Is(err, ErrInvalidChallenge) {
+	if _, err := service.Issue(request, decision, testRedemptionBinding, now); !errors.Is(err, ErrInvalidChallenge) {
 		t.Fatalf("unverified session issuance = %v", err)
 	}
 	request.Observations.ServerSessionVerified = true
 	decision.Mode = core.RuntimeModeShadow
-	if _, err := service.Issue(request, decision, now); !errors.Is(err, ErrInvalidChallenge) {
+	if _, err := service.Issue(request, decision, testRedemptionBinding, now); !errors.Is(err, ErrInvalidChallenge) {
 		t.Fatalf("shadow issuance = %v", err)
 	}
 	decision.Mode = core.RuntimeModeCanary
 	decision.Directive.ExpiresAt = now.Add(MaximumChallengeTTL + time.Second)
-	if _, err := service.Issue(request, decision, now); !errors.Is(err, ErrInvalidChallenge) {
+	if _, err := service.Issue(request, decision, testRedemptionBinding, now); !errors.Is(err, ErrInvalidChallenge) {
 		t.Fatalf("oversize TTL issuance = %v", err)
+	}
+	decision.Directive.ExpiresAt = now.Add(time.Minute)
+	if _, err := service.Issue(request, decision, "", now); !errors.Is(err, ErrInvalidChallenge) {
+		t.Fatalf("missing origin binding issuance = %v", err)
+	}
+	decision.Directive.ExpiresAt = now.Add(DefaultDelay)
+	if _, err := service.Issue(request, decision, testRedemptionBinding, now); !errors.Is(err, ErrInvalidChallenge) {
+		t.Fatalf("zero usable challenge window issuance = %v", err)
 	}
 }
 
@@ -97,7 +113,7 @@ func TestInvalidVerificationExhaustsBoundedAttempts(t *testing.T) {
 		t.Fatal(err)
 	}
 	request, decision := challengeFixture(now)
-	metadata, err := service.Issue(request, decision, now)
+	metadata, err := service.Issue(request, decision, testRedemptionBinding, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,13 +143,13 @@ func TestExpiryFallbackCapacityAndSweep(t *testing.T) {
 		t.Fatal(err)
 	}
 	request, decision := challengeFixture(now)
-	metadata, err := service.Issue(request, decision, now)
+	metadata, err := service.Issue(request, decision, testRedemptionBinding, now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	secondRequest, secondDecision := challengeFixture(now)
 	secondDecision.DecisionID = "decision-2"
-	if _, err := service.Issue(secondRequest, secondDecision, now); !errors.Is(err, ErrCapacity) {
+	if _, err := service.Issue(secondRequest, secondDecision, testRedemptionBinding, now); !errors.Is(err, ErrCapacity) {
 		t.Fatalf("capacity = %v", err)
 	}
 	if err := service.Fallback(metadata.ChallengeID, request.SessionID, now); err != nil {
@@ -142,11 +158,14 @@ func TestExpiryFallbackCapacityAndSweep(t *testing.T) {
 	if len(outcomes) != 1 || outcomes[0].Kind != "fallback_used" {
 		t.Fatalf("fallback outcomes = %+v", outcomes)
 	}
+	if err := service.Fallback(metadata.ChallengeID, request.SessionID, now); !errors.Is(err, ErrInvalidState) || len(outcomes) != 1 {
+		t.Fatalf("fallback replay = %v outcomes=%+v", err, outcomes)
+	}
 	if swept := service.Sweep(decision.Directive.ExpiresAt); swept != 0 {
 		t.Fatalf("terminal record emitted abandonment: %d", swept)
 	}
 	secondDecision.Directive.ExpiresAt = decision.Directive.ExpiresAt.Add(5 * time.Minute)
-	secondMetadata, err := service.Issue(secondRequest, secondDecision, decision.Directive.ExpiresAt)
+	secondMetadata, err := service.Issue(secondRequest, secondDecision, testRedemptionBinding, decision.Directive.ExpiresAt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +187,7 @@ func TestOnlyOneConcurrentRedemptionSucceeds(t *testing.T) {
 		t.Fatal(err)
 	}
 	request, decision := challengeFixture(now)
-	metadata, err := service.Issue(request, decision, now)
+	metadata, err := service.Issue(request, decision, testRedemptionBinding, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +201,7 @@ func TestOnlyOneConcurrentRedemptionSucceeds(t *testing.T) {
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			if service.Redeem(metadata.ChallengeID, request.SessionID, verified.RedemptionToken, request.Action, request.EndpointClass, now.Add(2*time.Second)) == nil {
+			if service.Redeem(metadata.ChallengeID, request.SessionID, verified.RedemptionToken, testRedemptionBinding, request.Action, request.EndpointClass, now.Add(2*time.Second)) == nil {
 				successes.Add(1)
 			}
 		}()

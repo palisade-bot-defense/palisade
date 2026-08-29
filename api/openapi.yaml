@@ -103,6 +103,46 @@ paths:
                   proof_token: { type: string }
                   expires_in: { type: integer }
         "401": { $ref: "#/components/responses/Error" }
+  /v1/decoy/issue:
+    post:
+      summary: Issue a bounded deployment-owned decoy capability
+      description: Backend-only. The origin embeds the opaque capability in its own link, form or API trap. The session_id may be omitted when a valid PALISADE session cookie is forwarded. PALISADE accepts no URL, field name, HTML, IP address, user-agent or request content.
+      operationId: issueDecoy
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DecoyIssueRequest" }
+      responses:
+        "201":
+          description: Short-lived capability issued and bound to the closed session and endpoint class.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DecoyCapability" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /v1/decoy/hit:
+    post:
+      summary: Consume a decoy capability exactly once
+      description: Backend-only. A valid hit becomes one short-lived, session-and-endpoint-bound evidence item for the next decision. It is not an automatic block or a human/bot identity label.
+      operationId: recordDecoyHit
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DecoyHitRequest" }
+      responses:
+        "202": { description: Capability consumed and normalized evidence queued. }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /v1/events:
     post:
       summary: Ingest privacy-limited browser events
@@ -148,6 +188,12 @@ paths:
       operationId: checkOrigin
       security:
         - sessionCookie: []
+      parameters:
+        - in: header
+          name: X-Palisade-Challenge-Binding
+          required: false
+          description: Opaque server-generated origin-flow capability. The reference adapter sends it on every check and PALISADE requires the same value for challenge redemption. It must never be exposed to browser code or logs.
+          schema: { type: string, minLength: 43, maxLength: 43, pattern: "^[A-Za-z0-9_-]+$" }
       requestBody:
         required: true
         content:
@@ -552,11 +598,11 @@ components:
             loaded_at: { type: [string, "null"], format: date-time }
             last_attempt_at: { type: [string, "null"], format: date-time }
         analysis:
-          description: Validated palisade.shadow-analysis.v3 aggregate report, or null when no report was loaded. It contains linked endpoint/cohort Wilson intervals and aggregate canary comparisons, but no row-level records or decision identifiers.
+          description: Validated palisade.shadow-analysis.v4 aggregate report, or null when no report was loaded. It contains linked endpoint/cohort Wilson intervals, aggregate canary comparisons and exact rollout/endpoint challenge budgets, but no row-level records or decision identifiers.
           oneOf:
             - type: "null"
             - type: object
-              required: [schema_version, source, readiness, decisions, outcomes, scores, endpoints, top_reason_codes, policy_versions, model_versions, canary_rollouts, canary_comparisons, linkage, evaluation_slices, recommendations]
+              required: [schema_version, source, readiness, decisions, outcomes, scores, endpoints, top_reason_codes, policy_versions, model_versions, canary_rollouts, canary_comparisons, canary_challenge_budgets, linkage, evaluation_slices, recommendations]
     Error:
       type: object
       additionalProperties: false
@@ -569,7 +615,7 @@ components:
       required: [challenge_id, family, ready_at, expires_at, attempts_remaining, verification_token, accessibility]
       properties:
         challenge_id: { type: string, minLength: 32, maxLength: 32, pattern: "^[A-Za-z0-9_-]+$" }
-        family: { type: string, enum: [timed_confirmation_v1] }
+        family: { type: string, enum: [timed_confirmation_v2] }
         ready_at: { type: string, format: date-time }
         expires_at: { type: string, format: date-time }
         attempts_remaining: { type: integer, minimum: 0, maximum: 20 }
@@ -600,10 +646,16 @@ components:
     ChallengeRedeemRequest:
       type: object
       additionalProperties: false
-      required: [challenge_id, redemption_token, action, endpoint_class]
+      required: [challenge_id, redemption_token, redemption_binding, action, endpoint_class]
       properties:
         challenge_id: { type: string, minLength: 32, maxLength: 32, pattern: "^[A-Za-z0-9_-]+$" }
         redemption_token: { type: string, minLength: 43, maxLength: 43, pattern: "^[A-Za-z0-9_-]+$" }
+        redemption_binding:
+          type: string
+          minLength: 43
+          maxLength: 43
+          pattern: "^[A-Za-z0-9_-]+$"
+          description: Backend-only origin-flow capability copied from the matching origin check; browsers must never receive or supply it.
         action: { type: string, minLength: 1, maxLength: 80 }
         endpoint_class:
           type: string
@@ -662,6 +714,31 @@ components:
           minItems: 9
           maxItems: 9
           items: { $ref: "#/components/schemas/OriginCoverageCounter" }
+    DecoyIssueRequest:
+      type: object
+      additionalProperties: false
+      required: [endpoint_class, surface]
+      properties:
+        session_id: { type: string, minLength: 8, maxLength: 128, description: Optional with a valid PALISADE session cookie. This is an opaque first-party session handle, never an account, device or person identifier. }
+        endpoint_class:
+          type: string
+          enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]
+        surface: { type: string, enum: [link, form, api] }
+        ttl_seconds: { type: integer, minimum: 30, maximum: 900, default: 300 }
+    DecoyCapability:
+      type: object
+      additionalProperties: false
+      required: [capability, expires_at]
+      properties:
+        capability: { type: string, minLength: 43, maxLength: 43, pattern: "^[A-Za-z0-9_-]+$" }
+        expires_at: { type: string, format: date-time }
+    DecoyHitRequest:
+      type: object
+      additionalProperties: false
+      required: [capability, interaction]
+      properties:
+        capability: { type: string, minLength: 43, maxLength: 43, pattern: "^[A-Za-z0-9_-]+$" }
+        interaction: { type: string, enum: [touched, submitted], description: submitted is valid only for a capability issued with surface form. }
     OriginCoverageCounter:
       type: object
       additionalProperties: false
