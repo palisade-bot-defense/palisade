@@ -225,6 +225,15 @@ if (cd "$rollout_plan_v2" && "$guard") >/dev/null 2>&1; then
 	exit 1
 fi
 
+local_artifact="$test_root/local-artifact"
+new_repo "$local_artifact"
+printf '%s\n' '{"metadata":{"schema_version":"palisade.local-artifact.v1","artifact_type":"policy_bundle"},"payload":{},"signature":"synthetic"}' >"$local_artifact/renamed.txt"
+git -C "$local_artifact" add renamed.txt
+if (cd "$local_artifact" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: signed local runtime artifact was accepted" >&2
+	exit 1
+fi
+
 rollout_review="$test_root/rollout-review"
 new_repo "$rollout_review"
 printf '%s\n' '{"schema_version":"palisade.rollout-review.v1","source_report_sha256":"synthetic"}' >"$rollout_review/renamed.txt"

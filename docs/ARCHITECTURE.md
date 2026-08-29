@@ -21,6 +21,7 @@ It is not a packet sniffer, a general log warehouse or a raw-vendor-event bus.
 | Local measurement | AES-256-GCM files | Optional append-only decision/outcome stream with rotation and retention |
 | Rollout review | Deterministic closed JSON | Report-hash binding, machine gates, narrow recommended scope and explicit operator checklist; never executable |
 | Rollout approval | Ed25519 signed JSON | Expiring endpoint/action/cohort scope reviewed by an operator |
+| Runtime configuration | Ed25519 signed local JSON | Closed policy thresholds and compiled detector selection; no executable configuration |
 | Sovereignty inventory | Deterministic closed JSON | Product invariants separated from unverified, non-identifying operator declarations |
 | Egress and data maps | Versioned JSON plus source regression tests | Reviewed network callsites, closed data classes, destinations, persistence and explicit exclusions |
 | Historical sequence analysis | Go CLI | Verified local shards, bounded active windows and deterministic aggregate-only feature reports |
@@ -151,4 +152,4 @@ challenge lifecycle or create a new persistent identity graph.
   confusion counts and confidence intervals, and cannot activate enforcement.
 
 See [Sovereignty Report](SOVEREIGNTY.md), [runtime egress inventory](RUNTIME_EGRESS.md), [data map](DATA_MAP.md), [generic local import](LOCAL_IMPORT.md), [local sequence analysis](LOCAL_SEQUENCE_ANALYSIS.md), [local holdout evaluation](LOCAL_HOLDOUT_EVALUATION.md), [reference origin adapter](ORIGIN_ADAPTER.md), [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
-[native challenge](CHALLENGE.md), [shadow logging](SHADOW_LOG.md), [automated analysis](ANALYSIS_AUTOMATION.md), [Operator Console](OPERATOR_CONSOLE.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).
+[native challenge](CHALLENGE.md), [shadow logging](SHADOW_LOG.md), [automated analysis](ANALYSIS_AUTOMATION.md), [Operator Console](OPERATOR_CONSOLE.md), [signed rollout](ROLLOUT.md), [signed local runtime artifacts](LOCAL_ARTIFACTS.md) and the [OpenAPI contract](../api/openapi.yaml).

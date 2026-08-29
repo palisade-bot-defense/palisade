@@ -27,6 +27,7 @@ import (
 	decisionengine "github.com/palisade-bot-defense/palisade/internal/engine"
 	"github.com/palisade-bot-defense/palisade/internal/events"
 	"github.com/palisade-bot-defense/palisade/internal/httpapi"
+	"github.com/palisade-bot-defense/palisade/internal/localartifact"
 	"github.com/palisade-bot-defense/palisade/internal/localsequence"
 	"github.com/palisade-bot-defense/palisade/internal/offlineimport"
 	"github.com/palisade-bot-defense/palisade/internal/policy"
@@ -51,7 +52,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: palisade <serve|doctor|sovereignty-report|replay|import-offline|import-local-events|analyze-local-events|evaluate-local-holdout|verify-shadow-log|analyze-shadow-log|evaluate-shadow-holdout|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
+		return errors.New("usage: palisade <serve|doctor|sovereignty-report|replay|import-offline|import-local-events|analyze-local-events|evaluate-local-holdout|verify-shadow-log|analyze-shadow-log|evaluate-shadow-holdout|artifact-keygen|prepare-local-artifact|verify-local-artifact|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
 	}
 	switch args[0] {
 	case "serve":
@@ -78,6 +79,12 @@ func run(args []string) error {
 		return evaluateShadowHoldout(args[1:])
 	case "rollout-keygen":
 		return rolloutKeygen(args[1:])
+	case "artifact-keygen":
+		return artifactKeygen(args[1:])
+	case "prepare-local-artifact":
+		return prepareLocalArtifact(args[1:])
+	case "verify-local-artifact":
+		return verifyLocalArtifact(args[1:])
 	case "prepare-review":
 		return prepareReview(args[1:])
 	case "prepare-rollout":
@@ -418,6 +425,10 @@ func serve(args []string) error {
 	modeName := flags.String("mode", string(core.RuntimeModeShadow), "runtime mode: serve requires shadow; signed plans enable canary/enforce")
 	rolloutPlanPath := flags.String("rollout-plan", "", "owner-only signed rollout plan outside every Git worktree")
 	rolloutPublicKeyPath := flags.String("rollout-public-key", "", "owner-only rollout verification public key outside every Git worktree")
+	policyBundlePath := flags.String("policy-bundle", "", "owner-only signed closed policy bundle outside every Git worktree")
+	policyPublicKeyPath := flags.String("policy-public-key", "", "owner-only policy bundle verification public key outside every Git worktree")
+	detectorBundlePath := flags.String("detector-bundle", "", "owner-only signed closed detector bundle outside every Git worktree")
+	detectorPublicKeyPath := flags.String("detector-public-key", "", "owner-only detector bundle verification public key outside every Git worktree")
 	requireSessionCookie := flags.Bool("require-session-cookie", false, "require a valid server-issued session cookie on token, event and decision requests")
 	shadowLogDir := flags.String("shadow-log-dir", "", "private encrypted append-only shadow log directory")
 	shadowLogKeyFile := flags.String("shadow-log-key-file", "", "owner-only file containing 32-4096 encryption key bytes")
@@ -449,6 +460,12 @@ func serve(args []string) error {
 	}
 	if (*rolloutPlanPath == "") != (*rolloutPublicKeyPath == "") {
 		return errors.New("--rollout-plan and --rollout-public-key must be configured together")
+	}
+	if (*policyBundlePath == "") != (*policyPublicKeyPath == "") {
+		return errors.New("--policy-bundle and --policy-public-key must be configured together")
+	}
+	if (*detectorBundlePath == "") != (*detectorPublicKeyPath == "") {
+		return errors.New("--detector-bundle and --detector-public-key must be configured together")
 	}
 	if (*shadowLogDir == "") != (*shadowLogKeyFile == "") {
 		return errors.New("--shadow-log-dir and --shadow-log-key-file must be configured together")
@@ -498,16 +515,27 @@ func serve(args []string) error {
 	if err != nil {
 		return err
 	}
-	rolloutController, err := loadRollout(*rolloutPlanPath, *rolloutPublicKeyPath, secret, time.Now().UTC())
+	now := time.Now().UTC()
+	runtimeArtifacts, err := loadRuntimeArtifacts(
+		*policyBundlePath, *policyPublicKeyPath, *detectorBundlePath, *detectorPublicKeyPath, now,
+	)
+	if err != nil {
+		return err
+	}
+	policyEngine, detectorRegistry := runtimeArtifacts.policy, runtimeArtifacts.detectors
+	rolloutController, err := loadRollout(*rolloutPlanPath, *rolloutPublicKeyPath, secret, policyEngine.Version(), detectorRegistry.Version(), now)
 	if err != nil {
 		return err
 	}
 	var engineOptions []decisionengine.Option
+	if !runtimeArtifacts.expiresAt.IsZero() {
+		engineOptions = append(engineOptions, decisionengine.WithConfigurationExpiry(runtimeArtifacts.expiresAt))
+	}
 	if rolloutController != nil {
 		engineOptions = append(engineOptions, decisionengine.WithRollout(rolloutController))
 		mode = rolloutController.Plan().Stage
 	}
-	engine, tokenService, err := buildEngine(secret, !*dev, core.RuntimeModeShadow, engineOptions...)
+	engine, tokenService, err := buildEngineWithConfiguration(secret, !*dev, core.RuntimeModeShadow, policyEngine, detectorRegistry, engineOptions...)
 	if err != nil {
 		return err
 	}
@@ -556,7 +584,8 @@ func serve(args []string) error {
 	}
 	api.WithAdmin(httpapi.AdminConfig{
 		Key: adminKey, StartedAt: time.Now().UTC(), Mode: mode, RolloutID: rolloutID,
-		PolicyVersion: policy.DefaultVersion, ModelVersion: decisionengine.ModelVersion,
+		PolicyVersion: policyEngine.Version(), ModelVersion: detectorRegistry.Version(),
+		PolicyArtifact: runtimeArtifacts.policyStatus, DetectorArtifact: runtimeArtifacts.detectorStatus,
 		ShadowLogEnabled: shadowSink != nil, EventShadowEnabled: eventShadowEnabled,
 		EventShadowFromProof: *eventShadowFromProof, AnalysisFeed: analysisFeed,
 	})
@@ -673,8 +702,90 @@ func buildEngine(secret []byte, requireProof bool, mode core.RuntimeMode, option
 	if err := registry.Err(); err != nil {
 		return nil, nil, err
 	}
+	return buildEngineWithServices(requireProof, mode, tokenService, policyEngine, registry, options...)
+}
+
+func buildEngineWithConfiguration(secret []byte, requireProof bool, mode core.RuntimeMode, policyEngine *policy.Engine, registry *detector.Registry, options ...decisionengine.Option) (*decisionengine.Engine, *token.Service, error) {
+	tokenService, err := token.NewService(secret, token.NewMemoryNonceStore())
+	if err != nil {
+		return nil, nil, err
+	}
+	return buildEngineWithServices(requireProof, mode, tokenService, policyEngine, registry, options...)
+}
+
+func buildEngineWithServices(requireProof bool, mode core.RuntimeMode, tokenService *token.Service, policyEngine *policy.Engine, registry *detector.Registry, options ...decisionengine.Option) (*decisionengine.Engine, *token.Service, error) {
+	if policyEngine == nil || registry == nil {
+		return nil, nil, errors.New("policy engine and detector registry are required")
+	}
+	if err := registry.Err(); err != nil {
+		return nil, nil, err
+	}
 	sessionStore := session.NewMemoryStore(5*time.Minute, 100_000)
 	return decisionengine.New(sessionStore, registry, policyEngine, tokenService, requireProof, mode, options...), tokenService, nil
+}
+
+type runtimeArtifactSet struct {
+	policy         *policy.Engine
+	detectors      *detector.Registry
+	expiresAt      time.Time
+	policyStatus   *httpapi.AdminArtifactStatus
+	detectorStatus *httpapi.AdminArtifactStatus
+}
+
+func loadRuntimeArtifacts(policyPath, policyKeyPath, detectorPath, detectorKeyPath string, now time.Time) (runtimeArtifactSet, error) {
+	policyEngine, err := policy.NewDefault()
+	if err != nil {
+		return runtimeArtifactSet{}, err
+	}
+	registry := detector.NewDefaultRegistry()
+	if err := registry.Err(); err != nil {
+		return runtimeArtifactSet{}, err
+	}
+	result := runtimeArtifactSet{policy: policyEngine, detectors: registry}
+	if policyPath != "" {
+		encoded, err := localartifact.ReadDocument(policyPath)
+		if err != nil {
+			return runtimeArtifactSet{}, err
+		}
+		publicKey, err := localartifact.ReadPublicKey(policyKeyPath)
+		if err != nil {
+			return runtimeArtifactSet{}, err
+		}
+		loadedPolicy, verified, err := policy.NewSigned(encoded, publicKey, now)
+		if err != nil {
+			return runtimeArtifactSet{}, err
+		}
+		result.policy = loadedPolicy
+		result.expiresAt = verified.ExpiresAt
+		result.policyStatus = adminArtifactStatus(verified)
+	}
+	if detectorPath != "" {
+		encoded, err := localartifact.ReadDocument(detectorPath)
+		if err != nil {
+			return runtimeArtifactSet{}, err
+		}
+		publicKey, err := localartifact.ReadPublicKey(detectorKeyPath)
+		if err != nil {
+			return runtimeArtifactSet{}, err
+		}
+		loadedRegistry, verified, err := detector.NewSignedRegistry(encoded, publicKey, now)
+		if err != nil {
+			return runtimeArtifactSet{}, err
+		}
+		result.detectors = loadedRegistry
+		result.detectorStatus = adminArtifactStatus(verified)
+		if result.expiresAt.IsZero() || verified.ExpiresAt.Before(result.expiresAt) {
+			result.expiresAt = verified.ExpiresAt
+		}
+	}
+	return result, nil
+}
+
+func adminArtifactStatus(verified localartifact.Verified) *httpapi.AdminArtifactStatus {
+	return &httpapi.AdminArtifactStatus{
+		ArtifactType: verified.Metadata.ArtifactType, ArtifactID: verified.Metadata.ArtifactID,
+		Revision: verified.Metadata.Revision, ExpiresAt: verified.ExpiresAt, State: "current",
+	}
 }
 
 func buildReplayEngine(mode core.RuntimeMode) (*decisionengine.Engine, *token.Service, error) {

@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	DefaultVersion         = "transparent-baseline-v13"
+	DefaultProfile         = "transparent-baseline-v1"
 	maxDetectors           = 32
 	maxEvidencePerDetector = 32
 	maxEvidenceTotal       = 128
@@ -30,11 +32,16 @@ type Detector interface {
 
 type Registry struct {
 	detectors []Detector
+	version   string
 	err       error
 }
 
 func NewRegistry(detectors ...Detector) *Registry {
-	registry := &Registry{detectors: append([]Detector(nil), detectors...)}
+	return newRegistry(DefaultVersion, detectors...)
+}
+
+func newRegistry(version string, detectors ...Detector) *Registry {
+	registry := &Registry{detectors: append([]Detector(nil), detectors...), version: version}
 	registry.err = validateRegistry(registry.detectors)
 	return registry
 }
@@ -44,10 +51,17 @@ func NewRegistry(detectors ...Detector) *Registry {
 // constructor so a production detector cannot silently escape the measured
 // hot path.
 func NewDefaultRegistry() *Registry {
-	return NewRegistry(
+	return newRegistry(DefaultVersion,
 		ProtocolConsistency{}, SequenceVelocity{}, NavigationGraph{},
 		DecoyInteraction{}, CampaignSurface{}, ExternalVerdicts{}, EdgeIntelligence{},
 	)
+}
+
+func (r *Registry) Version() string {
+	if r == nil {
+		return ""
+	}
+	return r.version
 }
 
 // Err reports configuration errors detected when the immutable registry was

@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/engine"
-	"github.com/palisade-bot-defense/palisade/internal/policy"
 	"github.com/palisade-bot-defense/palisade/internal/rollout"
 )
 
@@ -133,7 +131,7 @@ func verifyRollout(args []string) error {
 	return nil
 }
 
-func loadRollout(planPath, publicKeyPath string, cohortKey []byte, now time.Time) (*rollout.Controller, error) {
+func loadRollout(planPath, publicKeyPath string, cohortKey []byte, policyVersion, modelVersion string, now time.Time) (*rollout.Controller, error) {
 	if (planPath == "") != (publicKeyPath == "") {
 		return nil, errors.New("--rollout-plan and --rollout-public-key must be configured together")
 	}
@@ -148,7 +146,7 @@ func loadRollout(planPath, publicKeyPath string, cohortKey []byte, now time.Time
 	if err != nil {
 		return nil, err
 	}
-	return rollout.NewController(signed, publicKey, cohortKey, policy.DefaultVersion, engine.ModelVersion, now)
+	return rollout.NewController(signed, publicKey, cohortKey, policyVersion, modelVersion, now)
 }
 
 func parseRolloutStage(value string) (core.RuntimeMode, error) {

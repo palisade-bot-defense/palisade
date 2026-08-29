@@ -12,6 +12,8 @@ import (
 
 const DefaultVersion = "default-v5"
 
+const DefaultProfile = "transparent-progressive-v1"
+
 type Input struct {
 	Scores        core.Scores
 	EndpointClass string
@@ -43,12 +45,23 @@ type ruleSpec struct {
 }
 
 func defaultRuleSpecs() []ruleSpec {
+	return ruleSpecs(DefaultBundle())
+}
+
+func ruleSpecs(bundle Bundle) []ruleSpec {
+	automationHigh := strconv.FormatFloat(bundle.AutomationHigh, 'f', 2, 64)
+	automationStepUp := strconv.FormatFloat(bundle.AutomationStepUp, 'f', 2, 64)
+	automationElevated := strconv.FormatFloat(bundle.AutomationElevated, 'f', 2, 64)
+	intentHigh := strconv.FormatFloat(bundle.IntentHigh, 'f', 2, 64)
+	intentStepUp := strconv.FormatFloat(bundle.IntentStepUp, 'f', 2, 64)
+	intentElevated := strconv.FormatFloat(bundle.IntentElevated, 'f', 2, 64)
+	continuityStepUpBelow := strconv.FormatFloat(bundle.ContinuityStepUpBelow, 'f', 2, 64)
 	return []ruleSpec{
 		{"policy_alert && honeypot_hits >= 1", "MULTI_SOURCE_ABUSE", core.ActionBlock},
-		{"endpoint_class == 'public_content' && (intent_risk >= 0.90 || (!verified_public_crawler && automation_risk >= 0.88))", "PUBLIC_CONTENT_HIGH_RISK", core.ActionThrottle},
-		{"intent_risk >= 0.90 || (!verified_public_crawler && automation_risk >= 0.88)", "HIGH_RISK", core.ActionBlock},
-		{"policy_alert || honeypot_hits >= 1 || intent_risk >= 0.68 || account_continuity < 0.20 || (!verified_public_crawler && automation_risk >= 0.68)", "STEP_UP_REQUIRED", core.ActionChallenge},
-		{"intent_risk >= 0.52 || (!verified_public_crawler && automation_risk >= 0.52)", "ELEVATED_RISK", core.ActionDelay},
+		{"endpoint_class == 'public_content' && (intent_risk >= " + intentHigh + " || (!verified_public_crawler && automation_risk >= " + automationHigh + "))", "PUBLIC_CONTENT_HIGH_RISK", core.ActionThrottle},
+		{"intent_risk >= " + intentHigh + " || (!verified_public_crawler && automation_risk >= " + automationHigh + ")", "HIGH_RISK", core.ActionBlock},
+		{"policy_alert || honeypot_hits >= 1 || intent_risk >= " + intentStepUp + " || account_continuity < " + continuityStepUpBelow + " || (!verified_public_crawler && automation_risk >= " + automationStepUp + ")", "STEP_UP_REQUIRED", core.ActionChallenge},
+		{"intent_risk >= " + intentElevated + " || (!verified_public_crawler && automation_risk >= " + automationElevated + ")", "ELEVATED_RISK", core.ActionDelay},
 		{"verified_public_crawler && !policy_alert && honeypot_hits == 0", "VERIFIED_PUBLIC_CRAWLER_ALLOWED", core.ActionAllow},
 	}
 }
@@ -68,6 +81,13 @@ func DefaultSource() string {
 }
 
 func NewDefault() (*Engine, error) {
+	return newEngine(DefaultBundle())
+}
+
+func newEngine(bundle Bundle) (*Engine, error) {
+	if err := bundle.Validate(); err != nil {
+		return nil, err
+	}
 	env, err := cel.NewEnv(
 		cel.Variable("automation_risk", cel.DoubleType),
 		cel.Variable("intent_risk", cel.DoubleType),
@@ -80,8 +100,8 @@ func NewDefault() (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create CEL environment: %w", err)
 	}
-	engine := &Engine{version: DefaultVersion}
-	for _, spec := range defaultRuleSpecs() {
+	engine := &Engine{version: bundle.PolicyVersion}
+	for _, spec := range ruleSpecs(bundle) {
 		ast, issues := env.Compile(spec.expression)
 		if issues != nil && issues.Err() != nil {
 			return nil, fmt.Errorf("compile policy %s: %w", spec.reason, issues.Err())

@@ -26,6 +26,7 @@ func TestAdminSurfaceIsSeparateAuthenticatedAndAggregateOnly(t *testing.T) {
 	server := New(fixedEngine{decision: decision}, tokens, "api-key", slog.Default()).WithAdmin(AdminConfig{
 		Key: "admin-key", StartedAt: time.Now().UTC().Add(-time.Minute), Mode: core.RuntimeModeShadow,
 		PolicyVersion: "default-v3", ModelVersion: "transparent-baseline-v6",
+		PolicyArtifact: &AdminArtifactStatus{ArtifactType: "policy_bundle", ArtifactID: "operator-policy-v1", Revision: 3, ExpiresAt: time.Now().UTC().Add(time.Hour)},
 	})
 
 	publicRoot := httptest.NewRecorder()
@@ -63,12 +64,13 @@ func TestAdminSurfaceIsSeparateAuthenticatedAndAggregateOnly(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &summary); err != nil {
 		t.Fatal(err)
 	}
-	if summary.SchemaVersion != "palisade.admin-summary.v9" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Delay != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" ||
+	if summary.SchemaVersion != "palisade.admin-summary.v10" || summary.Traffic.Decisions != 1 || summary.Traffic.Enforced.Observe != 1 || summary.Traffic.Computed.Delay != 1 || summary.Analysis != nil || summary.AnalysisStatus.State != "not_configured" ||
 		summary.Collection.State != "disabled" || summary.Collection.TrafficDenominator != "external_total_unavailable" ||
 		summary.OriginCoverage.State != "unavailable" || summary.OutcomeFlow.State != "disabled" ||
 		summary.Transport.State != "attention" || summary.Transport.Scope != "evaluated_decisions" || summary.Transport.Samples != 1 ||
 		summary.Transport.Protocol.Unknown != 1 || summary.Transport.Security.Unknown != 1 || summary.Transport.AddressSource.Unknown != 1 ||
-		summary.CrawlerIdentity.State != "no_samples" || summary.CrawlerIdentity.Observations != 0 ||
+		summary.CrawlerIdentity.State != "no_samples" || summary.CrawlerIdentity.Observations != 0 || summary.Runtime.PolicyArtifact == nil ||
+		summary.Runtime.PolicyArtifact.State != "current" || summary.Runtime.PolicyArtifact.Revision != 3 || summary.Runtime.DetectorArtifact != nil ||
 		len(summary.Traffic.Reasons) != 2 || summary.Traffic.Reasons[0].Code != "HONEYPOT_INTERACTION" || summary.Traffic.Reasons[0].Count != 1 || summary.Traffic.Reasons[1].Code != "STEP_UP_REQUIRED" || summary.Traffic.Reasons[1].Count != 1 {
 		t.Fatalf("unexpected aggregate summary: %+v", summary)
 	}
@@ -108,6 +110,21 @@ func TestAdminCrawlerIdentitySeparatesQualifiedAndUnqualifiedWithoutRawIdentity(
 		if bytes.Contains(encoded, []byte(forbidden)) {
 			t.Fatalf("crawler summary exposed %q: %s", forbidden, encoded)
 		}
+	}
+}
+
+func TestAdminArtifactStatusShowsExpiryWithoutArtifactPayload(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	status := &AdminArtifactStatus{
+		ArtifactType: "policy_bundle", ArtifactID: "operator-policy-v1", Revision: 9, ExpiresAt: now,
+	}
+	expired := artifactStatusAt(status, now)
+	if expired == status || expired.State != "expired" || status.State != "" {
+		t.Fatalf("expired=%+v source=%+v", expired, status)
+	}
+	current := artifactStatusAt(status, now.Add(-time.Second))
+	if current.State != "current" {
+		t.Fatalf("current=%+v", current)
 	}
 }
 

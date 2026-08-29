@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.bot/schemas/local-artifact-v1.schema.json",
+  "title": "PALISADE signed local configuration artifact v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["metadata", "payload", "signature"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "artifact_type", "artifact_id", "revision", "issued_at", "expires_at", "key_id"],
+      "properties": {
+        "schema_version": { "const": "palisade.local-artifact.v1" },
+        "artifact_type": { "enum": ["policy_bundle", "detector_bundle"] },
+        "artifact_id": { "$ref": "#/$defs/id" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "issued_at": { "$ref": "#/$defs/time" },
+        "expires_at": { "$ref": "#/$defs/time" },
+        "key_id": { "type": "string", "pattern": "^[a-f0-9]{16}$" }
+      }
+    },
+    "payload": {
+      "oneOf": [
+        { "$ref": "policy-bundle-v1.schema.json" },
+        { "$ref": "detector-bundle-v1.schema.json" }
+      ]
+    },
+    "signature": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "metadata": { "properties": { "artifact_type": { "const": "policy_bundle" } } } } },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "policy-bundle-v1.schema.json" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "metadata": { "properties": { "artifact_type": { "const": "detector_bundle" } } } } },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "detector-bundle-v1.schema.json" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.:-]{2,63}$" },
+    "time": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" }
+  }
+}

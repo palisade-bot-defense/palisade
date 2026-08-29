@@ -85,7 +85,11 @@ export type Summary = {
   schema_version: string;
   generated_at: string;
   uptime_seconds: number;
-  runtime: { mode: string; rollout_id?: string; policy_version: string; model_version: string };
+  runtime: {
+    mode: string; rollout_id?: string; policy_version: string; model_version: string;
+    policy_artifact?: { artifact_type: string; artifact_id: string; revision: number; expires_at: string; state: "current" | "expired" };
+    detector_artifact?: { artifact_type: string; artifact_id: string; revision: number; expires_at: string; state: "current" | "expired" };
+  };
   capabilities: { shadow_log: boolean; event_shadow: boolean; event_shadow_proof_contexts: boolean; analysis_report: boolean };
   traffic: { accepted_event_batches: number; accepted_events: number; decisions: number; origin_checks: number; enforced: ActionCounts; computed: ActionCounts; reasons: { code: string; count: number }[] };
   recording: { decisions: number; outcomes: number; dropped: number; event_shadow_dropped: number };
@@ -480,7 +484,14 @@ export function App() {
               <div className="control-action"><span>Latest aggregate</span><button type="button" className="primary-button" onClick={() => void refresh(adminKey)}>Refresh now</button></div>
               <div className="control-action danger-zone"><span>Console credential</span><button type="button" className="secondary-button" onClick={lock}>Lock console</button></div>
             </div>
-            <dl className="runtime-contract"><div><dt>Runtime mode</dt><dd>{summary.runtime.mode}</dd></div><div><dt>Rollout</dt><dd>{summary.runtime.rollout_id || "none loaded"}</dd></div><div><dt>Activation authority</dt><dd>signed rollout only</dd></div><div><dt>Automatic enforcement</dt><dd>{summary.analysis?.readiness.automatic_enforcement ? "reported enabled" : "disabled"}</dd></div></dl>
+            <dl className="runtime-contract">
+              <div><dt>Runtime mode</dt><dd>{summary.runtime.mode}</dd></div>
+              <div><dt>Rollout</dt><dd>{summary.runtime.rollout_id || "none loaded"}</dd></div>
+              <div><dt>Policy artifact</dt><dd>{summary.runtime.policy_artifact ? `${summary.runtime.policy_artifact.state} · r${summary.runtime.policy_artifact.revision} · expires ${new Date(summary.runtime.policy_artifact.expires_at).toLocaleString()}` : "compiled default"}</dd></div>
+              <div><dt>Detector artifact</dt><dd>{summary.runtime.detector_artifact ? `${summary.runtime.detector_artifact.state} · r${summary.runtime.detector_artifact.revision} · expires ${new Date(summary.runtime.detector_artifact.expires_at).toLocaleString()}` : "compiled default"}</dd></div>
+              <div><dt>Activation authority</dt><dd>signed local artifacts only</dd></div>
+              <div><dt>Automatic enforcement</dt><dd>{summary.analysis?.readiness.automatic_enforcement ? "reported enabled" : "disabled"}</dd></div>
+            </dl>
           </section>
 
           <footer className="page-footer"><span>Updated {generatedAt?.toLocaleTimeString()}</span><span>No raw records exposed · {autoRefresh ? `refreshes every ${refreshSeconds} seconds` : "auto-refresh paused"}</span></footer>

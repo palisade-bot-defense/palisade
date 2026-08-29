@@ -24,6 +24,8 @@ type AdminConfig struct {
 	RolloutID            string
 	PolicyVersion        string
 	ModelVersion         string
+	PolicyArtifact       *AdminArtifactStatus
+	DetectorArtifact     *AdminArtifactStatus
 	ShadowLogEnabled     bool
 	EventShadowEnabled   bool
 	EventShadowFromProof bool
@@ -89,10 +91,20 @@ type AdminSummary struct {
 }
 
 type AdminRuntime struct {
-	Mode          core.RuntimeMode `json:"mode"`
-	RolloutID     string           `json:"rollout_id,omitempty"`
-	PolicyVersion string           `json:"policy_version"`
-	ModelVersion  string           `json:"model_version"`
+	Mode             core.RuntimeMode     `json:"mode"`
+	RolloutID        string               `json:"rollout_id,omitempty"`
+	PolicyVersion    string               `json:"policy_version"`
+	ModelVersion     string               `json:"model_version"`
+	PolicyArtifact   *AdminArtifactStatus `json:"policy_artifact,omitempty"`
+	DetectorArtifact *AdminArtifactStatus `json:"detector_artifact,omitempty"`
+}
+
+type AdminArtifactStatus struct {
+	ArtifactType string    `json:"artifact_type"`
+	ArtifactID   string    `json:"artifact_id"`
+	Revision     uint64    `json:"revision"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	State        string    `json:"state"`
 }
 
 type AdminCapabilities struct {
@@ -313,12 +325,13 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 		}
 	}
 	return AdminSummary{
-		SchemaVersion: "palisade.admin-summary.v9",
+		SchemaVersion: "palisade.admin-summary.v10",
 		GeneratedAt:   now,
 		UptimeSeconds: uptime,
 		Runtime: AdminRuntime{
 			Mode: s.admin.Mode, RolloutID: s.admin.RolloutID,
 			PolicyVersion: s.admin.PolicyVersion, ModelVersion: s.admin.ModelVersion,
+			PolicyArtifact: artifactStatusAt(s.admin.PolicyArtifact, now), DetectorArtifact: artifactStatusAt(s.admin.DetectorArtifact, now),
 		},
 		Capabilities: AdminCapabilities{
 			ShadowLog: s.admin.ShadowLogEnabled, EventShadow: s.admin.EventShadowEnabled,
@@ -341,6 +354,18 @@ func (s *Server) adminSummary(now time.Time) AdminSummary {
 		AnalysisStatus:  analysisStatus,
 		Analysis:        analysis,
 	}
+}
+
+func artifactStatusAt(status *AdminArtifactStatus, now time.Time) *AdminArtifactStatus {
+	if status == nil {
+		return nil
+	}
+	copy := *status
+	copy.State = "current"
+	if !now.Before(copy.ExpiresAt) {
+		copy.State = "expired"
+	}
+	return &copy
 }
 
 func (c *crawlerCounters) increment(observations core.Observations, endpointClass string) {

@@ -410,12 +410,22 @@ components:
         throttle: { type: integer, minimum: 0 }
         challenge: { type: integer, minimum: 0 }
         block: { type: integer, minimum: 0 }
+    LocalArtifactStatus:
+      type: object
+      additionalProperties: false
+      required: [artifact_type, artifact_id, revision, expires_at, state]
+      properties:
+        artifact_type: { type: string, enum: [policy_bundle, detector_bundle] }
+        artifact_id: { type: string, pattern: "^[a-z0-9][a-z0-9_.:-]{2,63}$" }
+        revision: { type: integer, minimum: 1 }
+        expires_at: { type: string, format: date-time }
+        state: { type: string, enum: [current, expired] }
     AdminSummary:
       type: object
       additionalProperties: false
       required: [schema_version, generated_at, uptime_seconds, runtime, capabilities, traffic, recording, collection, origin_coverage, outcome_flow, transport_posture, crawler_identity, analysis_status, analysis]
       properties:
-        schema_version: { type: string, const: palisade.admin-summary.v9 }
+        schema_version: { type: string, const: palisade.admin-summary.v10 }
         generated_at: { type: string, format: date-time }
         uptime_seconds: { type: integer, minimum: 0 }
         runtime:
@@ -427,6 +437,8 @@ components:
             rollout_id: { type: string }
             policy_version: { type: string }
             model_version: { type: string }
+            policy_artifact: { $ref: "#/components/schemas/LocalArtifactStatus" }
+            detector_artifact: { $ref: "#/components/schemas/LocalArtifactStatus" }
         capabilities:
           type: object
           additionalProperties: false

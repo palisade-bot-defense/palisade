@@ -24,9 +24,10 @@ var (
 	ErrProofRequired         = errors.New("proof token is required")
 	ErrInvalidRequest        = errors.New("invalid decision request")
 	ErrExplicitTimeWithProof = errors.New("explicit decision time is unavailable with proof enforcement")
+	ErrConfigurationExpired  = errors.New("signed runtime configuration expired")
 )
 
-const ModelVersion = "transparent-baseline-v13"
+const ModelVersion = detector.DefaultVersion
 
 type Engine struct {
 	sessions      *session.MemoryStore
@@ -39,6 +40,7 @@ type Engine struct {
 	decoys        *decoy.Service
 	now           func() time.Time
 	newDecisionID func() string
+	configExpires time.Time
 }
 
 type Option func(*Engine)
@@ -62,6 +64,12 @@ func WithDecisionIDGenerator(generator func() string) Option {
 func WithRollout(controller *rollout.Controller) Option {
 	return func(engine *Engine) {
 		engine.rollout = controller
+	}
+}
+
+func WithConfigurationExpiry(expiresAt time.Time) Option {
+	return func(engine *Engine) {
+		engine.configExpires = expiresAt.UTC()
 	}
 }
 
@@ -104,6 +112,9 @@ func (e *Engine) DecideAt(ctx context.Context, request core.DecisionRequest, obs
 }
 
 func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now time.Time) (core.Decision, error) {
+	if !e.configExpires.IsZero() && !now.Before(e.configExpires) {
+		return core.Decision{}, ErrConfigurationExpired
+	}
 	if err := validateRequest(request); err != nil {
 		return core.Decision{}, err
 	}
@@ -166,7 +177,7 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 		ReasonCodes:    reasons,
 		Evidence:       evidence,
 		PolicyVersion:  e.policy.Version(),
-		ModelVersion:   ModelVersion,
+		ModelVersion:   e.detectors.Version(),
 		ExpiresAt:      now.Add(30 * time.Second),
 	}, nil
 }
