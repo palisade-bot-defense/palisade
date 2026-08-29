@@ -26,6 +26,12 @@ if err != nil { log.Fatal(err) }
 http.ListenAndServeTLS(":443", "cert.pem", "key.pem", guard.Handler(application))
 ```
 
+For a separate local WAF, reputation mapper or fingerprint classifier, attach
+the [signed upstream-signal verifier](UPSTREAM_SIGNALS.md) through
+`Config.EdgeSignals`. It authenticates a short-lived closed envelope from an
+allowlisted direct peer and never forwards the envelope, address or raw source
+values to PALISADE.
+
 With `CoverageReporting` enabled, the middleware asynchronously reports only
 cumulative counts for completed requests routed through `guard.Handler`. The
 first completion is reported immediately; later snapshots are coalesced to 100

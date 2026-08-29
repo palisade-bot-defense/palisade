@@ -11,6 +11,7 @@ It is not a packet sniffer, a general log warehouse or a raw-vendor-event bus.
 |---|---|---|
 | Request hot path | Go 1.27 | HTTP API, session state, detectors, score fusion, policy, replay and encrypted shadow records |
 | Reference origin adapter | Go `net/http` | Closed request classification, proof/session exchange, result application and same-origin challenge relay |
+| Local upstream bridge | Go HMAC verifier | Fresh single-use closed WAF, reputation, fingerprint and challenge context from allowlisted direct peers; no vendor payloads |
 | Policy | CEL via `cel-go` | Ordered, deterministic rules over three scores and closed contextual fields |
 | Browser sensor | TypeScript, Node.js 24, pnpm 11.24 | Same-origin, bucketed interaction events without text, form values or exact pointer paths |
 | Dashboard | React and TypeScript | Embedded operational view; it is not a raw-data explorer |

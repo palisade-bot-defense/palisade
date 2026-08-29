@@ -128,7 +128,7 @@ Deliverables:
   production traffic or PALISADE-operated infrastructure;
 - [x] support signed, expiring local artifacts for crawler registries, policies,
   detector bundles and rollout plans;
-- document compatibility with local upstream signals such as WAF verdicts,
+- [x] document compatibility with local upstream signals such as WAF verdicts,
   reputation classes and challenge outcomes without embedding vendor payloads;
 - create maintainer, security-response and release-signing processes that do not
   depend on one private deployment.

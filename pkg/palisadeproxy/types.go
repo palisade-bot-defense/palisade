@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/palisade-bot-defense/palisade/pkg/palisadeedge"
 )
 
 const (
@@ -75,6 +77,9 @@ type Config struct {
 	MaxSessions int
 	StateTTL    time.Duration
 	Logger      *slog.Logger
+	// EdgeSignals verifies a short-lived HMAC envelope from an explicitly
+	// allowlisted direct peer and supplies only closed normalized classes.
+	EdgeSignals *palisadeedge.Verifier
 }
 
 func StaticClassification(action, endpointClass string) Classifier {

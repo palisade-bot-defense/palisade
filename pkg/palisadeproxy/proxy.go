@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/pkg/palisadecontract"
+	"github.com/palisade-bot-defense/palisade/pkg/palisadeedge"
 )
 
 const maxServiceBody = 64 << 10
@@ -35,6 +36,7 @@ type Proxy struct {
 	prefix      string
 	logger      *slog.Logger
 	state       *sequenceState
+	edgeSignals *palisadeedge.Verifier
 	now         func() time.Time
 }
 
@@ -103,7 +105,7 @@ func New(config Config) (*Proxy, error) {
 	return &Proxy{
 		baseURL: baseURL, apiKey: config.APIKey, client: client, upstream: config.Upstream,
 		classifier: config.Classifier, signals: config.Signals, failureMode: config.FailureMode,
-		prefix: config.Prefix, logger: config.Logger, state: state, now: time.Now,
+		prefix: config.Prefix, logger: config.Logger, state: state, edgeSignals: config.EdgeSignals, now: time.Now,
 	}, nil
 }
 
@@ -127,6 +129,15 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	signals.VerifiedBot = false
 	signals.CrawlerClass = "unknown"
 	signals.CrawlerVerification = "unknown"
+	if p.edgeSignals != nil {
+		edgeSignals, present, verifyErr := p.edgeSignals.Verify(request)
+		if verifyErr != nil || (present && !mergeEdgeSignals(&signals, edgeSignals)) {
+			writeError(w, http.StatusInternalServerError, "palisade_signals_failed")
+			return
+		}
+		request.Header.Del(palisadeedge.PayloadHeader)
+		request.Header.Del(palisadeedge.SignatureHeader)
+	}
 	if !validSignals(signals) {
 		writeError(w, http.StatusInternalServerError, "palisade_signals_failed")
 		return
@@ -187,6 +198,32 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 		}
 		w.WriteHeader(http.StatusForbidden)
 	}
+}
+
+func mergeEdgeSignals(target *Signals, source palisadeedge.Signals) bool {
+	if !mergeClosedSignal(&target.ChallengeVerdict, source.ChallengeVerdict) ||
+		!mergeClosedSignal(&target.EdgeFingerprintClass, source.EdgeFingerprintClass) ||
+		!mergeClosedSignal(&target.EdgeFingerprintMethod, source.EdgeFingerprintMethod) ||
+		!mergeClosedSignal(&target.NetworkReputation, source.NetworkReputation) ||
+		!mergeClosedSignal(&target.NetworkType, source.NetworkType) {
+		return false
+	}
+	if source.ExternalRiskScore > target.ExternalRiskScore {
+		target.ExternalRiskScore = source.ExternalRiskScore
+	}
+	target.PolicyAlert = target.PolicyAlert || source.PolicyAlert
+	return true
+}
+
+func mergeClosedSignal(target *string, source string) bool {
+	if source == "" || source == "unknown" {
+		return true
+	}
+	if *target == "" || *target == "unknown" {
+		*target = source
+		return true
+	}
+	return *target == source
 }
 
 func (p *Proxy) unavailable(w http.ResponseWriter, request *http.Request, operation string, err error) {

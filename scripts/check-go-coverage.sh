@@ -59,6 +59,7 @@ internal/shadowanalysis
 internal/shadowlog
 internal/token
 pkg/palisadecontract
+pkg/palisadeedge
 pkg/palisadehttp
 pkg/palisadeproxy
 '
