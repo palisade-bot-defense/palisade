@@ -1,0 +1,178 @@
+{
+  "schema_version": "palisade.origin-adapter-conformance-suite.v1",
+  "contract": "palisade.origin-adapter.v1",
+  "scope": "http_origin_middleware",
+  "synthetic_only": true,
+  "privacy_assertions": [
+    "no_application_url",
+    "no_query_string",
+    "no_request_body",
+    "no_raw_user_agent",
+    "no_application_cookie"
+  ],
+  "scenarios": [
+    {
+      "id": "shadow_pass",
+      "description": "A valid shadow observation passes the protected request without applying the computed risk.",
+      "failure_mode": "fail_closed",
+      "request_method": "GET",
+      "classification": { "action": "read", "endpoint_class": "public_content", "evaluation_cohort": "unknown" },
+      "service_response": {
+        "status": 204,
+        "headers": { "decision_id": "fixture-pass", "action": "observe", "handling": "pass", "mode": "shadow" },
+        "body": ""
+      },
+      "expected": {
+        "status": 200,
+        "next_calls": 1,
+        "origin_checks": 1,
+        "headers": { "adapter": "pass" },
+        "error_code": ""
+      }
+    },
+    {
+      "id": "canary_delay",
+      "description": "A signed canary delay returns immediately with the exact one-second retry contract.",
+      "failure_mode": "fail_closed",
+      "request_method": "GET",
+      "classification": { "action": "read", "endpoint_class": "public_content", "evaluation_cohort": "unknown" },
+      "service_response": {
+        "status": 429,
+        "headers": { "decision_id": "fixture-delay", "action": "delay", "handling": "delay", "mode": "canary", "rollout_id": "fixture-rollout", "retry_after": 1 },
+        "body": ""
+      },
+      "expected": {
+        "status": 429,
+        "next_calls": 0,
+        "origin_checks": 1,
+        "headers": { "action": "delay", "retry_after": 1 },
+        "error_code": ""
+      }
+    },
+    {
+      "id": "canary_throttle",
+      "description": "A signed canary throttle preserves the bounded service retry value.",
+      "failure_mode": "fail_closed",
+      "request_method": "GET",
+      "classification": { "action": "read", "endpoint_class": "public_content", "evaluation_cohort": "unknown" },
+      "service_response": {
+        "status": 429,
+        "headers": { "decision_id": "fixture-throttle", "action": "throttle", "handling": "throttle", "mode": "canary", "rollout_id": "fixture-rollout", "retry_after": 5 },
+        "body": ""
+      },
+      "expected": {
+        "status": 429,
+        "next_calls": 0,
+        "origin_checks": 1,
+        "headers": { "action": "throttle", "retry_after": 5 },
+        "error_code": ""
+      }
+    },
+    {
+      "id": "canary_challenge_unsafe_method",
+      "description": "A challenged POST returns continuation metadata and never invokes or replays the protected handler.",
+      "failure_mode": "fail_closed",
+      "request_method": "POST",
+      "classification": { "action": "read", "endpoint_class": "public_content", "evaluation_cohort": "unknown" },
+      "service_response": {
+        "status": 403,
+        "headers": { "decision_id": "fixture-challenge", "action": "challenge", "handling": "challenge", "mode": "canary", "rollout_id": "fixture-rollout", "challenge_id": "ABCDEFGHIJKLMNOPQRSTUVWX12345678", "location": "/v1/challenge/ABCDEFGHIJKLMNOPQRSTUVWX12345678" },
+        "body": ""
+      },
+      "expected": {
+        "status": 403,
+        "next_calls": 0,
+        "origin_checks": 1,
+        "headers": { "action": "challenge", "challenge_id": "ABCDEFGHIJKLMNOPQRSTUVWX12345678", "location": "/__palisade/challenge/ABCDEFGHIJKLMNOPQRSTUVWX12345678" },
+        "error_code": ""
+      }
+    },
+    {
+      "id": "enforce_temporary_block",
+      "description": "A signed enforce response applies only the bounded temporary block returned by PALISADE.",
+      "failure_mode": "fail_closed",
+      "request_method": "GET",
+      "classification": { "action": "read", "endpoint_class": "public_content", "evaluation_cohort": "unknown" },
+      "service_response": {
+        "status": 403,
+        "headers": { "decision_id": "fixture-block", "action": "block", "handling": "block", "mode": "enforce", "rollout_id": "fixture-rollout", "retry_after": 300 },
+        "body": ""
+      },
+      "expected": {
+        "status": 403,
+        "next_calls": 0,
+        "origin_checks": 1,
+        "headers": { "action": "block", "retry_after": 300 },
+        "error_code": ""
+      }
+    },
+    {
+      "id": "unavailable_fail_open",
+      "description": "An unavailable service invokes the protected handler only under the explicit fail-open policy.",
+      "failure_mode": "fail_open",
+      "request_method": "GET",
+      "classification": { "action": "read", "endpoint_class": "public_content", "evaluation_cohort": "unknown" },
+      "service_response": { "status": 503, "headers": {}, "body": "" },
+      "expected": {
+        "status": 200,
+        "next_calls": 1,
+        "origin_checks": 1,
+        "headers": { "adapter": "bypass_unavailable" },
+        "error_code": ""
+      }
+    },
+    {
+      "id": "unavailable_fail_closed",
+      "description": "An unavailable service returns a closed local error under the explicit fail-closed policy.",
+      "failure_mode": "fail_closed",
+      "request_method": "GET",
+      "classification": { "action": "read", "endpoint_class": "public_content", "evaluation_cohort": "unknown" },
+      "service_response": { "status": 503, "headers": {}, "body": "" },
+      "expected": {
+        "status": 503,
+        "next_calls": 0,
+        "origin_checks": 1,
+        "headers": { "content_type": "application/json" },
+        "error_code": "palisade_unavailable"
+      }
+    },
+    {
+      "id": "risky_shadow_fail_open",
+      "description": "A risky action mislabeled as shadow is invalid service data and follows only the declared fail-open policy.",
+      "failure_mode": "fail_open",
+      "request_method": "GET",
+      "classification": { "action": "read", "endpoint_class": "public_content", "evaluation_cohort": "unknown" },
+      "service_response": {
+        "status": 403,
+        "headers": { "decision_id": "fixture-invalid", "action": "block", "handling": "block", "mode": "shadow", "rollout_id": "fixture-rollout", "retry_after": 300 },
+        "body": ""
+      },
+      "expected": {
+        "status": 200,
+        "next_calls": 1,
+        "origin_checks": 1,
+        "headers": { "adapter": "bypass_unavailable" },
+        "error_code": ""
+      }
+    },
+    {
+      "id": "risky_shadow_fail_closed",
+      "description": "A risky action mislabeled as shadow is rejected and cannot reach the protected handler in fail-closed mode.",
+      "failure_mode": "fail_closed",
+      "request_method": "GET",
+      "classification": { "action": "read", "endpoint_class": "public_content", "evaluation_cohort": "unknown" },
+      "service_response": {
+        "status": 403,
+        "headers": { "decision_id": "fixture-invalid", "action": "block", "handling": "block", "mode": "shadow", "rollout_id": "fixture-rollout", "retry_after": 300 },
+        "body": ""
+      },
+      "expected": {
+        "status": 503,
+        "next_calls": 0,
+        "origin_checks": 1,
+        "headers": { "content_type": "application/json" },
+        "error_code": "palisade_unavailable"
+      }
+    }
+  ]
+}

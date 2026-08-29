@@ -184,6 +184,7 @@ paths:
   /v1/origin-check:
     post:
       summary: Evaluate and return the bounded origin enforcement result
+      x-palisade-adapter-contract: palisade.origin-adapter.v1
       description: Alternative to /v1/decision for an origin or reverse-proxy subrequest. Production requires the one-time proof_token in the request body; signed rollouts additionally require the session cookie. A valid signed rollout may return 429 for throttle or 403 for challenge/block. Shadow and excluded canary requests return 204. Scores and evidence are not reflected in this response.
       operationId: checkOrigin
       security:

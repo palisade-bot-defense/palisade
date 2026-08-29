@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/origin-adapter-conformance-v1.schema.json",
+  "title": "PALISADE origin adapter conformance suite v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract", "scope", "synthetic_only", "privacy_assertions", "scenarios"],
+  "properties": {
+    "schema_version": { "const": "palisade.origin-adapter-conformance-suite.v1" },
+    "contract": { "const": "palisade.origin-adapter.v1" },
+    "scope": { "const": "http_origin_middleware" },
+    "synthetic_only": { "const": true },
+    "privacy_assertions": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "no_application_url",
+          "no_query_string",
+          "no_request_body",
+          "no_raw_user_agent",
+          "no_application_cookie"
+        ]
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "endpoint_class", "evaluation_cohort"],
+      "properties": {
+        "action": { "const": "read" },
+        "endpoint_class": { "const": "public_content" },
+        "evaluation_cohort": { "const": "unknown" }
+      }
+    },
+    "serviceHeaders": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "decision_id": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$" },
+        "action": { "enum": ["allow", "observe", "delay", "throttle", "challenge", "block"] },
+        "handling": { "enum": ["pass", "delay", "throttle", "challenge", "block"] },
+        "mode": { "enum": ["shadow", "canary", "enforce"] },
+        "rollout_id": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$" },
+        "challenge_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{32}$" },
+        "location": { "type": "string", "pattern": "^/v1/challenge/[A-Za-z0-9_-]{32}$" },
+        "retry_after": { "type": "integer", "minimum": 1, "maximum": 3600 }
+      }
+    },
+    "serviceResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "headers", "body"],
+      "properties": {
+        "status": { "enum": [204, 403, 429, 503] },
+        "headers": { "$ref": "#/$defs/serviceHeaders" },
+        "body": { "const": "" }
+      }
+    },
+    "expectedHeaders": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "adapter": { "enum": ["pass", "bypass_unavailable"] },
+        "action": { "enum": ["delay", "throttle", "challenge", "block"] },
+        "challenge_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{32}$" },
+        "location": { "type": "string", "pattern": "^/__palisade/challenge/[A-Za-z0-9_-]{32}$" },
+        "retry_after": { "type": "integer", "minimum": 1, "maximum": 3600 },
+        "content_type": { "const": "application/json" }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "next_calls", "origin_checks", "headers", "error_code"],
+      "properties": {
+        "status": { "type": "integer", "minimum": 200, "maximum": 599 },
+        "next_calls": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "origin_checks": { "const": 1 },
+        "headers": { "$ref": "#/$defs/expectedHeaders" },
+        "error_code": { "enum": ["", "palisade_unavailable"] }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "failure_mode", "request_method", "classification", "service_response", "expected"],
+      "properties": {
+        "id": {
+          "enum": [
+            "shadow_pass",
+            "canary_delay",
+            "canary_throttle",
+            "canary_challenge_unsafe_method",
+            "enforce_temporary_block",
+            "unavailable_fail_open",
+            "unavailable_fail_closed",
+            "risky_shadow_fail_open",
+            "risky_shadow_fail_closed"
+          ]
+        },
+        "description": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "failure_mode": { "enum": ["fail_open", "fail_closed"] },
+        "request_method": { "enum": ["GET", "POST"] },
+        "classification": { "$ref": "#/$defs/classification" },
+        "service_response": { "$ref": "#/$defs/serviceResponse" },
+        "expected": { "$ref": "#/$defs/expected" }
+      }
+    }
+  }
+}
