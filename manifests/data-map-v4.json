@@ -30,7 +30,7 @@
       "source": "trusted_origin_adapter",
       "destination": "decision_engine",
       "purpose": "explainable_risk_decision",
-      "data_classes": ["closed_decision_request", "closed_route_context", "closed_signal_classes", "opaque_session_handle"],
+      "data_classes": ["bounded_response_history", "closed_decision_request", "closed_route_context", "closed_signal_classes", "opaque_session_handle"],
       "transient_data_classes": [],
       "network_scope": "operator_configured_internal_endpoint",
       "persistence": "bounded_memory_five_minutes",

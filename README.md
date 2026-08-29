@@ -84,10 +84,16 @@ PALISADE keeps three questions separate:
 Every decision response includes the enforced `action`, the unmodified
 `computed_action`, the runtime `mode`, stable reason codes, policy/model
 versions and an expiry time. The current reported versions are policy
-`default-v5` and model `transparent-baseline-v11`. The progressive action
+`default-v5` and model `transparent-baseline-v12`. The progressive action
 vocabulary is `allow → observe → delay → throttle → challenge → block`:
 `delay` is a one-second retry response, never a sleep in the PALISADE hot path,
 and is enforced only by a valid signed rollout.
+
+Signed rollouts treat their throttle and temporary-block durations as hard
+maxima. Model v12 scales only those durations from a humane minimum using
+closed endpoint value, sufficiently strong suspicious-evidence confidence,
+bounded recent session behavior and short-lived retry history. It never raises
+the policy action, exceeds the signed maximum or persists this response state.
 
 Beneficial crawler handling requires a purpose class, a strong local
 verification method and an indexable public endpoint; a user-agent or

@@ -32,7 +32,7 @@ func TestShadowModeOverridesRiskyComputedAction(t *testing.T) {
 	if !hasReason(decision.ReasonCodes, core.ReasonShadowActionOverridden) {
 		t.Fatalf("missing %s in %v", core.ReasonShadowActionOverridden, decision.ReasonCodes)
 	}
-	if decision.PolicyVersion != "default-v5" || decision.ModelVersion != "transparent-baseline-v11" {
+	if decision.PolicyVersion != "default-v5" || decision.ModelVersion != "transparent-baseline-v12" {
 		t.Fatalf("unexpected versions: policy=%s model=%s", decision.PolicyVersion, decision.ModelVersion)
 	}
 }
@@ -56,6 +56,7 @@ func TestEnforceModeUsesComputedAction(t *testing.T) {
 
 func TestSignedRolloutProducesOriginDirective(t *testing.T) {
 	base := newTestEngine(t, core.RuntimeModeShadow)
+	base.detectors = detector.NewDefaultRegistry()
 	now := time.Unix(1_800_000_000, 0).UTC()
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -87,8 +88,16 @@ func TestSignedRolloutProducesOriginDirective(t *testing.T) {
 	if decision.Action != core.ActionBlock || decision.Mode != core.RuntimeModeEnforce || decision.RolloutID != "enforce-test" {
 		t.Fatalf("decision=%+v", decision)
 	}
-	if decision.Directive.Handling != "block" || decision.Directive.HTTPStatus != 403 || decision.Directive.RetryAfterSeconds != 300 {
+	if decision.Directive.Handling != "block" || decision.Directive.HTTPStatus != 403 || decision.Directive.RetryAfterSeconds != 120 ||
+		!hasReason(decision.ReasonCodes, rollout.ReasonResponseCostEvidence) {
 		t.Fatalf("directive=%+v", decision.Directive)
+	}
+	second, err := base.Decide(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Directive.RetryAfterSeconds != 180 || !hasReason(second.ReasonCodes, rollout.ReasonResponseCostRetry) {
+		t.Fatalf("retry-adapted directive=%+v reasons=%v", second.Directive, second.ReasonCodes)
 	}
 }
 

@@ -24,7 +24,7 @@ var (
 	ErrExplicitTimeWithProof = errors.New("explicit decision time is unavailable with proof enforcement")
 )
 
-const ModelVersion = "transparent-baseline-v11"
+const ModelVersion = "transparent-baseline-v12"
 
 type Engine struct {
 	sessions      *session.MemoryStore
@@ -129,7 +129,7 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 	directive := rollout.DefaultDirective(action, now)
 	reasons := []string{result.Reason}
 	if e.rollout != nil {
-		applied := e.rollout.Apply(request.SessionID, request.EndpointClass, computedAction, now)
+		applied := e.rollout.ApplyWithContext(request.SessionID, request.EndpointClass, computedAction, rollout.AdaptiveContextFrom(snapshot, evidence), now)
 		action, mode, rolloutID, directive = applied.Action, applied.Mode, applied.RolloutID, applied.Directive
 		reasons = append(reasons, applied.Reasons...)
 		if mode == core.RuntimeModeShadow && computedAction != core.ActionAllow && computedAction != core.ActionObserve {
@@ -143,6 +143,7 @@ func (e *Engine) decideAt(ctx context.Context, request core.DecisionRequest, now
 	for _, item := range evidence {
 		reasons = append(reasons, item.Code)
 	}
+	e.sessions.RecordEnforcement(request.SessionID, directive, now)
 	return core.Decision{
 		DecisionID:     e.newDecisionID(),
 		Action:         action,

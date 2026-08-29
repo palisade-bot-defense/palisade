@@ -100,7 +100,7 @@ Deliverables:
 
 - add deployment-owned, server-generated decoy and honeypot contracts whose
   hits are evidence rather than an automatic verdict;
-- vary bounded response cost by endpoint value, evidence confidence, recent
+- [x] vary bounded response cost by endpoint value, evidence confidence, recent
   behavior and retry history;
 - harden one-time, action-bound challenge redemption against replay and relay;
 - provide keyboard, screen-reader, reduced-motion and non-JavaScript fallback

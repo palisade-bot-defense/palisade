@@ -80,6 +80,12 @@ the denominator, endpoint/cohort slices sum to their partition and private
 decision IDs never enter the report. File tests require create-only `0600`
 output outside Git.
 
+Adaptive-response tests prove that each closed cost factor changes only the
+bounded throttle or temporary-block duration, weak/benign evidence cannot
+raise cost, signed maxima and rollout expiry remain absolute, and retry history
+expires with the bounded session. Engine integration tests cover the first
+response and a premature retry without relying on wall-clock sleeps.
+
 The versioned [public adversarial suite](ADVERSARIAL_FIXTURES.md) links the
 roadmap threat categories for replay, poisoning, missing signals, spoofed
 headers, accessibility and adapter failures to executable synthetic tests. A

@@ -82,7 +82,8 @@ func TestCanaryIsDeterministicScopedAndCapped(t *testing.T) {
 		t.Fatal("could not find deterministic canary cohorts")
 	}
 	included := controller.Apply(selected, "public_content", core.ActionBlock, now)
-	if included.Mode != core.RuntimeModeCanary || included.Action != core.ActionThrottle || included.Directive.Handling != "throttle" || !contains(included.Reasons, "ROLLOUT_ACTION_CAPPED") {
+	if included.Mode != core.RuntimeModeCanary || included.Action != core.ActionThrottle || included.Directive.Handling != "throttle" ||
+		included.Directive.RetryAfterSeconds != 1 || !contains(included.Reasons, "ROLLOUT_ACTION_CAPPED") || !contains(included.Reasons, ReasonResponseCostBaseline) {
 		t.Fatalf("included result=%+v", included)
 	}
 	second := controller.Apply(selected, "public_content", core.ActionBlock, now)
@@ -172,6 +173,75 @@ func TestDelayIsBoundedAndRemainsShadowWithoutRollout(t *testing.T) {
 	shadow := shadowResult(core.ActionDelay, now, "TEST_SHADOW")
 	if shadow.Action != core.ActionObserve || shadow.Mode != core.RuntimeModeShadow || shadow.Directive.Handling != "pass" {
 		t.Fatalf("shadow delay result = %+v", shadow)
+	}
+}
+
+func TestAdaptiveResponseCostUsesClosedFactorsAndSignedMaximum(t *testing.T) {
+	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
+	plan := Plan{ThrottleSeconds: DefaultThrottleSeconds}
+	tests := []struct {
+		name     string
+		endpoint string
+		context  AdaptiveContext
+		seconds  int
+		reason   string
+	}{
+		{name: "baseline is humane minimum", endpoint: "public_content", seconds: 1, reason: ReasonResponseCostBaseline},
+		{name: "endpoint value", endpoint: "compare_noindex", seconds: 2, reason: ReasonResponseCostEndpoint},
+		{name: "confident suspicious evidence", endpoint: "public_content", context: AdaptiveContext{SuspiciousEvidenceConfidence: .75}, seconds: 2, reason: ReasonResponseCostEvidence},
+		{name: "recent bounded behavior", endpoint: "public_content", context: AdaptiveContext{RequestCount: 50}, seconds: 2, reason: ReasonResponseCostBehavior},
+		{name: "retry history", endpoint: "public_content", context: AdaptiveContext{PrematureRetries: 1}, seconds: 2, reason: ReasonResponseCostRetry},
+		{name: "all factors reach but cannot exceed signed maximum", endpoint: "compare_noindex", context: AdaptiveContext{
+			SuspiciousEvidenceConfidence: .9, RequestCount: 50, RecentEnforcements: 2,
+		}, seconds: DefaultThrottleSeconds, reason: ReasonResponseCostRetry},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			directive, reasons := adaptiveDirective(core.ActionThrottle, test.endpoint, test.context, now, plan)
+			if directive.RetryAfterSeconds != test.seconds || directive.Handling != "throttle" || !contains(reasons, test.reason) {
+				t.Fatalf("adaptive directive = %+v reasons=%v", directive, reasons)
+			}
+		})
+	}
+}
+
+func TestAdaptiveBlockCostIsBoundedAndContextRejectsBenignEvidence(t *testing.T) {
+	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
+	plan := Plan{BlockSeconds: DefaultBlockSeconds}
+	minimum, reasons := adaptiveDirective(core.ActionBlock, "public_content", AdaptiveContext{}, now, plan)
+	maximum, maxReasons := adaptiveDirective(core.ActionBlock, "compare_noindex", AdaptiveContext{
+		SuspiciousEvidenceConfidence: .9, RequestCount: 100, PrematureRetries: 1,
+	}, now, plan)
+	if minimum.RetryAfterSeconds != 60 || !contains(reasons, ReasonResponseCostBaseline) ||
+		maximum.RetryAfterSeconds != DefaultBlockSeconds || len(maxReasons) != maximumResponseCostTier {
+		t.Fatalf("minimum=%+v reasons=%v maximum=%+v maxReasons=%v", minimum, reasons, maximum, maxReasons)
+	}
+	context := AdaptiveContextFrom(core.SessionSnapshot{RequestCount: 49, EndpointTransitions: 5}, []core.Evidence{
+		{Direction: core.DirectionBenign, Strength: 1, Confidence: 1},
+		{Direction: core.DirectionSuspicious, Strength: .49, Confidence: 1},
+		{Direction: core.DirectionSuspicious, Strength: .5, Confidence: .74},
+	})
+	if context.SuspiciousEvidenceConfidence != .74 {
+		t.Fatalf("closed adaptive context = %+v", context)
+	}
+	_, contextReasons := responseCostTier("public_content", context)
+	if len(contextReasons) != 1 || contextReasons[0] != ReasonResponseCostBaseline {
+		t.Fatalf("weak or benign evidence raised cost: %v", contextReasons)
+	}
+}
+
+func TestAdaptiveResponseCannotOutliveSignedPlan(t *testing.T) {
+	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
+	expiresAt := now.Add(30 * time.Second)
+	directive, _ := adaptiveDirective(core.ActionBlock, "compare_noindex", AdaptiveContext{
+		SuspiciousEvidenceConfidence: .9, RequestCount: 100, PrematureRetries: 1,
+	}, now, Plan{BlockSeconds: DefaultBlockSeconds, ExpiresAt: expiresAt.Format(time.RFC3339)})
+	if directive.RetryAfterSeconds != 30 || !directive.ExpiresAt.Equal(expiresAt) {
+		t.Fatalf("adaptive directive outlived signed plan: %+v", directive)
+	}
+	invalid, reasons := adaptiveDirective(core.ActionThrottle, "public_content", AdaptiveContext{SuspiciousEvidenceConfidence: 2}, now, Plan{ThrottleSeconds: DefaultThrottleSeconds})
+	if invalid.RetryAfterSeconds != 1 || len(reasons) != 1 || reasons[0] != ReasonResponseCostBaseline {
+		t.Fatalf("invalid confidence raised cost: directive=%+v reasons=%v", invalid, reasons)
 	}
 }
 

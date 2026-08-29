@@ -97,6 +97,13 @@ remain outside PALISADE. These new classes create conservative suspicious
 evidence only and must begin a fresh shadow comparison window; a browser-like,
 residential or low-risk class is never a confirmed-human label.
 
+`transparent-baseline-v12` adds downgrade-only response-cost scaling inside a
+signed rollout. Throttle and temporary-block durations now range from fixed
+minimums to the plan's signed maxima using closed endpoint, evidence-confidence,
+recent-session and retry-history factors. Stable factor reason codes make this
+visible in encrypted decisions. Existing v11 decisions remain valid historical
+measurements, but a v11-signed rollout cannot load into the v12 runtime.
+
 This collection bridge requires the encrypted sink and signed session cookie.
 It rejects signed rollout configuration and therefore cannot enforce. Disable
 it before enabling the origin middleware or a rollout; otherwise flush-based

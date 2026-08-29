@@ -8,6 +8,9 @@ PALISADE should decide from behavior without reconstructing a person's content.
 - Quantized movement magnitude and scroll depth.
 - Visibility and navigation lifecycle transitions.
 - Sequence gaps and bounded session aggregates.
+- Saturating counts of recent enforced responses and retries before an active
+  Retry-After boundary; both expire with the five-minute session and are never
+  persisted as a client history.
 - Server-side protocol consistency signals.
 - Closed transport protocol/security and client-address provenance classes;
   never the peer, proxy or client address itself.
@@ -68,6 +71,11 @@ filename/content guards and remain subject to operator access, retention and
 deletion controls.
 
 Default event/session retention is five minutes in memory. Optional shadow persistence records only the bounded decision fields and normalized outcomes documented in [SHADOW_LOG.md](../SHADOW_LOG.md). It is disabled unless both a local directory and key file are configured. Records are individually authenticated and encrypted, session IDs are replaced with keyed pilot-local link keys, timestamps are quantized to seconds, retention is configurable, and paths must be owner-only and outside Git worktrees. This is not permission to persist browser events, request bodies, cookies, tokens, IP addresses, user agents or raw traffic.
+
+The response-cost controller reuses that five-minute session entry for two
+saturating counters and an in-memory Retry-After deadline. These values may
+only increase bounded response duration up to a signed plan maximum; they are
+not detector labels, are not exported, and reset on TTL expiry or restart.
 
 When event-triggered shadow evaluation is enabled, accepted browser events stay
 in that same bounded memory store; only the resulting closed decision is sent

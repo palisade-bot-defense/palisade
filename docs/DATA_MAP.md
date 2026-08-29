@@ -63,6 +63,11 @@ endpoint/cohort slices and closed readiness. It introduces no new accepted,
 transient or exported data class; decision IDs remain in-memory digest keys and
 never enter the report.
 
+The runtime decision flow also derives saturating recent-enforcement and
+premature-retry counts inside the existing five-minute session entry. They are
+closed response-control state, never raw request data or identity evidence,
+and are neither persisted nor exported.
+
 `TestDataMapIsClosedAndContainsNoRawAcceptedClass` rejects duplicate flows,
 external-export flags, missing boundaries and any raw excluded class that is
 also declared as accepted. Changes to collection, persistence, retention or

@@ -153,6 +153,20 @@ a rollout ID fail as invalid service responses.
 | `403` | `block` plus `Retry-After` | Apply the temporary block |
 | `503` | stable JSON error | Treat as an adapter failure under the site's documented availability policy |
 
+The signed `throttle_seconds` and `block_seconds` values are maxima, not an
+instruction to impose maximum friction on every matching request. The v12
+runtime derives a deterministic tier from four closed factors: whether the
+endpoint is a comparison surface, whether suspicious evidence is both strong
+and at least 0.75 confident, whether the five-minute session crossed the
+existing request/transition threshold, and whether that session has repeated
+or retried an active response early. Throttle scales from one second to the
+signed maximum; temporary block scales from 60 seconds to its signed maximum.
+Missing or weak context selects the minimum. The runtime never raises the
+policy action, changes challenge security parameters, exceeds plan expiry or
+uses an address, URL, raw fingerprint or outcome label for this calculation.
+The contributing factors appear as stable reason codes in the private decision
+record, not in client response headers.
+
 The response also provides decision, action, mode and rollout IDs in bounded
 headers. It never reflects scores, evidence, raw signals or reason codes to the
 client. Validate and consume only these documented values. The challenge result

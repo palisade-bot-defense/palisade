@@ -206,6 +206,8 @@ type SessionSnapshot struct {
 	MaxSequenceGap          uint64    `json:"max_sequence_gap"`
 	DistinctEndpointClasses uint8     `json:"distinct_endpoint_classes"`
 	EndpointTransitions     uint64    `json:"endpoint_transitions"`
+	RecentEnforcements      uint8     `json:"recent_enforcements"`
+	PrematureRetries        uint8     `json:"premature_retries"`
 }
 
 func ValidEndpointClass(value string) bool {

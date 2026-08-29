@@ -2,13 +2,17 @@ package engine
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/palisade-bot-defense/palisade/internal/core"
 	"github.com/palisade-bot-defense/palisade/internal/detector"
 	"github.com/palisade-bot-defense/palisade/internal/policy"
+	"github.com/palisade-bot-defense/palisade/internal/rollout"
 	"github.com/palisade-bot-defense/palisade/internal/session"
 	"github.com/palisade-bot-defense/palisade/internal/token"
 )
@@ -18,6 +22,41 @@ const pilotDecisionP95Budget = 10 * time.Millisecond
 func TestInProcessDecisionP95MeetsPilotBudget(t *testing.T) {
 	current := newProductionPathTestEngine(t)
 	request := performanceRequest()
+	assertDecisionP95(t, current, request)
+}
+
+func TestSignedAdaptiveRolloutP95MeetsPilotBudget(t *testing.T) {
+	current := newProductionPathTestEngine(t)
+	now := time.Unix(1_800_000_000, 0).UTC()
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := rollout.Plan{
+		SchemaVersion: rollout.SchemaVersion, RolloutID: "adaptive-performance", ApprovalID: "review-performance", PredecessorRolloutID: "canary-performance",
+		CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(time.Hour).Format(time.RFC3339),
+		SourceReportSHA256: strings.Repeat("a", 64), SourceReadinessState: "operator_review_candidate",
+		PolicyVersion: policy.DefaultVersion, ModelVersion: ModelVersion, Stage: core.RuntimeModeEnforce,
+		EndpointClasses: []string{"public_content"}, MaxAction: core.ActionBlock, CanaryBasisPoints: rollout.FullRolloutBasisPoints,
+		ThrottleSeconds: rollout.DefaultThrottleSeconds, ChallengeTTLSeconds: rollout.DefaultChallengeTTLSeconds, BlockSeconds: rollout.DefaultBlockSeconds,
+	}
+	signed, err := rollout.Sign(plan, privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	controller, err := rollout.NewController(signed, publicKey, []byte("0123456789abcdef0123456789abcdef"), policy.DefaultVersion, ModelVersion, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current.rollout = controller
+	request := performanceRequest()
+	request.Observations.HoneypotHits = 1
+	request.Observations.PolicyAlert = true
+	assertDecisionP95(t, current, request)
+}
+
+func assertDecisionP95(t *testing.T, current *Engine, request core.DecisionRequest) {
+	t.Helper()
 	for index := 0; index < 100; index++ {
 		request.Sequence++
 		if _, err := current.Decide(context.Background(), request); err != nil {

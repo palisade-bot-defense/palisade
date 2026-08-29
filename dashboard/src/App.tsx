@@ -166,6 +166,11 @@ const reasonCopy: Record<string, string> = {
   SESSION_BURST_FAST: "A session produced a high request volume in a short window.",
   SESSION_VOLUME_HIGH: "A session crossed the conservative volume threshold.",
   UA_MISSING: "The trusted origin observed no User-Agent header.",
+  RESPONSE_COST_BASELINE: "The signed rollout used its minimum bounded response duration because no escalation factor matched.",
+  RESPONSE_COST_ENDPOINT_VALUE: "The request reached a higher-value closed endpoint class within the signed rollout scope.",
+  RESPONSE_COST_CONFIDENT_EVIDENCE: "Strong suspicious evidence met the closed confidence threshold for bounded response cost.",
+  RESPONSE_COST_RECENT_BEHAVIOR: "The five-minute session crossed the bounded request or endpoint-transition threshold.",
+  RESPONSE_COST_RETRY_HISTORY: "The session repeated enforcement or retried before the active response interval elapsed.",
 };
 export const explainReason = (code: string) => reasonCopy[code] ?? "Stable detector or policy reason; inspect the matching versioned rule before changing enforcement.";
 

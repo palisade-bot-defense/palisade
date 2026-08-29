@@ -56,7 +56,8 @@ encrypted records ───────── analyze-shadow-log ─> aggregate 
 loopback console ─────────── validated report feed <─────┘
 aggregate report ───────── prepare-review ─────> non-executable hash-bound proposal
 review proposal ────────── operator signature ─> bounded canary/enforce plan
-origin middleware ───────── POST /v1/origin-check ─> 204 / 429 / 403
+bounded session retry history ─┐
+origin middleware ───────── POST /v1/origin-check ─┴> signed-max adaptive 204 / 429 / 403
                                                       │ challenge
                                                       v
 signed browser session ──── /v1/challenge/* ────────> one-time bound redemption
@@ -95,6 +96,14 @@ report hash and reproducible review proposal, including runtime policy/model,
 endpoint class, stable canary cohort and maximum action. The signing CLI has no
 scope-widening flags. Full enforcement review must reference the exact measured
 predecessor canary on the exact same endpoint.
+
+Within an active plan, response-cost adaptation is a downgrade-only runtime
+step after policy evaluation and action capping. It can scale throttle and
+temporary-block duration between fixed humane minima and signed maxima using
+only a closed endpoint class, suspicious-evidence confidence and the existing
+five-minute session counters. Retry history is stored in that same bounded
+entry and resets on expiry or restart. It cannot promote an action, alter the
+challenge lifecycle or create a new persistent identity graph.
 
 ## Trust and persistence boundaries
 
