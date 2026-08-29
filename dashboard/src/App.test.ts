@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { collectionRateLabel, collectionStateCopy, countComparableCanaries, crawlerIdentityCopy, explainReason, formatInterval, originCoverageCopy, outcomeFlowCopy, scoreEvidenceState, transportPostureCopy } from "./App";
+import { challengeBudgetState, collectionRateLabel, collectionStateCopy, countComparableCanaries, crawlerIdentityCopy, explainReason, formatInterval, originCoverageCopy, outcomeFlowCopy, scoreEvidenceState, transportPostureCopy } from "./App";
 import { createDemoSummary } from "./demo";
 
 describe("aggregate endpoint evidence", () => {
@@ -11,6 +11,13 @@ describe("aggregate endpoint evidence", () => {
   it("labels a populated interval and counts only comparable canaries", () => {
     expect(formatInterval({ count: 10, total: 100, rate: 0.1, lower_95: 0.055, upper_95: 0.174 })).toContain("95%");
     expect(countComparableCanaries([{ comparable: true }, { comparable: false }, { comparable: true }])).toBe(2);
+  });
+
+  it("evaluates challenge promotion from conservative bounds", () => {
+    const within = { rollout_id: "synthetic", endpoint_class: "public_content", mature_challenges: 120, terminal_outcome_coverage: { count: 118, total: 120, rate: 0.983, lower_95: 0.94, upper_95: 0.99 }, challenge_abandonment_rate: { count: 2, total: 120, rate: 0.017, lower_95: 0.005, upper_95: 0.058 }, fallback_rate: { count: 1, total: 120, rate: 0.008, lower_95: 0.001, upper_95: 0.045 } };
+    expect(challengeBudgetState(within)).toBe("within signed defaults");
+    expect(challengeBudgetState({ ...within, mature_challenges: 99 })).toBe("sample incomplete");
+    expect(challengeBudgetState({ ...within, fallback_rate: { ...within.fallback_rate, upper_95: 0.11 } })).toBe("promotion hold");
   });
 
   it("explains known and future stable reason codes without exposing rows", () => {
@@ -29,6 +36,7 @@ describe("aggregate endpoint evidence", () => {
     expect(summary.traffic.enforced.challenge).toBe(0);
     expect(summary.traffic.computed.challenge).toBeGreaterThan(0);
     expect(summary.analysis?.recommendations.some((item) => item.code === "KEEP_SHADOW_MODE")).toBe(true);
+    expect(summary.analysis?.canary_challenge_budgets.at(0)?.rollout_id).toBe("synthetic-canary");
   });
 
   it("does not present the neutral prior as measured intent risk", () => {

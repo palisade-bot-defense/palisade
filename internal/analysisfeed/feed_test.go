@@ -112,6 +112,7 @@ func validReport(decisions uint64) shadowanalysis.Report {
 		report.ModelVersions = []shadowanalysis.CountedValue{{Value: "transparent-baseline-v6", Count: decisions}}
 	}
 	report.CanaryComparisons = []shadowanalysis.CanaryComparison{}
+	report.CanaryChallengeBudgets = []shadowanalysis.CanaryChallengeBudget{}
 	if report.EvaluationSlices == nil {
 		report.EvaluationSlices = []shadowanalysis.EvaluationSlice{}
 	}

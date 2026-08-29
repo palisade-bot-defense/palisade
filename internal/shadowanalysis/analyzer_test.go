@@ -321,6 +321,57 @@ func TestCanaryComparisonWithoutShadowBaselineIsMarkedUnavailable(t *testing.T) 
 	}
 }
 
+func TestCanaryChallengeBudgetsAreExactSortedAndMature(t *testing.T) {
+	analysis := newAnalyzer(normalizedTestConfig(t, Config{}))
+	decision := func(id, rolloutID string) {
+		record := decisionRecord(id, core.ActionChallenge, core.ActionChallenge, "STEP_UP_REQUIRED")
+		record.Decision.EndpointClass = "public_content"
+		record.Decision.Mode = core.RuntimeModeCanary
+		record.Decision.RolloutID = rolloutID
+		if err := analysis.observe(record); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outcome := func(id, kind string) {
+		if err := analysis.observe(linkedOutcomeRecord(id, "public_content", kind)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	decision("a-pass", "rollout-a")
+	outcome("a-pass", "challenge_passed")
+	decision("a-abandon", "rollout-a")
+	outcome("a-abandon", "challenge_abandoned")
+	decision("b-fallback", "rollout-b")
+	outcome("b-fallback", "fallback_used")
+	decision("b-unresolved", "rollout-b")
+
+	report := analysis.finish(shadowlog.Verification{Files: 1, Records: 7, Decisions: 4, Outcomes: 3, FirstAt: "2026-08-27T00:00:00Z", LastAt: "2026-08-27T00:20:00Z"})
+	if len(report.CanaryChallengeBudgets) != 2 {
+		t.Fatalf("challenge budgets = %+v", report.CanaryChallengeBudgets)
+	}
+	first, second := report.CanaryChallengeBudgets[0], report.CanaryChallengeBudgets[1]
+	if first.RolloutID != "rollout-a" || first.EndpointClass != "public_content" || first.MatureChallenges != 2 || first.ChallengePassed != 1 ||
+		first.ChallengeAbandoned != 1 || first.TerminalOutcomeCoverage.Count != 2 || first.ChallengeAbandonmentRate.Count != 1 {
+		t.Fatalf("first budget = %+v", first)
+	}
+	if second.RolloutID != "rollout-b" || second.MatureChallenges != 2 || second.FallbackUsed != 1 || second.UnresolvedMatureChallenges != 1 ||
+		second.TerminalOutcomeCoverage.Count != 1 || second.FallbackRate.Count != 1 {
+		t.Fatalf("second budget = %+v", second)
+	}
+	if err := ValidateReport(report); err != nil {
+		t.Fatalf("exact canary challenge budgets were rejected: %v", err)
+	}
+	report.CanaryChallengeBudgets[0].TerminalOutcomeCoverage.Count++
+	if !errors.Is(ValidateReport(report), ErrInvalidReport) {
+		t.Fatal("tampered canary challenge budget was accepted")
+	}
+	report.CanaryChallengeBudgets[0].TerminalOutcomeCoverage.Count--
+	report.CanaryChallengeBudgets = nil
+	if !errors.Is(ValidateReport(report), ErrInvalidReport) {
+		t.Fatal("null canary challenge budget array was accepted")
+	}
+}
+
 func TestChallengeFrictionRequiresTuningBeforeReview(t *testing.T) {
 	config := normalizedTestConfig(t, Config{
 		MinDecisions: 2, MinOutcomeCoverage: 0.5, MinConfirmedHumans: 1, MinConfirmedAbuse: 1,

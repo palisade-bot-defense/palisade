@@ -93,9 +93,11 @@ machine and operator gate, but its artifact is not accepted by the runtime.
 
 An expiring Ed25519-signed plan binds operator approval to the exact aggregate
 report hash and reproducible review proposal, including runtime policy/model,
-endpoint class, stable canary cohort and maximum action. The signing CLI has no
-scope-widening flags. Full enforcement review must reference the exact measured
-predecessor canary on the exact same endpoint.
+endpoint class, stable canary cohort, maximum action and prospective challenge
+budgets. The signing CLI has no scope-widening flags. Full enforcement review
+must reference the exact measured predecessor canary on the exact same endpoint
+and pass conservative mature-sample, outcome-coverage, abandonment and fallback
+Wilson bounds.
 
 Within an active plan, response-cost adaptation is a downgrade-only runtime
 step after policy evaluation and action capping. It can scale throttle and

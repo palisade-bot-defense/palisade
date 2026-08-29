@@ -56,7 +56,7 @@ func AnalyzeDirectory(directory, keyFile string, config Config) (Report, error) 
 func newAnalyzer(config Config) *analyzer {
 	return &analyzer{
 		config:          config,
-		report:          Report{SchemaVersion: SchemaVersion},
+		report:          Report{SchemaVersion: SchemaVersion, CanaryChallengeBudgets: []CanaryChallengeBudget{}},
 		endpoints:       make(map[string]*EndpointSummary),
 		reasons:         make(map[string]uint64),
 		policies:        make(map[string]uint64),

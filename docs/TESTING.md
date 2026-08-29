@@ -101,6 +101,13 @@ five-minute response-history store within its configured 256-entry bound under
 concurrent eviction. Both run under `go test -race`; the diagnostic
 `BenchmarkProgressionController` reports the isolated controller cost.
 
+Challenge-budget tests keep promotion evidence scoped to one exact signed
+canary and endpoint. They cover mature-sample insufficiency, missing terminal
+outcomes, abandonment and accessible-fallback Wilson bounds, cross-rollout
+isolation, aggregate arithmetic poisoning, signed-plan tampering and
+non-finite threshold rejection. Fallback usage is tested as a review budget,
+not as proof of abuse or a reason to remove the accessible path.
+
 The versioned [public adversarial suite](ADVERSARIAL_FIXTURES.md) links the
 roadmap threat categories for replay, poisoning, missing signals, spoofed
 headers, accessibility and adapter failures to executable synthetic tests. A

@@ -108,7 +108,7 @@ while IFS="$tab" read -r metadata path; do
 		echo "privacy-check: local evidence data content: $path" >&2
 		failed=1
 	fi
-	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.shadow-analysis\.v(1|2|3)"' "$blob_file"; then
+	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.shadow-analysis\.v(1|2|3|4)"' "$blob_file"; then
 		echo "privacy-check: generated shadow analysis report: $path" >&2
 		failed=1
 	fi
@@ -128,11 +128,11 @@ while IFS="$tab" read -r metadata path; do
 		echo "privacy-check: local family annotation input: $path" >&2
 		failed=1
 	fi
-	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.rollout-plan\.v1"' "$blob_file"; then
+	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.rollout-plan\.v(1|2)"' "$blob_file"; then
 		echo "privacy-check: signed deployment rollout plan: $path" >&2
 		failed=1
 	fi
-	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.rollout-review\.v(1|2|3)"' "$blob_file"; then
+	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.rollout-review\.v(1|2|3|4)"' "$blob_file"; then
 		echo "privacy-check: generated rollout review proposal: $path" >&2
 		failed=1
 	fi

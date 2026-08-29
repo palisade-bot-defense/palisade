@@ -48,7 +48,7 @@ palisade prepare-review \
   --stage canary
 ```
 
-The closed `palisade.rollout-review.v3` artifact is deterministic: the same
+The closed `palisade.rollout-review.v4` artifact is deterministic: the same
 validated report bytes and requested stage produce the same proposal. It
 contains the exact report SHA-256, source window, dominant policy/model,
 machine-checkable gates, and a fixed operator checklist. It is not signed,
@@ -61,7 +61,10 @@ public endpoint with observed risky shadow actions plus at least 100 uniquely
 linked confirmed-human and 100 operator-confirmed-abuse decisions on that endpoint. The selection
 minimizes the observed risky-action ratio, then prefers the larger sample;
 account, login and checkout endpoints are excluded. A canary proposal is fixed
-at 1%, 24 hours and at most `throttle`.
+at 1%, 24 hours and at most `challenge`, which is the first stage that can
+measure completion, abandonment and accessible fallback before enforcement.
+The challenge route remains reversible and is never enabled without the signed
+plan.
 
 Before signing, an operator must review the linked endpoint/cohort Wilson
 intervals, unresolved mature challenges and ambiguous labels. The
@@ -99,12 +102,13 @@ palisade verify-rollout \
 ```
 
 `prepare-rollout` reconstructs the proposal from the exact analysis bytes and
-rejects a changed hash, gate, endpoint, action, cohort size, duration, policy or
-model. The private-key signature is therefore the operator's approval of that
-exact deterministic scope; there is no CLI override for a broader action.
+rejects a changed hash, gate, endpoint, action, cohort size, duration, policy,
+model or challenge budget. The private-key signature is therefore the
+operator's approval of that exact deterministic scope; there is no CLI override
+for a broader action or looser budget.
 
 One hundred basis points is 1%. The proposal path fixes canaries at 1%, 24
-hours and `throttle`; signed plan validation additionally caps any canary at
+hours and `challenge`; signed plan validation additionally caps any canary at
 10%, seven days and `delay`, `throttle` or `challenge`, and canaries cannot block.
 Session assignment is a stable
 HMAC cohort derived from the production secret and rollout ID. Endpoint classes
@@ -132,6 +136,16 @@ session-cookie requirement. The origin must issue and forward the PALISADE
 cookie before entering canary; otherwise clients could rotate untrusted session
 IDs to change cohort membership and the rollout could not produce promotion or
 rollback evidence.
+
+The signed `palisade.rollout-plan.v2` also fixes four prospective promotion
+budgets: at least 100 mature uniquely linked challenges, at least 90% terminal
+outcome coverage, at most 10% abandonment and at most 10% accessible fallback.
+Review uses Wilson 95% bounds, not raw point estimates: coverage must clear its
+lower bound, while abandonment and fallback must stay below their upper bounds.
+Fallback is a required safety path rather than a failed challenge or human
+label. A high fallback rate holds promotion so the primary challenge and
+support experience can be improved; it must never be "fixed" by disabling the
+fallback.
 
 ## 5. Apply the origin result
 
@@ -185,8 +199,9 @@ reverse-proxy capacity, user-perceived latency or detection efficacy.
 
 Keep writing encrypted decision/outcome records, then create a new aggregate
 report. It attributes enforced canary decisions to their exact rollout ID.
-Enforcement preparation requires at least 1000 decisions from the named
-predecessor canary, not merely from any historical canary:
+Enforcement preparation requires at least 1000 decisions and 100 mature,
+uniquely linked challenges from the named predecessor canary on the same
+endpoint, not merely from any historical canary:
 
 ```sh
 palisade prepare-review \
@@ -204,9 +219,10 @@ palisade prepare-rollout \
   --approval-id change-1251
 ```
 
-The deterministic enforcement proposal requires at least 1000 decisions from
-the exact named predecessor on the exact same endpoint, recommends one public endpoint, covers 100% for
-12 hours and caps at `challenge`; it never recommends a block. Signed plan
+The deterministic enforcement proposal requires at least 1000 decisions and
+the four conservative challenge gates from the exact named predecessor on the
+exact same endpoint. It recommends one public endpoint, covers 100% for 12
+hours and caps at `challenge`; it never recommends a block. Signed plan
 validation still supports bounded temporary block plans for a future explicit
 review contract, but this CLI workflow cannot create one. Directives can never
 outlive the signed plan.

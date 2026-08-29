@@ -189,6 +189,15 @@ if (cd "$shadow_analysis_v3" && "$guard") >/dev/null 2>&1; then
 	exit 1
 fi
 
+shadow_analysis_v4="$test_root/shadow-analysis-v4"
+new_repo "$shadow_analysis_v4"
+printf '%s\n' '{"schema_version":"palisade.shadow-analysis.v4","source":{"records":42}}' >"$shadow_analysis_v4/renamed.txt"
+git -C "$shadow_analysis_v4" add renamed.txt
+if (cd "$shadow_analysis_v4" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: generated v4 shadow analysis report was accepted" >&2
+	exit 1
+fi
+
 shadow_holdout="$test_root/shadow-holdout"
 new_repo "$shadow_holdout"
 printf '%s\n' '{"schema_version":"palisade.shadow-holdout.v1","source":{"records":42}}' >"$shadow_holdout/renamed.txt"
@@ -204,6 +213,15 @@ printf '%s\n' '{"plan":{"schema_version":"palisade.rollout-plan.v1"},"signature"
 git -C "$rollout_plan" add renamed.txt
 if (cd "$rollout_plan" && "$guard") >/dev/null 2>&1; then
 	echo "privacy-check test: signed rollout plan was accepted" >&2
+	exit 1
+fi
+
+rollout_plan_v2="$test_root/rollout-plan-v2"
+new_repo "$rollout_plan_v2"
+printf '%s\n' '{"plan":{"schema_version":"palisade.rollout-plan.v2"},"signature":"synthetic"}' >"$rollout_plan_v2/renamed.txt"
+git -C "$rollout_plan_v2" add renamed.txt
+if (cd "$rollout_plan_v2" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: signed v2 rollout plan was accepted" >&2
 	exit 1
 fi
 
@@ -231,6 +249,15 @@ printf '%s\n' '{"schema_version":"palisade.rollout-review.v3","source_report_sha
 git -C "$rollout_review_v3" add renamed.txt
 if (cd "$rollout_review_v3" && "$guard") >/dev/null 2>&1; then
 	echo "privacy-check test: generated v3 rollout review proposal was accepted" >&2
+	exit 1
+fi
+
+rollout_review_v4="$test_root/rollout-review-v4"
+new_repo "$rollout_review_v4"
+printf '%s\n' '{"schema_version":"palisade.rollout-review.v4","source_report_sha256":"synthetic"}' >"$rollout_review_v4/renamed.txt"
+git -C "$rollout_review_v4" add renamed.txt
+if (cd "$rollout_review_v4" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: generated v4 rollout review proposal was accepted" >&2
 	exit 1
 fi
 

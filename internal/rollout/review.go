@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	ReviewSchemaVersion        = "palisade.rollout-review.v3"
+	ReviewSchemaVersion        = "palisade.rollout-review.v4"
 	ReviewStateHold            = "hold"
 	ReviewStateCandidate       = "review_candidate"
 	ReviewGatePass             = "pass"
@@ -49,13 +49,17 @@ type ReviewProposal struct {
 }
 
 type ReviewScope struct {
-	EndpointClasses     []string    `json:"endpoint_classes"`
-	MaxAction           core.Action `json:"max_action"`
-	CanaryBasisPoints   uint32      `json:"canary_basis_points"`
-	DurationSeconds     int64       `json:"duration_seconds"`
-	ThrottleSeconds     int         `json:"throttle_seconds"`
-	ChallengeTTLSeconds int         `json:"challenge_ttl_seconds"`
-	BlockSeconds        int         `json:"block_seconds"`
+	EndpointClasses             []string    `json:"endpoint_classes"`
+	MaxAction                   core.Action `json:"max_action"`
+	CanaryBasisPoints           uint32      `json:"canary_basis_points"`
+	DurationSeconds             int64       `json:"duration_seconds"`
+	ThrottleSeconds             int         `json:"throttle_seconds"`
+	ChallengeTTLSeconds         int         `json:"challenge_ttl_seconds"`
+	BlockSeconds                int         `json:"block_seconds"`
+	MinMatureChallenges         uint64      `json:"min_mature_challenges"`
+	MinChallengeOutcomeCoverage float64     `json:"min_challenge_outcome_coverage"`
+	MaxChallengeAbandonmentRate float64     `json:"max_challenge_abandonment_rate"`
+	MaxChallengeFallbackRate    float64     `json:"max_challenge_fallback_rate"`
 }
 
 type ReviewGate struct {
@@ -132,6 +136,20 @@ func BuildReviewProposal(report shadowanalysis.Report, reportBytes []byte, optio
 			decisions = comparison.CanaryDecisions
 		}
 		proposal.addGate("PREDECESSOR_ENDPOINT_CANARY", found && decisions >= MinimumCanaryDecisions, fmt.Sprintf("%s:%d", endpoint.EndpointClass, decisions), fmt.Sprintf("same_endpoint_decisions>=%d", MinimumCanaryDecisions), "Enforcement review requires measured decisions from the exact predecessor canary on the exact recommended endpoint.")
+		budget, budgetFound := canaryChallengeBudget(report.CanaryChallengeBudgets, options.PredecessorRolloutID, endpoint.EndpointClass)
+		sampleReady := budgetFound && budget.MatureChallenges >= DefaultMinMatureChallenges
+		proposal.addGate("PREDECESSOR_CHALLENGE_SAMPLE", sampleReady,
+			fmt.Sprintf("%s:%d", endpoint.EndpointClass, budget.MatureChallenges), fmt.Sprintf("same_rollout_endpoint_mature_challenges>=%d", DefaultMinMatureChallenges),
+			"Challenge enforcement requires a mature, uniquely linked sample from the exact predecessor canary and endpoint.")
+		proposal.addGate("CHALLENGE_OUTCOME_COVERAGE_BUDGET", sampleReady && budget.TerminalOutcomeCoverage.Lower95 >= DefaultMinChallengeOutcomeCoverage,
+			fmt.Sprintf("lower95=%.6f,count=%d/%d", budget.TerminalOutcomeCoverage.Lower95, budget.TerminalOutcomeCoverage.Count, budget.TerminalOutcomeCoverage.Total), fmt.Sprintf("lower95>=%.2f", DefaultMinChallengeOutcomeCoverage),
+			"The conservative terminal-outcome coverage bound must meet the signed challenge budget.")
+		proposal.addGate("CHALLENGE_ABANDONMENT_BUDGET", sampleReady && budget.ChallengeAbandonmentRate.Upper95 <= DefaultMaxChallengeAbandonmentRate,
+			fmt.Sprintf("upper95=%.6f,count=%d/%d", budget.ChallengeAbandonmentRate.Upper95, budget.ChallengeAbandonmentRate.Count, budget.ChallengeAbandonmentRate.Total), fmt.Sprintf("upper95<=%.2f", DefaultMaxChallengeAbandonmentRate),
+			"The conservative challenge-abandonment bound must remain within the signed friction budget.")
+		proposal.addGate("CHALLENGE_FALLBACK_BUDGET", sampleReady && budget.FallbackRate.Upper95 <= DefaultMaxChallengeFallbackRate,
+			fmt.Sprintf("upper95=%.6f,count=%d/%d", budget.FallbackRate.Upper95, budget.FallbackRate.Count, budget.FallbackRate.Total), fmt.Sprintf("upper95<=%.2f", DefaultMaxChallengeFallbackRate),
+			"The conservative accessible-fallback bound must remain within the signed friction budget.")
 	}
 
 	if proposal.hasHoldGate() {
@@ -139,16 +157,19 @@ func BuildReviewProposal(report shadowanalysis.Report, reportBytes []byte, optio
 		proposal.RecommendedScope = nil
 	} else {
 		scope := ReviewScope{
-			EndpointClasses:     []string{endpoint.EndpointClass},
-			MaxAction:           core.ActionThrottle,
-			CanaryBasisPoints:   DefaultCanaryBasisPoints,
-			DurationSeconds:     int64(DefaultCanaryDuration / time.Second),
-			ThrottleSeconds:     DefaultThrottleSeconds,
-			ChallengeTTLSeconds: DefaultChallengeTTLSeconds,
-			BlockSeconds:        DefaultBlockSeconds,
+			EndpointClasses:             []string{endpoint.EndpointClass},
+			MaxAction:                   core.ActionChallenge,
+			CanaryBasisPoints:           DefaultCanaryBasisPoints,
+			DurationSeconds:             int64(DefaultCanaryDuration / time.Second),
+			ThrottleSeconds:             DefaultThrottleSeconds,
+			ChallengeTTLSeconds:         DefaultChallengeTTLSeconds,
+			BlockSeconds:                DefaultBlockSeconds,
+			MinMatureChallenges:         DefaultMinMatureChallenges,
+			MinChallengeOutcomeCoverage: DefaultMinChallengeOutcomeCoverage,
+			MaxChallengeAbandonmentRate: DefaultMaxChallengeAbandonmentRate,
+			MaxChallengeFallbackRate:    DefaultMaxChallengeFallbackRate,
 		}
 		if options.Stage == core.RuntimeModeEnforce {
-			scope.MaxAction = core.ActionChallenge
 			scope.CanaryBasisPoints = FullRolloutBasisPoints
 			scope.DurationSeconds = int64(DefaultEnforcementDuration / time.Second)
 		}
@@ -170,25 +191,29 @@ func PrepareFromReview(report shadowanalysis.Report, reportBytes []byte, proposa
 	}
 	scope := proposal.RecommendedScope
 	return prepareSignedPlan(report, reportBytes, PrepareOptions{
-		RolloutID:            rolloutID,
-		ApprovalID:           approvalID,
-		PredecessorRolloutID: proposal.PredecessorRolloutID,
-		Stage:                proposal.RequestedStage,
-		EndpointClasses:      append([]string(nil), scope.EndpointClasses...),
-		MaxAction:            scope.MaxAction,
-		CanaryBasisPoints:    scope.CanaryBasisPoints,
-		ThrottleSeconds:      scope.ThrottleSeconds,
-		ChallengeTTLSeconds:  scope.ChallengeTTLSeconds,
-		BlockSeconds:         scope.BlockSeconds,
-		CreatedAt:            createdAt,
-		ExpiresAt:            createdAt.Add(time.Duration(scope.DurationSeconds) * time.Second),
+		RolloutID:                   rolloutID,
+		ApprovalID:                  approvalID,
+		PredecessorRolloutID:        proposal.PredecessorRolloutID,
+		Stage:                       proposal.RequestedStage,
+		EndpointClasses:             append([]string(nil), scope.EndpointClasses...),
+		MaxAction:                   scope.MaxAction,
+		CanaryBasisPoints:           scope.CanaryBasisPoints,
+		ThrottleSeconds:             scope.ThrottleSeconds,
+		ChallengeTTLSeconds:         scope.ChallengeTTLSeconds,
+		BlockSeconds:                scope.BlockSeconds,
+		MinMatureChallenges:         scope.MinMatureChallenges,
+		MinChallengeOutcomeCoverage: scope.MinChallengeOutcomeCoverage,
+		MaxChallengeAbandonmentRate: scope.MaxChallengeAbandonmentRate,
+		MaxChallengeFallbackRate:    scope.MaxChallengeFallbackRate,
+		CreatedAt:                   createdAt,
+		ExpiresAt:                   createdAt.Add(time.Duration(scope.DurationSeconds) * time.Second),
 	}, privateKey)
 }
 
 func (p ReviewProposal) Validate() error {
 	if p.SchemaVersion != ReviewSchemaVersion || !sha256Pattern.MatchString(p.SourceReportSHA256) || p.SourceSchemaVersion != shadowanalysis.SchemaVersion ||
 		p.AutomaticActivation || (p.State != ReviewStateHold && p.State != ReviewStateCandidate) ||
-		(p.RequestedStage != core.RuntimeModeCanary && p.RequestedStage != core.RuntimeModeEnforce) || len(p.Gates) < 5 || len(p.Gates) > 8 ||
+		(p.RequestedStage != core.RuntimeModeCanary && p.RequestedStage != core.RuntimeModeEnforce) || len(p.Gates) < 5 || len(p.Gates) > 10 ||
 		len(p.OperatorChecklist) != 4 {
 		return ErrInvalidReview
 	}
@@ -217,7 +242,7 @@ func (p ReviewProposal) Validate() error {
 	hasHold := false
 	expectedGateCodes := []string{"REPORT_READINESS", "OBSERVATION_WINDOW", "POLICY_VERSION_DOMINANCE", "MODEL_VERSION_DOMINANCE", "ELIGIBLE_ENDPOINT_SCOPE"}
 	if p.RequestedStage == core.RuntimeModeEnforce {
-		expectedGateCodes = append(expectedGateCodes, "PREDECESSOR_ENDPOINT_CANARY")
+		expectedGateCodes = append(expectedGateCodes, "PREDECESSOR_ENDPOINT_CANARY", "PREDECESSOR_CHALLENGE_SAMPLE", "CHALLENGE_OUTCOME_COVERAGE_BUDGET", "CHALLENGE_ABANDONMENT_BUDGET", "CHALLENGE_FALLBACK_BUDGET")
 	}
 	if len(p.Gates) != len(expectedGateCodes) {
 		return ErrInvalidReview
@@ -258,11 +283,13 @@ func (p ReviewProposal) Validate() error {
 
 func (s ReviewScope) validate(stage core.RuntimeMode) error {
 	if len(s.EndpointClasses) != 1 || !allowedEndpoint(s.EndpointClasses[0]) || s.ThrottleSeconds != DefaultThrottleSeconds ||
-		s.ChallengeTTLSeconds != DefaultChallengeTTLSeconds || s.BlockSeconds != DefaultBlockSeconds {
+		s.ChallengeTTLSeconds != DefaultChallengeTTLSeconds || s.BlockSeconds != DefaultBlockSeconds ||
+		s.MinMatureChallenges != DefaultMinMatureChallenges || s.MinChallengeOutcomeCoverage != DefaultMinChallengeOutcomeCoverage ||
+		s.MaxChallengeAbandonmentRate != DefaultMaxChallengeAbandonmentRate || s.MaxChallengeFallbackRate != DefaultMaxChallengeFallbackRate {
 		return ErrInvalidReview
 	}
 	if stage == core.RuntimeModeCanary {
-		if s.MaxAction != core.ActionThrottle || s.CanaryBasisPoints != DefaultCanaryBasisPoints || s.DurationSeconds != int64(DefaultCanaryDuration/time.Second) {
+		if s.MaxAction != core.ActionChallenge || s.CanaryBasisPoints != DefaultCanaryBasisPoints || s.DurationSeconds != int64(DefaultCanaryDuration/time.Second) {
 			return ErrInvalidReview
 		}
 		return nil
@@ -341,6 +368,15 @@ func canaryComparison(values []shadowanalysis.CanaryComparison, rolloutID, endpo
 		}
 	}
 	return shadowanalysis.CanaryComparison{}, false
+}
+
+func canaryChallengeBudget(values []shadowanalysis.CanaryChallengeBudget, rolloutID, endpoint string) (shadowanalysis.CanaryChallengeBudget, bool) {
+	for _, budget := range values {
+		if budget.RolloutID == rolloutID && budget.EndpointClass == endpoint {
+			return budget, true
+		}
+	}
+	return shadowanalysis.CanaryChallengeBudget{}, false
 }
 
 func sourceWindowSeconds(first, last string) int64 {

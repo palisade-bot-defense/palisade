@@ -39,6 +39,8 @@ func TestSignedAdaptiveRolloutP95MeetsPilotBudget(t *testing.T) {
 		PolicyVersion: policy.DefaultVersion, ModelVersion: ModelVersion, Stage: core.RuntimeModeEnforce,
 		EndpointClasses: []string{"public_content"}, MaxAction: core.ActionBlock, CanaryBasisPoints: rollout.FullRolloutBasisPoints,
 		ThrottleSeconds: rollout.DefaultThrottleSeconds, ChallengeTTLSeconds: rollout.DefaultChallengeTTLSeconds, BlockSeconds: rollout.DefaultBlockSeconds,
+		MinMatureChallenges: rollout.DefaultMinMatureChallenges, MinChallengeOutcomeCoverage: rollout.DefaultMinChallengeOutcomeCoverage,
+		MaxChallengeAbandonmentRate: rollout.DefaultMaxChallengeAbandonmentRate, MaxChallengeFallbackRate: rollout.DefaultMaxChallengeFallbackRate,
 	}
 	signed, err := rollout.Sign(plan, privateKey)
 	if err != nil {

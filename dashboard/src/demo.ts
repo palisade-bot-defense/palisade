@@ -67,7 +67,13 @@ export const createDemoSummary = (now: Date): Summary => ({
       evaluation: { computed_risky_rate: proportion(68, 310, 0.178, 0.27), challenge_failure_rate: proportion(4, 28, 0.057, 0.314), challenge_abandonment_rate: proportion(3, 28, 0.037, 0.272), fallback_outcome_share: proportion(2, 72, 0.008, 0.095), unknown_outcome_share: proportion(37, 72, 0.401, 0.625), confirmed_labels: 32, abuse_label_share: proportion(12, 32, 0.229, 0.546) },
       linked_evaluation: { decisions: 310, confirmed_labels: 32, ambiguous_ground_truth: 2, confusion: { true_positive: 9, false_positive: 2, true_negative: 18, false_negative: 3 }, false_positive_rate: proportion(2, 20, 0.028, 0.301), abuse_recall: proportion(9, 12, 0.468, 0.911), abuse_precision: proportion(9, 11, 0.523, 0.949), mature_challenges: 28, challenge_passed: 19, challenge_failed: 4, challenge_abandoned: 3, fallback_used: 2, unresolved_mature_challenges: 0, ambiguous_challenge_outcomes: 0, challenge_pass_rate: proportion(19, 28, 0.494, 0.817), challenge_failure_rate: proportion(4, 28, 0.057, 0.314), challenge_abandonment_rate: proportion(3, 28, 0.037, 0.272), fallback_rate: proportion(2, 28, 0.02, 0.226) },
     }],
-    canary_comparisons: [],
+    canary_comparisons: [{ rollout_id: "synthetic-canary", endpoint_class: "public_content", comparable: true, canary_decisions: 120, computed_risk_difference: { estimate: 0.01, lower_95: -0.03, upper_95: 0.05 } }],
+    canary_challenge_budgets: [{
+      rollout_id: "synthetic-canary", endpoint_class: "public_content", mature_challenges: 120,
+      terminal_outcome_coverage: proportion(118, 120, 0.941, 0.995),
+      challenge_abandonment_rate: proportion(2, 120, 0.005, 0.058),
+      fallback_rate: proportion(1, 120, 0.001, 0.045),
+    }],
     recommendations: [
       { code: "COLLECT_MORE_DECISIONS", priority: "high", message: "Collect a complete representative traffic cycle before calibration." },
       { code: "EXPAND_CONFIRMED_HUMANS", priority: "high", message: "Link more authenticated or reviewed human outcomes to exact decisions." },

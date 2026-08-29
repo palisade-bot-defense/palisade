@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"regexp"
 	"slices"
@@ -22,17 +23,21 @@ import (
 )
 
 const (
-	SchemaVersion              = "palisade.rollout-plan.v1"
-	MaximumCanaryBasisPoints   = uint32(1000)
-	FullRolloutBasisPoints     = uint32(10_000)
-	MinimumCanaryDecisions     = uint64(1000)
-	MaximumCanaryDuration      = 7 * 24 * time.Hour
-	MaximumEnforceDuration     = 24 * time.Hour
-	DefaultDelaySeconds        = 1
-	DefaultThrottleSeconds     = 5
-	DefaultChallengeTTLSeconds = 300
-	DefaultBlockSeconds        = 300
-	maximumResponseCostTier    = 4
+	SchemaVersion                      = "palisade.rollout-plan.v2"
+	MaximumCanaryBasisPoints           = uint32(1000)
+	FullRolloutBasisPoints             = uint32(10_000)
+	MinimumCanaryDecisions             = uint64(1000)
+	MaximumCanaryDuration              = 7 * 24 * time.Hour
+	MaximumEnforceDuration             = 24 * time.Hour
+	DefaultDelaySeconds                = 1
+	DefaultThrottleSeconds             = 5
+	DefaultChallengeTTLSeconds         = 300
+	DefaultBlockSeconds                = 300
+	DefaultMinMatureChallenges         = uint64(100)
+	DefaultMinChallengeOutcomeCoverage = 0.90
+	DefaultMaxChallengeAbandonmentRate = 0.10
+	DefaultMaxChallengeFallbackRate    = 0.10
+	maximumResponseCostTier            = 4
 )
 
 const (
@@ -52,23 +57,27 @@ var (
 )
 
 type Plan struct {
-	SchemaVersion        string           `json:"schema_version"`
-	RolloutID            string           `json:"rollout_id"`
-	ApprovalID           string           `json:"approval_id"`
-	PredecessorRolloutID string           `json:"predecessor_rollout_id"`
-	CreatedAt            string           `json:"created_at"`
-	ExpiresAt            string           `json:"expires_at"`
-	SourceReportSHA256   string           `json:"source_report_sha256"`
-	SourceReadinessState string           `json:"source_readiness_state"`
-	PolicyVersion        string           `json:"policy_version"`
-	ModelVersion         string           `json:"model_version"`
-	Stage                core.RuntimeMode `json:"stage"`
-	EndpointClasses      []string         `json:"endpoint_classes"`
-	MaxAction            core.Action      `json:"max_action"`
-	CanaryBasisPoints    uint32           `json:"canary_basis_points"`
-	ThrottleSeconds      int              `json:"throttle_seconds"`
-	ChallengeTTLSeconds  int              `json:"challenge_ttl_seconds"`
-	BlockSeconds         int              `json:"block_seconds"`
+	SchemaVersion               string           `json:"schema_version"`
+	RolloutID                   string           `json:"rollout_id"`
+	ApprovalID                  string           `json:"approval_id"`
+	PredecessorRolloutID        string           `json:"predecessor_rollout_id"`
+	CreatedAt                   string           `json:"created_at"`
+	ExpiresAt                   string           `json:"expires_at"`
+	SourceReportSHA256          string           `json:"source_report_sha256"`
+	SourceReadinessState        string           `json:"source_readiness_state"`
+	PolicyVersion               string           `json:"policy_version"`
+	ModelVersion                string           `json:"model_version"`
+	Stage                       core.RuntimeMode `json:"stage"`
+	EndpointClasses             []string         `json:"endpoint_classes"`
+	MaxAction                   core.Action      `json:"max_action"`
+	CanaryBasisPoints           uint32           `json:"canary_basis_points"`
+	ThrottleSeconds             int              `json:"throttle_seconds"`
+	ChallengeTTLSeconds         int              `json:"challenge_ttl_seconds"`
+	BlockSeconds                int              `json:"block_seconds"`
+	MinMatureChallenges         uint64           `json:"min_mature_challenges"`
+	MinChallengeOutcomeCoverage float64          `json:"min_challenge_outcome_coverage"`
+	MaxChallengeAbandonmentRate float64          `json:"max_challenge_abandonment_rate"`
+	MaxChallengeFallbackRate    float64          `json:"max_challenge_fallback_rate"`
 }
 
 type SignedPlan struct {
@@ -77,18 +86,22 @@ type SignedPlan struct {
 }
 
 type PrepareOptions struct {
-	RolloutID            string
-	ApprovalID           string
-	PredecessorRolloutID string
-	Stage                core.RuntimeMode
-	EndpointClasses      []string
-	MaxAction            core.Action
-	CanaryBasisPoints    uint32
-	ThrottleSeconds      int
-	ChallengeTTLSeconds  int
-	BlockSeconds         int
-	CreatedAt            time.Time
-	ExpiresAt            time.Time
+	RolloutID                   string
+	ApprovalID                  string
+	PredecessorRolloutID        string
+	Stage                       core.RuntimeMode
+	EndpointClasses             []string
+	MaxAction                   core.Action
+	CanaryBasisPoints           uint32
+	ThrottleSeconds             int
+	ChallengeTTLSeconds         int
+	BlockSeconds                int
+	MinMatureChallenges         uint64
+	MinChallengeOutcomeCoverage float64
+	MaxChallengeAbandonmentRate float64
+	MaxChallengeFallbackRate    float64
+	CreatedAt                   time.Time
+	ExpiresAt                   time.Time
 }
 
 type Result struct {
@@ -145,6 +158,18 @@ func prepareSignedPlan(report shadowanalysis.Report, reportBytes []byte, options
 	if options.BlockSeconds == 0 {
 		options.BlockSeconds = DefaultBlockSeconds
 	}
+	if options.MinMatureChallenges == 0 {
+		options.MinMatureChallenges = DefaultMinMatureChallenges
+	}
+	if options.MinChallengeOutcomeCoverage == 0 {
+		options.MinChallengeOutcomeCoverage = DefaultMinChallengeOutcomeCoverage
+	}
+	if options.MaxChallengeAbandonmentRate == 0 {
+		options.MaxChallengeAbandonmentRate = DefaultMaxChallengeAbandonmentRate
+	}
+	if options.MaxChallengeFallbackRate == 0 {
+		options.MaxChallengeFallbackRate = DefaultMaxChallengeFallbackRate
+	}
 	endpoints := append([]string(nil), options.EndpointClasses...)
 	sort.Strings(endpoints)
 	plan := Plan{
@@ -155,6 +180,8 @@ func prepareSignedPlan(report shadowanalysis.Report, reportBytes []byte, options
 		PolicyVersion: policyVersion, ModelVersion: modelVersion, Stage: options.Stage,
 		EndpointClasses: endpoints, MaxAction: options.MaxAction, CanaryBasisPoints: options.CanaryBasisPoints,
 		ThrottleSeconds: options.ThrottleSeconds, ChallengeTTLSeconds: options.ChallengeTTLSeconds, BlockSeconds: options.BlockSeconds,
+		MinMatureChallenges: options.MinMatureChallenges, MinChallengeOutcomeCoverage: options.MinChallengeOutcomeCoverage,
+		MaxChallengeAbandonmentRate: options.MaxChallengeAbandonmentRate, MaxChallengeFallbackRate: options.MaxChallengeFallbackRate,
 	}
 	if err := plan.Validate(options.CreatedAt); err != nil {
 		return SignedPlan{}, err
@@ -243,7 +270,9 @@ func (p Plan) Validate(now time.Time) error {
 	} else {
 		return ErrInvalidPlan
 	}
-	if p.ThrottleSeconds < 1 || p.ThrottleSeconds > 60 || p.ChallengeTTLSeconds < 30 || p.ChallengeTTLSeconds > 900 || p.BlockSeconds < 60 || p.BlockSeconds > 3600 {
+	if p.ThrottleSeconds < 1 || p.ThrottleSeconds > 60 || p.ChallengeTTLSeconds < 30 || p.ChallengeTTLSeconds > 900 || p.BlockSeconds < 60 || p.BlockSeconds > 3600 ||
+		p.MinMatureChallenges < 1 || p.MinMatureChallenges > 1_000_000 || !validBudgetRate(p.MinChallengeOutcomeCoverage) ||
+		!validBudgetRate(p.MaxChallengeAbandonmentRate) || !validBudgetRate(p.MaxChallengeFallbackRate) {
 		return ErrInvalidPlan
 	}
 	if len(p.EndpointClasses) < 1 || len(p.EndpointClasses) > 4 || !sort.StringsAreSorted(p.EndpointClasses) {
@@ -255,6 +284,10 @@ func (p Plan) Validate(now time.Time) error {
 		}
 	}
 	return nil
+}
+
+func validBudgetRate(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0) && value > 0 && value <= 1
 }
 
 func NewController(signed SignedPlan, publicKey ed25519.PublicKey, cohortKey []byte, policyVersion, modelVersion string, now time.Time) (*Controller, error) {

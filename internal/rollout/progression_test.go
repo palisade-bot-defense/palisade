@@ -161,6 +161,8 @@ func progressionController(testingContext testing.TB, now time.Time, maximum cor
 		PolicyVersion: "default-v5", ModelVersion: "transparent-baseline-v13", Stage: core.RuntimeModeEnforce,
 		EndpointClasses: []string{"public_content"}, MaxAction: maximum, CanaryBasisPoints: FullRolloutBasisPoints,
 		ThrottleSeconds: 20, ChallengeTTLSeconds: 300, BlockSeconds: 300,
+		MinMatureChallenges: DefaultMinMatureChallenges, MinChallengeOutcomeCoverage: DefaultMinChallengeOutcomeCoverage,
+		MaxChallengeAbandonmentRate: DefaultMaxChallengeAbandonmentRate, MaxChallengeFallbackRate: DefaultMaxChallengeFallbackRate,
 	}
 	signed, err := Sign(plan, privateKey)
 	if err != nil {

@@ -104,6 +104,8 @@ func TestSignedRolloutProducesOriginDirective(t *testing.T) {
 		PolicyVersion: "default-v5", ModelVersion: ModelVersion, Stage: core.RuntimeModeEnforce,
 		EndpointClasses: []string{"public_content"}, MaxAction: core.ActionBlock, CanaryBasisPoints: rollout.FullRolloutBasisPoints,
 		ThrottleSeconds: 5, ChallengeTTLSeconds: 300, BlockSeconds: 300,
+		MinMatureChallenges: rollout.DefaultMinMatureChallenges, MinChallengeOutcomeCoverage: rollout.DefaultMinChallengeOutcomeCoverage,
+		MaxChallengeAbandonmentRate: rollout.DefaultMaxChallengeAbandonmentRate, MaxChallengeFallbackRate: rollout.DefaultMaxChallengeFallbackRate,
 	}
 	signed, err := rollout.Sign(plan, privateKey)
 	if err != nil {

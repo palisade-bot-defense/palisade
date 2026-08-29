@@ -598,11 +598,11 @@ components:
             loaded_at: { type: [string, "null"], format: date-time }
             last_attempt_at: { type: [string, "null"], format: date-time }
         analysis:
-          description: Validated palisade.shadow-analysis.v3 aggregate report, or null when no report was loaded. It contains linked endpoint/cohort Wilson intervals and aggregate canary comparisons, but no row-level records or decision identifiers.
+          description: Validated palisade.shadow-analysis.v4 aggregate report, or null when no report was loaded. It contains linked endpoint/cohort Wilson intervals, aggregate canary comparisons and exact rollout/endpoint challenge budgets, but no row-level records or decision identifiers.
           oneOf:
             - type: "null"
             - type: object
-              required: [schema_version, source, readiness, decisions, outcomes, scores, endpoints, top_reason_codes, policy_versions, model_versions, canary_rollouts, canary_comparisons, linkage, evaluation_slices, recommendations]
+              required: [schema_version, source, readiness, decisions, outcomes, scores, endpoints, top_reason_codes, policy_versions, model_versions, canary_rollouts, canary_comparisons, canary_challenge_budgets, linkage, evaluation_slices, recommendations]
     Error:
       type: object
       additionalProperties: false

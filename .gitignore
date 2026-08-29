@@ -30,14 +30,17 @@ shadow-analysis*.json
 !schemas/shadow-analysis-report-v1.schema.json
 !schemas/shadow-analysis-report-v2.schema.json
 !schemas/shadow-analysis-report-v3.schema.json
+!schemas/shadow-analysis-report-v4.schema.json
 *.private
 *.rollout.json
 rollout-plan*.json
 !schemas/rollout-plan-v1.schema.json
+!schemas/rollout-plan-v2.schema.json
 rollout-review*.json
 !schemas/rollout-review-v1.schema.json
 !schemas/rollout-review-v2.schema.json
 !schemas/rollout-review-v3.schema.json
+!schemas/rollout-review-v4.schema.json
 !schemas/shadow-record-v2.schema.json
 
 # Authorized offline exports must never enter a worktree

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -33,9 +34,33 @@ func TestPrepareVerifyAndTamper(t *testing.T) {
 	if err := Verify(signed, publicKey, now); err != nil {
 		t.Fatal(err)
 	}
-	signed.Plan.CanaryBasisPoints++
+	signed.Plan.MaxChallengeFallbackRate += 0.01
 	if err := Verify(signed, publicKey, now); !errors.Is(err, ErrInvalidSignature) {
 		t.Fatalf("tampered plan error=%v", err)
+	}
+}
+
+func TestPlanRejectsInvalidChallengeBudgets(t *testing.T) {
+	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
+	controller := testController(t, now, core.RuntimeModeCanary, 0)
+	base := controller.plan
+	tests := []struct {
+		name   string
+		mutate func(*Plan)
+	}{
+		{name: "zero sample", mutate: func(plan *Plan) { plan.MinMatureChallenges = 0 }},
+		{name: "zero coverage", mutate: func(plan *Plan) { plan.MinChallengeOutcomeCoverage = 0 }},
+		{name: "nan abandonment", mutate: func(plan *Plan) { plan.MaxChallengeAbandonmentRate = math.NaN() }},
+		{name: "infinite fallback", mutate: func(plan *Plan) { plan.MaxChallengeFallbackRate = math.Inf(1) }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			plan := base
+			test.mutate(&plan)
+			if err := plan.Validate(now); !errors.Is(err, ErrInvalidPlan) {
+				t.Fatalf("invalid budget error=%v plan=%+v", err, plan)
+			}
+		})
 	}
 }
 
@@ -82,8 +107,8 @@ func TestCanaryIsDeterministicScopedAndCapped(t *testing.T) {
 		t.Fatal("could not find deterministic canary cohorts")
 	}
 	included := controller.Apply(selected, "public_content", core.ActionBlock, now)
-	if included.Mode != core.RuntimeModeCanary || included.Action != core.ActionThrottle || included.Directive.Handling != "throttle" ||
-		included.Directive.RetryAfterSeconds != 1 || !contains(included.Reasons, "ROLLOUT_ACTION_CAPPED") || !contains(included.Reasons, ReasonResponseCostBaseline) {
+	if included.Mode != core.RuntimeModeCanary || included.Action != core.ActionChallenge || included.Directive.Handling != "challenge" ||
+		included.Directive.RetryAfterSeconds != 0 || !contains(included.Reasons, "ROLLOUT_ACTION_CAPPED") {
 		t.Fatalf("included result=%+v", included)
 	}
 	second := controller.Apply(selected, "public_content", core.ActionBlock, now)
@@ -125,6 +150,7 @@ func TestEnforceRequiresMeasuredCanary(t *testing.T) {
 		t.Fatal(err)
 	}
 	measured.CanaryComparisons[0].RolloutID = "other-canary"
+	measured.CanaryChallengeBudgets[0].RolloutID = "other-canary"
 	measured.CanaryRollouts[0].Value = "other-canary"
 	measuredBytes = encodedReport(t, measured)
 	if proposal, err := BuildReviewProposal(measured, measuredBytes, ReviewOptions{Stage: core.RuntimeModeEnforce, PredecessorRolloutID: "canary-source"}); err != nil || proposal.State != ReviewStateHold {
@@ -306,8 +332,32 @@ func candidateReport(decisions, canary uint64) shadowanalysis.Report {
 			ShadowComputedRisky: shadowRate, CanaryComputedRisky: canaryRate, CanaryEnforcedRisky: canaryRate,
 			ComputedRiskDifference: difference,
 		}}
+		mature := minimumUint64(200, canary)
+		budget := shadowanalysis.CanaryChallengeBudget{
+			RolloutID: "canary-source", EndpointClass: "public_content", MatureChallenges: mature, ChallengePassed: mature,
+			TerminalOutcomeCoverage: shadowanalysis.Proportion(mature, mature), ChallengeAbandonmentRate: shadowanalysis.Proportion(0, mature),
+			FallbackRate: shadowanalysis.Proportion(0, mature),
+		}
+		report.CanaryChallengeBudgets = []shadowanalysis.CanaryChallengeBudget{budget}
+		for index := range report.Endpoints {
+			if report.Endpoints[index].EndpointClass != "public_content" {
+				continue
+			}
+			report.Endpoints[index].LinkedEvaluation.MatureChallenges = mature
+			report.Endpoints[index].LinkedEvaluation.ChallengePassed = mature
+			report.Endpoints[index].LinkedEvaluation.ChallengePassRate = shadowanalysis.Proportion(mature, mature)
+			report.Endpoints[index].LinkedEvaluation.ChallengeFailureRate = shadowanalysis.Proportion(0, mature)
+			report.Endpoints[index].LinkedEvaluation.ChallengeAbandonmentRate = shadowanalysis.Proportion(0, mature)
+			report.Endpoints[index].LinkedEvaluation.FallbackRate = shadowanalysis.Proportion(0, mature)
+			for sliceIndex := range report.EvaluationSlices {
+				if report.EvaluationSlices[sliceIndex].EndpointClass == "public_content" {
+					report.EvaluationSlices[sliceIndex].Evaluation = report.Endpoints[index].LinkedEvaluation
+				}
+			}
+		}
 	} else {
 		report.CanaryComparisons = []shadowanalysis.CanaryComparison{}
+		report.CanaryChallengeBudgets = []shadowanalysis.CanaryChallengeBudget{}
 	}
 	return report
 }

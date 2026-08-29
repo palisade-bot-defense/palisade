@@ -96,6 +96,10 @@ latency. No automatic blocking is enabled.
 
 ## v0.4 — make response adaptive and humane
 
+Status: implementation complete; the signed canary, chronological holdout and
+measured accessibility/latency/abandonment exit gate remain empirical work for
+an operator-controlled deployment.
+
 Deliverables:
 
 - [x] add deployment-owned, server-generated decoy and honeypot contracts whose
@@ -107,7 +111,7 @@ Deliverables:
   paths with equal security accounting;
 - [x] test the progression `observe → delay → throttle → accessible step-up →
   temporary block` under load and failure;
-- make challenge abandonment and fallback first-class rollout budgets.
+- [x] make challenge abandonment and fallback first-class rollout budgets.
 
 Exit gate: a signed canary improves a chosen protected outcome on a chronological
 holdout without exceeding its confirmed-human, accessibility, latency or

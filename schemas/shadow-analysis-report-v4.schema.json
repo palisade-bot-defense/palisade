@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/shadow-analysis-report-v4.schema.json",
+  "title": "PALISADE aggregate linked shadow analysis report v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source", "readiness", "decisions", "outcomes", "scores", "endpoints", "top_reason_codes", "policy_versions", "model_versions", "canary_rollouts", "canary_comparisons", "canary_challenge_budgets", "linkage", "evaluation_slices", "recommendations"],
+  "properties": {
+    "schema_version": { "const": "palisade.shadow-analysis.v4" },
+    "source": { "$ref": "#/$defs/source" },
+    "readiness": { "$ref": "#/$defs/readiness" },
+    "decisions": { "$ref": "#/$defs/decision_summary" },
+    "outcomes": { "$ref": "#/$defs/outcome_summary" },
+    "scores": { "$ref": "#/$defs/scores" },
+    "endpoints": { "type": "array", "maxItems": 9, "items": { "$ref": "#/$defs/endpoint_summary" } },
+    "top_reason_codes": { "$ref": "#/$defs/counted_values" },
+    "policy_versions": { "$ref": "#/$defs/counted_values" },
+    "model_versions": { "$ref": "#/$defs/counted_values" },
+    "canary_rollouts": { "$ref": "#/$defs/counted_values" },
+    "canary_comparisons": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/canary_comparison" } },
+    "canary_challenge_budgets": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/canary_challenge_budget" } },
+    "linkage": { "$ref": "#/$defs/linkage" },
+    "evaluation_slices": { "type": "array", "maxItems": 54, "items": { "$ref": "#/$defs/evaluation_slice" } },
+    "recommendations": { "$ref": "#/$defs/recommendations" }
+  },
+  "$defs": {
+    "count": { "type": "integer", "minimum": 0 },
+    "ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+    "difference": { "type": "number", "minimum": -1, "maximum": 1 },
+    "time": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "code": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$" },
+    "endpoint": { "enum": ["public_content", "compare_index", "compare_noindex", "challenge_worker", "other_public", "account", "login", "checkout", "other"] },
+    "cohort": { "enum": ["standard", "reduced_motion", "keyboard_only", "fallback_path", "sensor_missing", "unknown"] },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["files", "records", "decisions", "outcomes", "encrypted_bytes"],
+      "properties": {
+        "files": { "$ref": "#/$defs/count" }, "records": { "$ref": "#/$defs/count" }, "decisions": { "$ref": "#/$defs/count" },
+        "outcomes": { "$ref": "#/$defs/count" }, "encrypted_bytes": { "type": "integer", "minimum": 0 },
+        "first_at": { "$ref": "#/$defs/time" }, "last_at": { "$ref": "#/$defs/time" }
+      }
+    },
+    "readiness": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "operator_action", "automatic_enforcement", "reason_codes"],
+      "properties": {
+        "state": { "enum": ["collecting", "needs_labels", "needs_tuning", "operator_review_candidate", "invalid_shadow_behavior"] },
+        "operator_action": { "enum": ["remain_shadow", "review_reversible_canary"] },
+        "automatic_enforcement": { "const": false },
+        "reason_codes": { "type": "array", "items": { "$ref": "#/$defs/code" }, "maxItems": 16 }
+      }
+    },
+    "actions": {
+      "type": "object", "additionalProperties": false, "required": ["allow", "observe", "delay", "throttle", "challenge", "block"],
+      "properties": { "allow": { "$ref": "#/$defs/count" }, "observe": { "$ref": "#/$defs/count" }, "delay": { "$ref": "#/$defs/count" }, "throttle": { "$ref": "#/$defs/count" }, "challenge": { "$ref": "#/$defs/count" }, "block": { "$ref": "#/$defs/count" } }
+    },
+    "decision_summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total", "enforced", "computed", "modes", "shadow_risky_enforcements", "computed_challenge_rate"],
+      "properties": {
+        "total": { "$ref": "#/$defs/count" }, "enforced": { "$ref": "#/$defs/actions" }, "computed": { "$ref": "#/$defs/actions" },
+        "modes": {
+          "type": "object", "additionalProperties": false, "required": ["shadow", "canary", "enforce"],
+          "properties": { "shadow": { "$ref": "#/$defs/count" }, "canary": { "$ref": "#/$defs/count" }, "enforce": { "$ref": "#/$defs/count" } }
+        },
+        "shadow_risky_enforcements": { "$ref": "#/$defs/count" }, "computed_challenge_rate": { "$ref": "#/$defs/ratio" }
+      }
+    },
+    "outcome_summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total", "coverage", "successful_action", "challenge_passed", "challenge_failed", "challenge_abandoned", "human_confirmed", "operator_confirmed_abuse", "appeal_requested", "fallback_used", "unknown", "challenge_results", "challenge_failure_rate"],
+      "properties": {
+        "total": { "$ref": "#/$defs/count" }, "coverage": { "$ref": "#/$defs/ratio" },
+        "successful_action": { "$ref": "#/$defs/count" }, "challenge_passed": { "$ref": "#/$defs/count" }, "challenge_failed": { "$ref": "#/$defs/count" },
+        "challenge_abandoned": { "$ref": "#/$defs/count" }, "human_confirmed": { "$ref": "#/$defs/count" }, "operator_confirmed_abuse": { "$ref": "#/$defs/count" },
+        "appeal_requested": { "$ref": "#/$defs/count" }, "fallback_used": { "$ref": "#/$defs/count" }, "unknown": { "$ref": "#/$defs/count" },
+        "challenge_results": { "$ref": "#/$defs/count" }, "challenge_failure_rate": { "$ref": "#/$defs/ratio" }
+      }
+    },
+    "score_summary": {
+      "type": "object", "additionalProperties": false, "required": ["minimum", "maximum", "mean"],
+      "properties": { "minimum": { "$ref": "#/$defs/ratio" }, "maximum": { "$ref": "#/$defs/ratio" }, "mean": { "$ref": "#/$defs/ratio" } }
+    },
+    "scores": {
+      "type": "object", "additionalProperties": false, "required": ["automation_risk", "abuse_intent_risk", "account_continuity"],
+      "properties": { "automation_risk": { "$ref": "#/$defs/score_summary" }, "abuse_intent_risk": { "$ref": "#/$defs/score_summary" }, "account_continuity": { "$ref": "#/$defs/score_summary" } }
+    },
+    "proportion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["count", "total", "rate", "lower_95", "upper_95"],
+      "properties": {
+        "count": { "$ref": "#/$defs/count" }, "total": { "$ref": "#/$defs/count" },
+        "rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lower_95": { "type": "number", "minimum": 0, "maximum": 1 },
+        "upper_95": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "confusion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["true_positive", "false_positive", "true_negative", "false_negative"],
+      "properties": {
+        "true_positive": { "$ref": "#/$defs/count" }, "false_positive": { "$ref": "#/$defs/count" },
+        "true_negative": { "$ref": "#/$defs/count" }, "false_negative": { "$ref": "#/$defs/count" }
+      }
+    },
+    "outcome_kinds": {
+      "type": "object", "additionalProperties": false,
+      "required": ["successful_action", "challenge_passed", "challenge_failed", "challenge_abandoned", "human_confirmed", "operator_confirmed_abuse", "appeal_requested", "fallback_used", "unknown"],
+      "properties": {
+        "successful_action": { "$ref": "#/$defs/count" }, "challenge_passed": { "$ref": "#/$defs/count" }, "challenge_failed": { "$ref": "#/$defs/count" },
+        "challenge_abandoned": { "$ref": "#/$defs/count" }, "human_confirmed": { "$ref": "#/$defs/count" }, "operator_confirmed_abuse": { "$ref": "#/$defs/count" },
+        "appeal_requested": { "$ref": "#/$defs/count" }, "fallback_used": { "$ref": "#/$defs/count" }, "unknown": { "$ref": "#/$defs/count" }
+      }
+    },
+    "endpoint_evaluation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["computed_risky_rate", "challenge_failure_rate", "challenge_abandonment_rate", "fallback_outcome_share", "appeal_outcome_share", "unknown_outcome_share", "confirmed_labels", "abuse_label_share"],
+      "properties": {
+        "computed_risky_rate": { "$ref": "#/$defs/proportion" }, "challenge_failure_rate": { "$ref": "#/$defs/proportion" },
+        "challenge_abandonment_rate": { "$ref": "#/$defs/proportion" }, "fallback_outcome_share": { "$ref": "#/$defs/proportion" },
+        "appeal_outcome_share": { "$ref": "#/$defs/proportion" }, "unknown_outcome_share": { "$ref": "#/$defs/proportion" },
+        "confirmed_labels": { "$ref": "#/$defs/count" }, "abuse_label_share": { "$ref": "#/$defs/proportion" }
+      }
+    },
+    "linked_evaluation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["decisions", "confirmed_labels", "ambiguous_ground_truth", "confusion", "false_positive_rate", "abuse_recall", "abuse_precision", "mature_challenges", "challenge_passed", "challenge_failed", "challenge_abandoned", "fallback_used", "unresolved_mature_challenges", "ambiguous_challenge_outcomes", "challenge_pass_rate", "challenge_failure_rate", "challenge_abandonment_rate", "fallback_rate"],
+      "properties": {
+        "decisions": { "$ref": "#/$defs/count" }, "confirmed_labels": { "$ref": "#/$defs/count" }, "ambiguous_ground_truth": { "$ref": "#/$defs/count" },
+        "confusion": { "$ref": "#/$defs/confusion" },
+        "false_positive_rate": { "$ref": "#/$defs/proportion" }, "abuse_recall": { "$ref": "#/$defs/proportion" }, "abuse_precision": { "$ref": "#/$defs/proportion" },
+        "mature_challenges": { "$ref": "#/$defs/count" }, "challenge_passed": { "$ref": "#/$defs/count" }, "challenge_failed": { "$ref": "#/$defs/count" },
+        "challenge_abandoned": { "$ref": "#/$defs/count" }, "fallback_used": { "$ref": "#/$defs/count" },
+        "unresolved_mature_challenges": { "$ref": "#/$defs/count" }, "ambiguous_challenge_outcomes": { "$ref": "#/$defs/count" },
+        "challenge_pass_rate": { "$ref": "#/$defs/proportion" }, "challenge_failure_rate": { "$ref": "#/$defs/proportion" },
+        "challenge_abandonment_rate": { "$ref": "#/$defs/proportion" }, "fallback_rate": { "$ref": "#/$defs/proportion" }
+      }
+    },
+    "linkage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["unique_decision_ids", "duplicate_decision_ids", "duplicate_decision_records", "outcome_events_with_decision_id", "legacy_outcome_events_without_id", "matched_outcome_events", "unknown_decision_outcome_events", "endpoint_mismatch_outcome_events", "duplicate_outcome_events", "confirmed_decision_labels", "confirmed_label_coverage", "ambiguous_ground_truth_decisions", "ambiguous_challenge_decisions"],
+      "properties": {
+        "unique_decision_ids": { "$ref": "#/$defs/count" }, "duplicate_decision_ids": { "$ref": "#/$defs/count" }, "duplicate_decision_records": { "$ref": "#/$defs/count" },
+        "outcome_events_with_decision_id": { "$ref": "#/$defs/count" }, "legacy_outcome_events_without_id": { "$ref": "#/$defs/count" },
+        "matched_outcome_events": { "$ref": "#/$defs/count" }, "unknown_decision_outcome_events": { "$ref": "#/$defs/count" },
+        "endpoint_mismatch_outcome_events": { "$ref": "#/$defs/count" }, "duplicate_outcome_events": { "$ref": "#/$defs/count" },
+        "confirmed_decision_labels": { "$ref": "#/$defs/count" }, "confirmed_label_coverage": { "$ref": "#/$defs/proportion" },
+        "ambiguous_ground_truth_decisions": { "$ref": "#/$defs/count" }, "ambiguous_challenge_decisions": { "$ref": "#/$defs/count" }
+      }
+    },
+    "endpoint_summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["endpoint_class", "decisions", "outcomes", "computed_risky_actions", "human_confirmed", "operator_confirmed_abuse", "outcome_kinds", "evaluation", "linked_evaluation"],
+      "properties": {
+        "endpoint_class": { "$ref": "#/$defs/endpoint" }, "decisions": { "$ref": "#/$defs/count" }, "outcomes": { "$ref": "#/$defs/count" },
+        "computed_risky_actions": { "$ref": "#/$defs/count" }, "human_confirmed": { "$ref": "#/$defs/count" }, "operator_confirmed_abuse": { "$ref": "#/$defs/count" },
+        "outcome_kinds": { "$ref": "#/$defs/outcome_kinds" },
+        "evaluation": { "$ref": "#/$defs/endpoint_evaluation" },
+        "linked_evaluation": { "$ref": "#/$defs/linked_evaluation" }
+      }
+    },
+    "evaluation_slice": {
+      "type": "object", "additionalProperties": false,
+      "required": ["endpoint_class", "evaluation_cohort", "evaluation"],
+      "properties": {
+        "endpoint_class": { "$ref": "#/$defs/endpoint" }, "evaluation_cohort": { "$ref": "#/$defs/cohort" },
+        "evaluation": { "$ref": "#/$defs/linked_evaluation" }
+      }
+    },
+    "difference_estimate": {
+      "type": "object", "additionalProperties": false, "required": ["estimate", "lower_95", "upper_95"],
+      "properties": { "estimate": { "$ref": "#/$defs/difference" }, "lower_95": { "$ref": "#/$defs/difference" }, "upper_95": { "$ref": "#/$defs/difference" } }
+    },
+    "canary_comparison": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rollout_id", "endpoint_class", "comparable", "shadow_decisions", "canary_decisions", "shadow_computed_risky", "canary_computed_risky", "canary_enforced_risky", "computed_risk_difference"],
+      "properties": {
+        "rollout_id": { "$ref": "#/$defs/code" }, "endpoint_class": { "$ref": "#/$defs/endpoint" }, "comparable": { "type": "boolean" },
+        "shadow_decisions": { "$ref": "#/$defs/count" }, "canary_decisions": { "$ref": "#/$defs/count" },
+        "shadow_computed_risky": { "$ref": "#/$defs/proportion" }, "canary_computed_risky": { "$ref": "#/$defs/proportion" },
+        "canary_enforced_risky": { "$ref": "#/$defs/proportion" }, "computed_risk_difference": { "$ref": "#/$defs/difference_estimate" }
+      }
+    },
+    "canary_challenge_budget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rollout_id", "endpoint_class", "mature_challenges", "challenge_passed", "challenge_failed", "challenge_abandoned", "fallback_used", "unresolved_mature_challenges", "ambiguous_challenge_outcomes", "terminal_outcome_coverage", "challenge_abandonment_rate", "fallback_rate"],
+      "properties": {
+        "rollout_id": { "$ref": "#/$defs/code" }, "endpoint_class": { "$ref": "#/$defs/endpoint" },
+        "mature_challenges": { "$ref": "#/$defs/count" }, "challenge_passed": { "$ref": "#/$defs/count" },
+        "challenge_failed": { "$ref": "#/$defs/count" }, "challenge_abandoned": { "$ref": "#/$defs/count" },
+        "fallback_used": { "$ref": "#/$defs/count" }, "unresolved_mature_challenges": { "$ref": "#/$defs/count" },
+        "ambiguous_challenge_outcomes": { "$ref": "#/$defs/count" }, "terminal_outcome_coverage": { "$ref": "#/$defs/proportion" },
+        "challenge_abandonment_rate": { "$ref": "#/$defs/proportion" }, "fallback_rate": { "$ref": "#/$defs/proportion" }
+      }
+    },
+    "counted_values": {
+      "type": "array", "maxItems": 256,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["value", "count"],
+        "properties": { "value": { "$ref": "#/$defs/code" }, "count": { "$ref": "#/$defs/count" } }
+      }
+    },
+    "recommendations": {
+      "type": "array", "maxItems": 16,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["code", "priority", "disposition", "metric", "observed", "threshold", "unit", "message"],
+        "properties": {
+          "code": { "$ref": "#/$defs/code" }, "priority": { "enum": ["critical", "high", "medium", "low"] },
+          "disposition": { "enum": ["required", "hold", "review_candidate"] }, "metric": { "$ref": "#/$defs/code" },
+          "observed": { "type": "number", "minimum": 0 }, "threshold": { "type": "number", "minimum": 0 },
+          "unit": { "enum": ["count", "ratio", "boolean"] }, "message": { "type": "string", "minLength": 1, "maxLength": 512 }
+        }
+      }
+    }
+  }
+}
