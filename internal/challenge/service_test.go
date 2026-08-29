@@ -158,6 +158,9 @@ func TestExpiryFallbackCapacityAndSweep(t *testing.T) {
 	if len(outcomes) != 1 || outcomes[0].Kind != "fallback_used" {
 		t.Fatalf("fallback outcomes = %+v", outcomes)
 	}
+	if err := service.Fallback(metadata.ChallengeID, request.SessionID, now); !errors.Is(err, ErrInvalidState) || len(outcomes) != 1 {
+		t.Fatalf("fallback replay = %v outcomes=%+v", err, outcomes)
+	}
 	if swept := service.Sweep(decision.Directive.ExpiresAt); swept != 0 {
 		t.Fatalf("terminal record emitted abandonment: %d", swept)
 	}

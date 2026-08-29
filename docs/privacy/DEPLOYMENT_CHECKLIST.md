@@ -94,6 +94,10 @@ Primary source: [§ 25 TDDDG](https://www.gesetze-im-internet.de/ttdsg/__25.html
   mapping absence to suspicion.
 - Provide an accessible fallback, appeal or support path before challenge or
   blocking can be enabled.
+- Before a challenge canary, exercise the actual deployed page with keyboard
+  only, 200% zoom, forced colors, reduced motion and at least one representative
+  screen reader. Verify the JavaScript and no-JavaScript fallback paths both
+  create the expected closed outcome and never accept a browser return URL.
 
 ## 5. Complete the release review
 

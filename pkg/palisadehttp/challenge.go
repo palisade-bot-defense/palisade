@@ -6,7 +6,9 @@ import (
 	"errors"
 	"html/template"
 	"io"
+	"mime"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -61,28 +63,148 @@ var challengePage = template.Must(template.New("challenge").Parse(`<!doctype htm
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Request verification</title>
+  <link rel="stylesheet" href="{{.Prefix}}/challenge.css">
   <script src="{{.Prefix}}/challenge.js" defer></script>
 </head>
 <body>
-  <main id="palisade-challenge" data-prefix="{{.Prefix}}" data-challenge-id="{{.ChallengeID}}" data-action="{{.Action}}" data-endpoint-class="{{.EndpointClass}}" data-fallback-path="{{.FallbackPath}}">
-    <h1>Verify this request</h1>
-    <p>This short confirmation protects the service from abusive automation. It does not identify you.</p>
-    <p id="palisade-status" role="status" aria-live="polite">Loading verification…</p>
-    <button id="palisade-continue" type="button" disabled>Continue</button>
-    <button id="palisade-fallback" type="button">Use another verification method</button>
-    <noscript>This verification needs JavaScript. Use the site support or fallback path instead.</noscript>
+  <main id="palisade-challenge" aria-labelledby="palisade-title" aria-describedby="palisade-description" data-prefix="{{.Prefix}}" data-challenge-id="{{.ChallengeID}}" data-action="{{.Action}}" data-endpoint-class="{{.EndpointClass}}" data-fallback-path="{{.FallbackPath}}">
+    <section class="challenge-shell">
+      <p class="eyebrow">Request protection</p>
+      <h1 id="palisade-title">Verify this request</h1>
+      <p id="palisade-description">This short confirmation protects the service from abusive automation. It does not identify you.</p>
+      <p id="palisade-status" class="status" role="status" aria-live="polite" aria-atomic="true">Loading verification…</p>
+      <div class="actions">
+        <button id="palisade-continue" class="primary" type="button" aria-describedby="palisade-status" disabled>Continue</button>
+        <form id="palisade-fallback-form" method="post" action="{{.Prefix}}/challenge/fallback" autocomplete="off">
+          <input type="hidden" name="challenge_id" value="{{.ChallengeID}}">
+          <button id="palisade-fallback" class="secondary" type="submit">Use another verification method</button>
+        </form>
+      </div>
+      <noscript><p class="notice" role="note">JavaScript verification is unavailable. The alternative verification button above works without JavaScript.</p></noscript>
+    </section>
   </main>
 </body>
 </html>
 `))
+
+var fallbackResultPage = template.Must(template.New("fallback-result").Parse(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="{{.Prefix}}/challenge.css">
+</head>
+<body>
+  <main aria-labelledby="palisade-result-title">
+    <section class="challenge-shell">
+      <p class="eyebrow">Request protection</p>
+      <h1 id="palisade-result-title">{{.Title}}</h1>
+      <p class="status" role="status">{{.Message}}</p>
+    </section>
+  </main>
+</body>
+</html>
+`))
+
+const challengeStyles = `:root {
+  color-scheme: light dark;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 100%;
+  line-height: 1.5;
+}
+* { box-sizing: border-box; }
+body {
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  background: #f3f6fb;
+  color: #172033;
+}
+main { width: 100%; padding: 1rem; }
+.challenge-shell {
+  width: min(100%, 42rem);
+  margin: 0 auto;
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border: 1px solid #b8c3d6;
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 1rem 3rem rgba(27, 43, 72, 0.12);
+}
+.eyebrow {
+  margin: 0 0 0.5rem;
+  color: #36547d;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+h1 { margin: 0 0 1rem; font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.15; }
+p { max-width: 65ch; }
+.status {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border-left: 0.3rem solid #245a9b;
+  background: #eaf2fc;
+  color: #132c4d;
+  font-weight: 600;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: stretch; }
+.actions form { display: flex; margin: 0; }
+button {
+  min-width: 10rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+  border: 2px solid transparent;
+  border-radius: 0.55rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+button.primary { background: #174f91; color: #ffffff; }
+button.secondary { border-color: #415a77; background: #ffffff; color: #223a57; }
+button:disabled { cursor: not-allowed; opacity: 0.6; }
+button:focus-visible {
+  outline: 3px solid #b94d00;
+  outline-offset: 3px;
+}
+.notice { margin: 1.25rem 0 0; padding-top: 1rem; border-top: 1px solid #b8c3d6; }
+@media (max-width: 32rem) {
+  .actions, .actions form, button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  body { background: #101722; color: #f5f7fb; }
+  .challenge-shell { border-color: #66758b; background: #182231; box-shadow: none; }
+  .eyebrow { color: #b9d4fb; }
+  .status { border-left-color: #8fc0ff; background: #233852; color: #ffffff; }
+  button.primary { background: #9ac7ff; color: #08182b; }
+  button.secondary { border-color: #c5d5e9; background: #182231; color: #ffffff; }
+  button:focus-visible { outline-color: #ffd08a; }
+  .notice { border-top-color: #66758b; }
+}
+@media (forced-colors: active) {
+  .challenge-shell, .status, button { border: 2px solid CanvasText; }
+  button:focus-visible { outline: 3px solid Highlight; }
+}
+`
 
 const challengeScript = `(() => {
   "use strict";
   const root = document.getElementById("palisade-challenge");
   const status = document.getElementById("palisade-status");
   const proceed = document.getElementById("palisade-continue");
+  const fallbackForm = document.getElementById("palisade-fallback-form");
   const fallback = document.getElementById("palisade-fallback");
-  if (!root || !status || !proceed || !fallback) return;
+  if (!root || !status || !proceed || !fallbackForm || !fallback) return;
   const prefix = root.dataset.prefix;
   const challengeId = root.dataset.challengeId;
   const action = root.dataset.action;
@@ -90,6 +212,7 @@ const challengeScript = `(() => {
   const fallbackPath = root.dataset.fallbackPath;
   let verificationToken = "";
   let timer = 0;
+  root.setAttribute("aria-busy", "true");
 
   const jsonRequest = async (path, body) => fetch(prefix + path, {
     method: "POST",
@@ -114,14 +237,16 @@ const challengeScript = `(() => {
       }
       status.textContent = "Verification is ready.";
       proceed.disabled = false;
-      proceed.focus();
+      root.setAttribute("aria-busy", "false");
     } catch (_) {
       status.textContent = "Verification is unavailable. Try again or use the fallback.";
+      root.setAttribute("aria-busy", "false");
     }
   };
 
   proceed.addEventListener("click", async () => {
     proceed.disabled = true;
+    root.setAttribute("aria-busy", "true");
     status.textContent = "Verifying request…";
     try {
       const verified = await jsonRequest("/challenge/verify", {challenge_id: challengeId, verification_token: verificationToken});
@@ -136,22 +261,29 @@ const challengeScript = `(() => {
       });
       if (!redeemed.ok) throw new Error("redeem");
       status.textContent = "Verification complete. Continuing…";
+      root.setAttribute("aria-busy", "false");
       window.location.reload();
     } catch (_) {
       status.textContent = "Verification failed. Try again or use the fallback.";
+      root.setAttribute("aria-busy", "false");
       proceed.disabled = false;
     }
   });
 
-  fallback.addEventListener("click", async () => {
+  fallbackForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
     fallback.disabled = true;
+    root.setAttribute("aria-busy", "true");
+    status.textContent = "Requesting another verification method…";
     try {
       const response = await jsonRequest("/challenge/fallback", {challenge_id: challengeId});
       if (!response.ok) throw new Error("fallback");
       if (fallbackPath) { window.location.assign(fallbackPath); return; }
       status.textContent = "Use the site's support channel for another verification method.";
+      root.setAttribute("aria-busy", "false");
     } catch (_) {
       status.textContent = "The fallback is unavailable. Contact site support.";
+      root.setAttribute("aria-busy", "false");
       fallback.disabled = false;
     }
   });
@@ -165,11 +297,18 @@ func (m *Middleware) handleAdapterRoute(w http.ResponseWriter, r *http.Request) 
 		return false
 	}
 	switch {
+	case r.Method == http.MethodGet && r.URL.Path == m.prefix+"/challenge.css":
+		writeChallengeSecurityHeaders(w)
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		_, _ = w.Write([]byte(challengeStyles))
 	case r.Method == http.MethodGet && r.URL.Path == m.prefix+"/challenge.js":
 		writeChallengeSecurityHeaders(w)
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		_, _ = w.Write([]byte(challengeScript))
+	case r.Method == http.MethodGet && r.URL.Path == m.prefix+"/challenge/fallback":
+		m.writeFallbackResult(w, http.StatusOK, "Alternative verification requested", "Your choice was recorded. Continue with the site's support or account-verification process.")
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, m.prefix+"/challenge/"):
 		m.handleChallengeMetadata(w, r)
 	case r.Method == http.MethodPost && r.URL.Path == m.prefix+"/challenge/verify":
@@ -296,21 +435,38 @@ func (m *Middleware) handleChallengeRedeem(w http.ResponseWriter, r *http.Reques
 }
 
 func (m *Middleware) handleChallengeFallback(w http.ResponseWriter, r *http.Request) {
-	var payload challengeFallbackRequest
-	if decodeClientJSON(w, r, &payload) != nil || !validChallengeID(payload.ChallengeID) {
+	payload, formRequest, err := decodeChallengeFallback(w, r)
+	if err != nil || !validChallengeID(payload.ChallengeID) {
+		if formRequest {
+			m.writeFallbackResult(w, http.StatusBadRequest, "Alternative verification unavailable", "The request was invalid. Return to the protected page and try again.")
+			return
+		}
 		writeAdapterError(w, http.StatusBadRequest, "challenge_invalid")
 		return
 	}
-	cookie, ok := m.challengeCookie(w, r)
-	if !ok {
+	cookie, cookieErr := r.Cookie(SessionCookieName)
+	if cookieErr != nil || cookie.Value == "" || len(cookie.Value) > 4096 {
+		if formRequest {
+			m.writeFallbackResult(w, http.StatusUnauthorized, "Verification session unavailable", "Return to the protected page to start a new verification session.")
+			return
+		}
+		writeAdapterError(w, http.StatusUnauthorized, "invalid_session")
 		return
 	}
-	status, err := m.postJSON(r.Context(), "/v1/challenge/fallback", payload, &cookie, false, nil)
+	status, err := m.postJSON(r.Context(), "/v1/challenge/fallback", payload, cookie, false, nil)
 	if err != nil {
+		if formRequest {
+			m.writeFallbackResult(w, http.StatusServiceUnavailable, "Alternative verification unavailable", "The verification service is unavailable. Try again later.")
+			return
+		}
 		writeAdapterError(w, http.StatusServiceUnavailable, "palisade_unavailable")
 		return
 	}
 	if status != http.StatusNoContent {
+		if formRequest {
+			m.writeFallbackResult(w, safeChallengeRelayStatus(status), "Alternative verification unavailable", "The verification request could not be completed. Return to the protected page and try again.")
+			return
+		}
 		writeChallengeRelayError(w, status)
 		return
 	}
@@ -318,7 +474,17 @@ func (m *Middleware) handleChallengeFallback(w http.ResponseWriter, r *http.Requ
 		m.state.closePending(pending.Value, payload.ChallengeID, cookie.Value, m.now().UTC()) {
 		clearPendingCookie(w)
 	}
-	w.WriteHeader(http.StatusNoContent)
+	if !formRequest {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	writeChallengeSecurityHeaders(w)
+	w.Header().Set("Cache-Control", "no-store")
+	if m.fallbackPath != "" {
+		http.Redirect(w, r, m.fallbackPath, http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, m.prefix+"/challenge/fallback", http.StatusSeeOther)
 }
 
 func (m *Middleware) challengeCookie(w http.ResponseWriter, r *http.Request) (http.Cookie, bool) {
@@ -357,7 +523,7 @@ func (m *Middleware) writeChallengePage(w http.ResponseWriter, r *http.Request, 
 }
 
 func writeChallengeSecurityHeaders(w http.ResponseWriter) {
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 	w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
 	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 	w.Header().Set("Referrer-Policy", "no-referrer")
@@ -379,6 +545,32 @@ func decodeClientJSON(w http.ResponseWriter, r *http.Request, target any) error 
 	return nil
 }
 
+func decodeChallengeFallback(w http.ResponseWriter, r *http.Request) (challengeFallbackRequest, bool, error) {
+	mediaType, _, mediaErr := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if mediaErr != nil && r.Header.Get("Content-Type") != "" {
+		return challengeFallbackRequest{}, false, mediaErr
+	}
+	if mediaType == "" || mediaType == "application/json" {
+		var payload challengeFallbackRequest
+		err := decodeClientJSON(w, r, &payload)
+		return payload, false, err
+	}
+	if mediaType != "application/x-www-form-urlencoded" || r.URL.RawQuery != "" {
+		return challengeFallbackRequest{}, mediaType == "application/x-www-form-urlencoded", ErrInvalidResponse
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1024)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return challengeFallbackRequest{}, true, err
+	}
+	values, err := url.ParseQuery(string(body))
+	challengeIDs := values["challenge_id"]
+	if err != nil || len(values) != 1 || len(challengeIDs) != 1 {
+		return challengeFallbackRequest{}, true, ErrInvalidResponse
+	}
+	return challengeFallbackRequest{ChallengeID: challengeIDs[0]}, true, nil
+}
+
 func validChallengeMetadata(metadata challengeMetadata, now time.Time) bool {
 	return validChallengeID(metadata.ChallengeID) && metadata.Family == "timed_confirmation_v2" && metadata.ReadyAt.Before(metadata.ExpiresAt) &&
 		metadata.ExpiresAt.After(now) && !metadata.ExpiresAt.After(now.Add(DefaultPendingTTL)) && metadata.AttemptsRemaining >= 0 && metadata.AttemptsRemaining <= 20 && stableToken(metadata.VerificationToken, 43) &&
@@ -398,13 +590,30 @@ func stableToken(value string, length int) bool {
 }
 
 func writeChallengeRelayError(w http.ResponseWriter, status int) {
+	writeAdapterError(w, safeChallengeRelayStatus(status), "challenge_rejected")
+}
+
+func safeChallengeRelayStatus(status int) int {
 	switch status {
 	case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusConflict, http.StatusGone,
 		http.StatusTooEarly, http.StatusTooManyRequests, http.StatusServiceUnavailable:
-		writeAdapterError(w, status, "challenge_rejected")
+		return status
 	default:
-		writeAdapterError(w, http.StatusServiceUnavailable, "palisade_invalid_response")
+		return http.StatusServiceUnavailable
 	}
+}
+
+func (m *Middleware) writeFallbackResult(w http.ResponseWriter, status int, title, message string) {
+	var body bytes.Buffer
+	if err := fallbackResultPage.Execute(&body, struct{ Prefix, Title, Message string }{m.prefix, title, message}); err != nil {
+		writeAdapterError(w, http.StatusInternalServerError, "palisade_challenge_page_failed")
+		return
+	}
+	writeChallengeSecurityHeaders(w)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(status)
+	_, _ = w.Write(body.Bytes())
 }
 
 func writeLocalJSON(w http.ResponseWriter, status int, value any) {

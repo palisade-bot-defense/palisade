@@ -103,7 +103,7 @@ Deliverables:
 - [x] vary bounded response cost by endpoint value, evidence confidence, recent
   behavior and retry history;
 - [x] harden one-time, action-bound challenge redemption against replay and relay;
-- provide keyboard, screen-reader, reduced-motion and non-JavaScript fallback
+- [x] provide keyboard, screen-reader, reduced-motion and non-JavaScript fallback
   paths with equal security accounting;
 - test the progression `observe → delay → throttle → accessible step-up →
   temporary block` under load and failure;

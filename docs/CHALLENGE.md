@@ -75,14 +75,32 @@ Example verification bodies:
 
 The protocol family is `timed_confirmation_v2`. Its contract is nonvisual,
 keyboard-operable and does not collect pointer paths, typing patterns or
-content. The origin adapter is responsible for rendering clear accessible UI,
-announcing the remaining wait without focus traps, and preserving a documented
-support route.
+content. The reference origin adapter renders semantic headings and status
+regions, keeps every control keyboard-operable, preserves a visible focus
+indicator and never moves focus when the challenge becomes ready. Its external
+stylesheet provides at least 44 CSS-pixel controls, high-contrast light/dark and
+forced-color states, zoom-safe wrapping and a `prefers-reduced-motion` rule.
+That preference is applied in the browser only and is not sent to PALISADE.
+
+The fallback is progressive enhancement rather than a JavaScript-only button.
+The page contains a closed same-origin HTML form with only `challenge_id`.
+Without JavaScript it submits directly to the adapter; with JavaScript the same
+form is intercepted and sent as JSON. The adapter rejects query parameters,
+duplicate or additional fields and oversized bodies, then calls the same
+PALISADE fallback endpoint in either case. Only a successful backend close
+records `fallback_used`, clears the pending mapping and redirects with `303` to
+the configured local fallback path. No return URL is accepted from the browser.
 
 `POST /v1/challenge/fallback` closes the active challenge and records only the
 closed `fallback_used` outcome. The deployment may then offer account
 reauthentication, WebAuthn or human support as appropriate for that endpoint.
 PALISADE does not accept a fallback/return URL in this API.
+
+Configure the reference adapter's `FallbackPath` before enabling a challenge
+canary. It accepts only a clean same-origin absolute path without a query or
+fragment. If it is omitted, the non-JavaScript form still records the fallback
+and redirects to a static accessible confirmation page, but the operator must
+provide and document the actual support continuation.
 
 ## State, limits and failure semantics
 

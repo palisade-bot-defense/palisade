@@ -47,6 +47,10 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
 - Consumer contract tests ensure the server and Go origin adapter agree on
   pass, delay, throttle, challenge and block responses and reject malformed or
   risky shadow responses.
+- Challenge accessibility contract tests cover semantic status output, visible
+  focus styling, 44-pixel controls, reduced-motion and forced-color CSS, absence
+  of focus hijacking, a working no-JavaScript form, closed form parsing, safe
+  same-origin redirect selection and identical fallback outcome handling.
 - Component tests cover privacy-sensitive sensor behavior and truthful
   aggregate dashboard presentation, including explicit protected-handler scope
   and outcome-ingestion loss states.

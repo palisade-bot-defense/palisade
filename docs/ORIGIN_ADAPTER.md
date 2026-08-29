@@ -200,6 +200,17 @@ same-origin credentialed fetches, keyboard controls and an ARIA live status.
 It relays metadata, verification, redemption and fallback calls without
 exposing the backend credential.
 
+The fallback control is a real same-origin POST form and therefore remains
+usable when JavaScript is blocked or fails. JavaScript only enhances that form;
+both paths reach the same backend fallback call, record the same closed
+`fallback_used` outcome and close the same pending state. Form parsing is
+bounded and closed to one `challenge_id`; browser-supplied redirects, queries
+and extra fields are rejected. `FallbackPath` is configuration-only and must be
+a clean local path without query or fragment. The bundled stylesheet is served
+from the adapter under the same prefix, includes visible focus and forced-color
+states and disables motion under `prefers-reduced-motion` without reporting the
+preference.
+
 The initial request creates an HttpOnly, Secure, SameSite=Strict pending cookie
 and bounded in-memory entry. On every origin check it also derives a 32-byte
 server-only flow capability from the process-random key, signed session, target
@@ -241,7 +252,10 @@ the wrong request.
 The adapter requires HTTPS at the browser-facing origin because all continuity
 and challenge cookies are `Secure` and use the `__Host-` prefix. Keep the
 PALISADE API key only in server-side secret management. Exclude `/__palisade`
-from application route rewriting, authentication redirects and caches.
+from application route rewriting, authentication redirects and caches. Also
+exclude the challenge stylesheet, script and fallback POST from content
+transformation; retain the adapter's CSP and `no-store` headers on dynamic
+pages.
 
 ## Rollout order
 

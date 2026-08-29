@@ -210,6 +210,11 @@ func (f *fakePalisade) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	case r.Method == http.MethodPost && r.URL.Path == "/v1/challenge/fallback":
 		f.fallbacks.Add(1)
+		var payload challengeFallbackRequest
+		decodeFakeJSON(f.t, r, &payload)
+		if payload.ChallengeID != testChallengeID {
+			f.t.Errorf("fallback payload = %+v", payload)
+		}
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		f.t.Errorf("unexpected PALISADE request: %s %s", r.Method, r.URL.Path)
@@ -581,12 +586,18 @@ func TestChallengePageRelayAndOneTimeRetryGrant(t *testing.T) {
 	initial := httptest.NewRequest(http.MethodGet, "https://origin.example/protected?account=private", nil)
 	initialResponse := httptest.NewRecorder()
 	handler.ServeHTTP(initialResponse, initial)
-	if initialResponse.Code != http.StatusForbidden || !strings.Contains(initialResponse.Body.String(), "Verify this request") ||
-		strings.Contains(initialResponse.Body.String(), "account=private") || initialResponse.Header().Get("Content-Security-Policy") == "" {
+	page := initialResponse.Body.String()
+	if initialResponse.Code != http.StatusForbidden || !strings.Contains(page, "Verify this request") ||
+		!strings.Contains(page, `aria-live="polite" aria-atomic="true"`) || !strings.Contains(page, `method="post" action="/__palisade/challenge/fallback"`) ||
+		!strings.Contains(page, `<noscript>`) || !strings.Contains(page, `href="/__palisade/challenge.css"`) || strings.Contains(page, `<style`) ||
+		strings.Contains(page, "account=private") || initialResponse.Header().Get("Content-Security-Policy") == "" {
 		t.Fatalf("challenge page = %d headers=%v body=%s", initialResponse.Code, initialResponse.Header(), initialResponse.Body.String())
 	}
 	sessionCookie := findCookie(t, initialResponse.Result().Cookies(), SessionCookieName)
 	pendingCookie := findCookie(t, initialResponse.Result().Cookies(), PendingCookieName)
+	if !pendingCookie.Secure || !pendingCookie.HttpOnly || pendingCookie.SameSite != http.SameSiteStrictMode {
+		t.Fatalf("unsafe pending cookie: %+v", pendingCookie)
+	}
 
 	metadata := httptest.NewRequest(http.MethodGet, "https://origin.example/__palisade/challenge/"+testChallengeID, nil)
 	metadata.AddCookie(sessionCookie)
@@ -651,6 +662,154 @@ func TestChallengePageRelayAndOneTimeRetryGrant(t *testing.T) {
 	}
 	if fake.metadataGets.Load() != 1 || fake.verifications.Load() != 1 || fake.redemptions.Load() != 1 {
 		t.Fatalf("challenge calls metadata=%d verify=%d redeem=%d", fake.metadataGets.Load(), fake.verifications.Load(), fake.redemptions.Load())
+	}
+}
+
+func TestChallengeAssetsExposeKeyboardReducedMotionAndNoFocusHijack(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	guard := newTestMiddleware(t, "https://service.example", now, FailClosed)
+	handler := guard.Handler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("challenge asset reached protected application")
+	}))
+
+	cssResponse := httptest.NewRecorder()
+	handler.ServeHTTP(cssResponse, httptest.NewRequest(http.MethodGet, "https://origin.example/__palisade/challenge.css", nil))
+	css := cssResponse.Body.String()
+	if cssResponse.Code != http.StatusOK || !strings.HasPrefix(cssResponse.Header().Get("Content-Type"), "text/css") ||
+		!strings.Contains(css, "button:focus-visible") || !strings.Contains(css, "min-height: 2.75rem") ||
+		!strings.Contains(css, "prefers-reduced-motion: reduce") || !strings.Contains(css, "forced-colors: active") {
+		t.Fatalf("challenge CSS contract = %d %v %s", cssResponse.Code, cssResponse.Header(), css)
+	}
+
+	scriptResponse := httptest.NewRecorder()
+	handler.ServeHTTP(scriptResponse, httptest.NewRequest(http.MethodGet, "https://origin.example/__palisade/challenge.js", nil))
+	script := scriptResponse.Body.String()
+	if scriptResponse.Code != http.StatusOK || !strings.HasPrefix(scriptResponse.Header().Get("Content-Type"), "text/javascript") ||
+		!strings.Contains(script, `fallbackForm.addEventListener("submit"`) || !strings.Contains(script, "event.preventDefault()") ||
+		!strings.Contains(script, `root.setAttribute("aria-busy", "true")`) || strings.Contains(script, ".focus()") {
+		t.Fatalf("challenge JS contract = %d %v %s", scriptResponse.Code, scriptResponse.Header(), script)
+	}
+	policy := scriptResponse.Header().Get("Content-Security-Policy")
+	if !strings.Contains(policy, "style-src 'self'") || !strings.Contains(policy, "form-action 'self'") || strings.Contains(policy, "'unsafe-inline'") {
+		t.Fatalf("challenge CSP = %q", policy)
+	}
+}
+
+func TestNoScriptFallbackRecordsSameOutcomeAndRedirectsOnlyToConfiguredPath(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	fake := &fakePalisade{t: t, now: now, challenge: true}
+	service := httptest.NewServer(fake)
+	defer service.Close()
+	guard, err := New(Config{
+		BaseURL: service.URL, APIKey: "adapter-key", Classifier: StaticClassification("read", "public_content"),
+		FailureMode: FailClosed, FallbackPath: "/support/verification",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	guard.now = func() time.Time { return now }
+	handler := guard.Handler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("challenged request reached protected application")
+	}))
+
+	initialResponse := httptest.NewRecorder()
+	handler.ServeHTTP(initialResponse, httptest.NewRequest(http.MethodGet, "https://origin.example/protected?private=value", nil))
+	session := findCookie(t, initialResponse.Result().Cookies(), SessionCookieName)
+	pending := findCookie(t, initialResponse.Result().Cookies(), PendingCookieName)
+
+	malformed := httptest.NewRequest(http.MethodPost, "https://origin.example/__palisade/challenge/fallback", strings.NewReader("challenge_id="+testChallengeID+"&return_url=https%3A%2F%2Fevil.example"))
+	malformed.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	malformed.AddCookie(session)
+	malformed.AddCookie(pending)
+	malformedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(malformedResponse, malformed)
+	if malformedResponse.Code != http.StatusBadRequest || fake.fallbacks.Load() != 0 || !strings.Contains(malformedResponse.Body.String(), "The request was invalid") ||
+		strings.Contains(malformedResponse.Body.String(), "evil.example") {
+		t.Fatalf("open-shape form fallback = %d calls=%d body=%s", malformedResponse.Code, fake.fallbacks.Load(), malformedResponse.Body.String())
+	}
+
+	fallback := httptest.NewRequest(http.MethodPost, "https://origin.example/__palisade/challenge/fallback", strings.NewReader("challenge_id="+testChallengeID))
+	fallback.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	fallback.AddCookie(session)
+	fallback.AddCookie(pending)
+	fallbackResponse := httptest.NewRecorder()
+	handler.ServeHTTP(fallbackResponse, fallback)
+	cleared := findCookie(t, fallbackResponse.Result().Cookies(), PendingCookieName)
+	if fallbackResponse.Code != http.StatusSeeOther || fallbackResponse.Header().Get("Location") != "/support/verification" ||
+		cleared.MaxAge != -1 || fake.fallbacks.Load() != 1 || !strings.Contains(fallbackResponse.Header().Get("Content-Security-Policy"), "form-action 'self'") {
+		t.Fatalf("no-script fallback = %d headers=%v cookies=%v calls=%d", fallbackResponse.Code, fallbackResponse.Header(), fallbackResponse.Result().Cookies(), fake.fallbacks.Load())
+	}
+	if _, _, err := guard.state.reserveGrant(pending.Value, testChallengeID, session.Value, "read", "public_content", now); !errors.Is(err, ErrInvalidPending) {
+		t.Fatalf("no-script fallback left pending grant usable: %v", err)
+	}
+}
+
+func TestNoScriptFallbackWithoutConfiguredPathUsesAccessibleCompletionPage(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	fake := &fakePalisade{t: t, now: now, challenge: true}
+	service := httptest.NewServer(fake)
+	defer service.Close()
+	guard := newTestMiddleware(t, service.URL, now, FailClosed)
+	handler := guard.Handler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("challenged request reached protected application")
+	}))
+
+	initialResponse := httptest.NewRecorder()
+	handler.ServeHTTP(initialResponse, httptest.NewRequest(http.MethodGet, "https://origin.example/protected", nil))
+	session := findCookie(t, initialResponse.Result().Cookies(), SessionCookieName)
+	pending := findCookie(t, initialResponse.Result().Cookies(), PendingCookieName)
+	fallback := httptest.NewRequest(http.MethodPost, "https://origin.example/__palisade/challenge/fallback", strings.NewReader("challenge_id="+testChallengeID))
+	fallback.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	fallback.AddCookie(session)
+	fallback.AddCookie(pending)
+	fallbackResponse := httptest.NewRecorder()
+	handler.ServeHTTP(fallbackResponse, fallback)
+	if fallbackResponse.Code != http.StatusSeeOther || fallbackResponse.Header().Get("Location") != "/__palisade/challenge/fallback" || fake.fallbacks.Load() != 1 {
+		t.Fatalf("default no-script fallback = %d headers=%v calls=%d", fallbackResponse.Code, fallbackResponse.Header(), fake.fallbacks.Load())
+	}
+
+	completeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(completeResponse, httptest.NewRequest(http.MethodGet, "https://origin.example/__palisade/challenge/fallback", nil))
+	if completeResponse.Code != http.StatusOK || !strings.Contains(completeResponse.Body.String(), "Alternative verification requested") ||
+		!strings.Contains(completeResponse.Body.String(), `role="status"`) || completeResponse.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("fallback completion page = %d headers=%v body=%s", completeResponse.Code, completeResponse.Header(), completeResponse.Body.String())
+	}
+}
+
+func TestNoScriptFallbackFormParsingIsClosedAndBounded(t *testing.T) {
+	tests := []struct {
+		name        string
+		target      string
+		contentType string
+		body        string
+		wantValid   bool
+		wantForm    bool
+	}{
+		{name: "valid", target: "https://origin.example/__palisade/challenge/fallback", contentType: "application/x-www-form-urlencoded", body: "challenge_id=" + testChallengeID, wantValid: true, wantForm: true},
+		{name: "duplicate", target: "https://origin.example/__palisade/challenge/fallback", contentType: "application/x-www-form-urlencoded", body: "challenge_id=" + testChallengeID + "&challenge_id=" + testChallengeID, wantForm: true},
+		{name: "extra field", target: "https://origin.example/__palisade/challenge/fallback", contentType: "application/x-www-form-urlencoded", body: "challenge_id=" + testChallengeID + "&return_url=%2Fprivate", wantForm: true},
+		{name: "query", target: "https://origin.example/__palisade/challenge/fallback?challenge_id=" + testChallengeID, contentType: "application/x-www-form-urlencoded", body: "challenge_id=" + testChallengeID, wantForm: true},
+		{name: "oversized", target: "https://origin.example/__palisade/challenge/fallback", contentType: "application/x-www-form-urlencoded", body: "challenge_id=" + strings.Repeat("a", 1100), wantForm: true},
+		{name: "wrong media type", target: "https://origin.example/__palisade/challenge/fallback", contentType: "text/plain", body: "challenge_id=" + testChallengeID},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, test.target, strings.NewReader(test.body))
+			request.Header.Set("Content-Type", test.contentType)
+			payload, formRequest, err := decodeChallengeFallback(httptest.NewRecorder(), request)
+			if formRequest != test.wantForm {
+				t.Fatalf("form request = %t, want %t", formRequest, test.wantForm)
+			}
+			if test.wantValid {
+				if err != nil || payload.ChallengeID != testChallengeID {
+					t.Fatalf("valid form = %+v, %v", payload, err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("unsafe form accepted: %+v", payload)
+			}
+		})
 	}
 }
 
@@ -973,6 +1132,20 @@ func TestNewRejectsPlaintextRemoteService(t *testing.T) {
 	config.BaseURL = "https://service.example"
 	if _, err := New(config); err != nil {
 		t.Fatalf("HTTPS service URL rejected: %v", err)
+	}
+}
+
+func TestNewRejectsUnsafeFallbackPath(t *testing.T) {
+	base := Config{
+		BaseURL: "https://service.example", APIKey: "adapter-key", FailureMode: FailClosed,
+		Classifier: StaticClassification("read", "public_content"),
+	}
+	for _, fallbackPath := range []string{"https://evil.example", "//evil.example", "/support?return=/private", "/support#private", "/support/../admin"} {
+		config := base
+		config.FallbackPath = fallbackPath
+		if _, err := New(config); !errors.Is(err, ErrInvalidConfig) {
+			t.Fatalf("unsafe fallback path %q error = %v", fallbackPath, err)
+		}
 	}
 }
 
