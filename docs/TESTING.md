@@ -48,9 +48,9 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
   pass, delay, throttle, challenge and block responses and reject malformed or
   risky shadow responses. The versioned, language-neutral [origin adapter
   conformance suite](ADAPTER_CONFORMANCE.md) executes the same nine synthetic
-  pass, response, outage and malformed-response scenarios against the Go
-  reference implementation and includes negative assertions for application
-  URLs, queries, bodies, user agents and cookies.
+  pass, response, outage and malformed-response scenarios against two
+  independently implemented Go reference adapters and includes negative
+  assertions for application URLs, queries, bodies, user agents and cookies.
 - Normalized-signal contract tests require the public Go validators,
   language-neutral catalog, OpenAPI enums and typed protobuf enums to remain
   identical. Poisoning cases reject unknown and trailing catalog fields,

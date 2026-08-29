@@ -35,7 +35,7 @@ license-check:
 	./scripts/license-check.sh
 
 adapter-conformance:
-	go test ./pkg/palisadehttp -run TestOriginAdapterConformanceSuiteV1 -count=1
+	go test ./pkg/palisadehttp ./pkg/palisadeproxy -run TestOriginAdapterConformanceSuiteV1 -count=1
 
 normalized-contract:
 	go test ./pkg/palisadecontract -count=1

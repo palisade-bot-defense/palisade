@@ -15,7 +15,7 @@ system or operator-selected surrounding infrastructure has no network traffic.
 
 | Initiator | Destination | Activation | Boundary |
 |---|---|---|---|
-| Reference Go origin adapter | Operator-configured PALISADE base URL | Operator enables the adapter | Non-loopback plain HTTP is rejected; remote endpoints require HTTPS. The adapter sends closed requests, required backend credentials and opaque capabilities only, including the server-only origin-flow binding required for challenge redemption. |
+| Reference Go origin and reverse-proxy adapters | Operator-configured PALISADE base URL | Operator enables an adapter | Non-loopback plain HTTP is rejected; remote endpoints require HTTPS. The adapters send closed requests, required backend credentials and opaque capabilities only, including the server-only origin-flow binding. The standalone proxy never trusts forwarding headers and does not implement browser challenge redemption. |
 | Browser sensor | Relative operator same-origin event path | Operator embeds the sensor | Absolute, protocol-relative, query-bearing and fragment-bearing endpoints are rejected. Custom browser code remains outside the reference boundary. |
 | Native challenge page | Relative same-origin challenge path | A measured policy returns `challenge` | Embedded browser code retrieves closed metadata and exchanges one-time verification/redemption capabilities. It has no configurable external destination. |
 | Operator Console | Same-origin loopback admin listener | Local operator opens the console | The server refuses a public admin listener outside the explicit synthetic container demo exception. Only aggregate summaries are returned. |

@@ -63,6 +63,7 @@ func TestRuntimeEgressManifestMatchesReviewedSourceCallsites(t *testing.T) {
 	wantGo := map[string][]string{
 		"pkg/palisadehttp/challenge.go": {"client_do", "http_new_request_with_context"},
 		"pkg/palisadehttp/client.go":    {"client_do", "http_default_client", "http_new_request_with_context"},
+		"pkg/palisadeproxy/proxy.go":    {"client_do", "http_default_client", "http_new_request_with_context"},
 	}
 	if got := scanGoOutboundCallsites(t, root); !reflect.DeepEqual(got, wantGo) {
 		t.Fatalf("review runtime egress and update manifest/test allowlist:\ngot  %#v\nwant %#v", got, wantGo)
