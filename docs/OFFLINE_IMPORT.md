@@ -1,6 +1,6 @@
 # Offline Shield import
 
-`palisade import-offline` is a local, read-only normalization boundary for an authorized Shield export. It does not upload, deploy or fetch anything. The command accepts only `offline_export`; deployment-local and explicitly opted-in community telemetry are future provenance categories and are intentionally rejected by this CLI.
+`palisade import-offline` is a local, read-only normalization boundary for an authorized Shield export. It does not upload, deploy or fetch anything. The command accepts only `offline_export`; other provenance categories remain intentionally rejected by this source-specific CLI. Operators with another source format can create the closed, chronological input described by the separate [generic local evidence import](LOCAL_IMPORT.md).
 
 ## Safety boundary
 

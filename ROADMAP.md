@@ -66,9 +66,12 @@ privacy and license checks pass from a clean checkout.
 
 ## v0.3 — prove the local evidence loop
 
+Status: in progress. The generic local import contract is implemented; bounded
+sequence derivation and adversarial evaluation are the next active blocks.
+
 Deliverables:
 
-- complete a generic, local-only import path for operator-authorized exports;
+- [x] complete a generic, local-only import path for operator-authorized exports;
 - derive bounded minute-scale sequence features such as burst shape, endpoint
   transitions, decoy interaction and challenge lifecycle without emitting raw
   IP addresses, URLs, form data or exact pointer paths;

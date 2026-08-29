@@ -40,12 +40,14 @@ type dataMapManifest struct {
 		ContentCollection     string `json:"content_collection"`
 		MissingBrowserSensor  string `json:"missing_browser_sensor"`
 	} `json:"default_rules"`
-	Flows []struct {
-		ID             string   `json:"id"`
-		DataClasses    []string `json:"data_classes"`
-		NetworkScope   string   `json:"network_scope"`
-		Persistence    string   `json:"persistence"`
-		ExternalExport bool     `json:"external_export"`
+	TransientLocalInputClasses []string `json:"transient_local_input_classes"`
+	Flows                      []struct {
+		ID                   string   `json:"id"`
+		DataClasses          []string `json:"data_classes"`
+		TransientDataClasses []string `json:"transient_data_classes"`
+		NetworkScope         string   `json:"network_scope"`
+		Persistence          string   `json:"persistence"`
+		ExternalExport       bool     `json:"external_export"`
 	} `json:"flows"`
 	RawClassesExcluded []string `json:"raw_classes_excluded"`
 }
@@ -110,15 +112,20 @@ func TestRuntimeEgressManifestMatchesReviewedSourceCallsites(t *testing.T) {
 func TestDataMapIsClosedAndContainsNoRawAcceptedClass(t *testing.T) {
 	root := repositoryRoot(t)
 	var manifest dataMapManifest
-	readRepositoryJSON(t, root, "manifests/data-map-v1.json", &manifest)
-	if manifest.SchemaVersion != "palisade.data-map.v1" || manifest.Scope != "reference_product_data_flows" ||
-		manifest.DefaultRules.ExternalExport || manifest.DefaultRules.RawNetworkIdentifiers != "excluded" ||
+	readRepositoryJSON(t, root, "manifests/data-map-v2.json", &manifest)
+	if manifest.SchemaVersion != "palisade.data-map.v2" || manifest.Scope != "reference_product_data_flows" ||
+		manifest.DefaultRules.ExternalExport || manifest.DefaultRules.RawNetworkIdentifiers != "excluded_from_runtime_and_persisted_output" ||
 		manifest.DefaultRules.ContentCollection != "excluded" || manifest.DefaultRules.MissingBrowserSensor != "neutral" {
 		t.Fatalf("unexpected data map defaults: %+v", manifest.DefaultRules)
 	}
 	wantFlowIDs := []string{
 		"aggregate_analysis", "browser_event_ingest", "continuity_cookie", "decision_request",
-		"delayed_outcome", "native_challenge_lifecycle", "operator_console_summary", "shadow_measurement", "sovereignty_report",
+		"delayed_outcome", "local_evidence_import", "native_challenge_lifecycle", "operator_console_summary", "shadow_measurement", "sovereignty_report",
+	}
+	wantTransient := []string{"operator_session_reference_may_be_personal_data", "operator_subject_reference_may_include_network_identifier"}
+	slices.Sort(manifest.TransientLocalInputClasses)
+	if !reflect.DeepEqual(manifest.TransientLocalInputClasses, wantTransient) {
+		t.Fatalf("transient local input classes = %#v, want %#v", manifest.TransientLocalInputClasses, wantTransient)
 	}
 	seen := map[string]bool{}
 	for _, flow := range manifest.Flows {
@@ -130,6 +137,14 @@ func TestDataMapIsClosedAndContainsNoRawAcceptedClass(t *testing.T) {
 			if slices.Contains(manifest.RawClassesExcluded, class) {
 				t.Fatalf("flow %q accepts excluded raw class %q", flow.ID, class)
 			}
+		}
+		if flow.ID == "local_evidence_import" {
+			slices.Sort(flow.TransientDataClasses)
+			if !reflect.DeepEqual(flow.TransientDataClasses, wantTransient) || flow.NetworkScope != "local_filesystem_only" {
+				t.Fatalf("local import transient boundary is incomplete: %+v", flow)
+			}
+		} else if len(flow.TransientDataClasses) != 0 {
+			t.Fatalf("unexpected transient input classes on flow %q: %#v", flow.ID, flow.TransientDataClasses)
 		}
 	}
 	if got := sortedKeys(seen); !reflect.DeepEqual(got, wantFlowIDs) {
@@ -146,6 +161,10 @@ func TestSovereigntyRepositorySchemasAreValidJSON(t *testing.T) {
 	root := repositoryRoot(t)
 	for _, path := range []string{
 		"schemas/data-map-v1.schema.json",
+		"schemas/data-map-v2.schema.json",
+		"schemas/local-evidence-event-v1.schema.json",
+		"schemas/local-evidence-input-v1.schema.json",
+		"schemas/local-evidence-manifest-v1.schema.json",
 		"schemas/local-release-v1.schema.json",
 		"schemas/runtime-egress-v1.schema.json",
 		"schemas/sovereignty-report-v1.schema.json",

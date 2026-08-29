@@ -44,7 +44,7 @@ while IFS="$tab" read -r metadata path; do
 			echo "privacy-check: forbidden raw bundle filename: $path" >&2
 			failed=1
 			;;
-		events-[0-9][0-9][0-9][0-9][0-9][0-9].jsonl|manifest.json|COMPLETE)
+		events-[0-9][0-9][0-9][0-9][0-9][0-9].jsonl|evidence-[0-9][0-9][0-9][0-9][0-9][0-9].jsonl|manifest.json|local-manifest.json|COMPLETE|LOCAL_COMPLETE)
 			echo "privacy-check: normalized offline artifact filename: $path" >&2
 			failed=1
 			;;
@@ -102,6 +102,10 @@ while IFS="$tab" read -r metadata path; do
 
 	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.offline-(event|manifest)\.v1"' "$blob_file"; then
 		echo "privacy-check: normalized offline data content: $path" >&2
+		failed=1
+	fi
+	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.local-evidence-(input|event|manifest)\.v1"' "$blob_file"; then
+		echo "privacy-check: local evidence data content: $path" >&2
 		failed=1
 	fi
 	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.shadow-analysis\.v(1|2|3)"' "$blob_file"; then

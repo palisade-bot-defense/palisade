@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/local-evidence-event-v1.schema.json",
+  "title": "PALISADE normalized local evidence event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "provenance", "observed_at", "subject_id", "source", "endpoint_class", "action_class", "status_class", "evidence", "label"],
+  "properties": {
+    "schema_version": { "const": "palisade.local-evidence-event.v1" },
+    "provenance": { "const": "operator_authorized_export" },
+    "observed_at": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "subject_id": { "$ref": "#/$defs/pseudonym" },
+    "session_id": { "$ref": "#/$defs/pseudonym" },
+    "source": { "enum": ["access_gateway", "browser_sensor", "challenge_service", "policy_engine", "decoy_service", "outcome_service"] },
+    "endpoint_class": { "enum": ["public_content", "account", "authentication", "transaction", "api", "decoy", "other"] },
+    "action_class": { "enum": ["read", "write", "authenticate", "other"] },
+    "status_class": { "enum": ["success", "redirect", "client_error", "server_error", "unknown"] },
+    "evidence": { "$ref": "#/$defs/evidence" },
+    "label": { "$ref": "#/$defs/label" }
+  },
+  "$defs": {
+    "pseudonym": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    },
+    "evidence_level": { "enum": ["none", "low", "medium", "high"] },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["collection_status", "automation_evidence", "abuse_intent_evidence", "continuity_evidence", "decoy_interaction", "challenge_lifecycle"],
+      "properties": {
+        "collection_status": { "enum": ["complete", "partial", "missing"] },
+        "automation_evidence": { "$ref": "#/$defs/evidence_level" },
+        "abuse_intent_evidence": { "$ref": "#/$defs/evidence_level" },
+        "continuity_evidence": { "$ref": "#/$defs/evidence_level" },
+        "decoy_interaction": { "enum": ["none", "rendered", "touched", "submitted"] },
+        "challenge_lifecycle": { "enum": ["none", "issued", "passed", "failed", "abandoned", "fallback"] }
+      }
+    },
+    "label": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["class", "provenance", "confidence"],
+          "properties": {
+            "class": { "const": "unknown" },
+            "provenance": { "const": "none" },
+            "confidence": { "const": "unknown" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["class", "provenance", "confidence"],
+          "properties": {
+            "class": { "const": "human_confirmed" },
+            "provenance": { "enum": ["authenticated_account", "operator_review"] },
+            "confidence": { "const": "confirmed" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["class", "provenance", "confidence"],
+          "properties": {
+            "class": { "const": "operator_confirmed_abuse" },
+            "provenance": { "const": "operator_review" },
+            "confidence": { "const": "confirmed" }
+          }
+        }
+      ]
+    }
+  }
+}

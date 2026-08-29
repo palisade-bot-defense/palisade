@@ -140,6 +140,20 @@ func TestOfflineImportRejectsFutureProvenance(t *testing.T) {
 	}
 }
 
+func TestLocalEventImportRejectsUnapprovedProvenanceBeforeOpeningFiles(t *testing.T) {
+	err := runLocalEventImport([]string{
+		"--input-file", "synthetic-input",
+		"--output-dir", "synthetic-output",
+		"--pseudonym-key-file", "synthetic-key",
+		"--dataset-id", "synthetic-dataset",
+		"--pilot-id", "synthetic-pilot",
+		"--provenance", "community_telemetry",
+	})
+	if err == nil || !strings.Contains(err.Error(), "only operator_authorized_export") {
+		t.Fatalf("unapproved provenance was not rejected: %v", err)
+	}
+}
+
 func TestServeRequiresBothShadowLogPaths(t *testing.T) {
 	err := serve([]string{"--dev", "--shadow-log-dir", "synthetic-shadow-dir"})
 	if err == nil || !strings.Contains(err.Error(), "configured together") {

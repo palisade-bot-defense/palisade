@@ -67,10 +67,16 @@ Primary source: [§ 25 TDDDG](https://www.gesetze-im-internet.de/ttdsg/__25.html
 
 - Keep Shadow mode and local encrypted logging as the default.
 - Do not send raw IPs, ASNs, user agents, DNS names, fingerprints, paths,
-  queries, bodies, cookies or vendor payloads to PALISADE.
+  queries, bodies, cookies or vendor payloads to PALISADE runtime APIs. The
+  generic local importer has the narrow, filesystem-only reference exception
+  documented below and in its contract.
 - Use the shortest justified in-memory, shadow-log and backup retention.
 - Keep keys and logs owner-only, outside Git worktrees and separate from shared
   exports.
+- Treat every `import-local-events` input and normalized shard as potentially
+  personal data. Document the adapter mapping, key custody, daily pseudonym
+  rotation, approved linkage window and deletion of inputs, outputs and
+  backups. Pseudonymization is not anonymization.
 - Limit operator-console and report access; never expose the demo container
   admin listener beyond host loopback.
 - Keep `sensor_missing` neutral. Do not disadvantage consent refusal merely by

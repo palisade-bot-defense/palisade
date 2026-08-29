@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/local-evidence-manifest-v1.schema.json",
+  "title": "PALISADE local evidence import manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "importer_version", "provenance", "config", "input", "shards", "totals", "warnings"],
+  "properties": {
+    "schema_version": { "const": "palisade.local-evidence-manifest.v1" },
+    "importer_version": { "const": "local-evidence-importer-v1" },
+    "provenance": { "const": "operator_authorized_export" },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shard_size", "max_line_bytes", "max_input_bytes", "max_input_records", "max_events", "max_shards", "max_output_bytes", "pseudonymization", "domain_id", "chronological_input_required"],
+      "properties": {
+        "shard_size": { "type": "integer", "minimum": 100, "maximum": 100000 },
+        "max_line_bytes": { "type": "integer", "minimum": 4096, "maximum": 8388608 },
+        "max_input_bytes": { "type": "integer", "minimum": 1 },
+        "max_input_records": { "type": "integer", "minimum": 1 },
+        "max_events": { "type": "integer", "minimum": 1 },
+        "max_shards": { "type": "integer", "minimum": 1, "maximum": 999999 },
+        "max_output_bytes": { "type": "integer", "minimum": 1 },
+        "pseudonymization": { "const": "domain_daily_hmac_sha256_v2" },
+        "domain_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{16}$" },
+        "chronological_input_required": { "const": true }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logical_name", "size_bytes", "sha256", "records"],
+      "properties": {
+        "logical_name": { "const": "operator-events.jsonl" },
+        "size_bytes": { "$ref": "#/$defs/count" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "records": { "$ref": "#/$defs/count" },
+        "first_observed_at": { "type": "string", "format": "date-time" },
+        "last_observed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "shards": {
+      "type": "array",
+      "maxItems": 999999,
+      "items": { "$ref": "#/$defs/shard" }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["records", "events"],
+      "properties": {
+        "records": { "$ref": "#/$defs/count" },
+        "events": { "$ref": "#/$defs/count" }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "enum": [
+        "operator-supplied evidence classes depend on the operator adapter mapping and are not independently verified",
+        "unknown labels are not confirmed-human labels",
+        "challenge completion is an outcome and does not establish humanity",
+        "direct subject and session references are used only transiently for local pseudonymization"
+      ] }
+    }
+  },
+  "$defs": {
+    "count": { "type": "integer", "minimum": 0 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "shard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filename", "records", "size_bytes", "sha256"],
+      "properties": {
+        "filename": { "type": "string", "pattern": "^evidence-[0-9]{6}\\.jsonl$" },
+        "records": { "$ref": "#/$defs/count" },
+        "size_bytes": { "$ref": "#/$defs/count" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

@@ -120,5 +120,5 @@ predecessor canary on the exact same endpoint.
   rename. The serving process polls that report and retains its last valid
   snapshot when an update is missing, partial or invalid.
 
-See [Sovereignty Report](SOVEREIGNTY.md), [runtime egress inventory](RUNTIME_EGRESS.md), [data map](DATA_MAP.md), [reference origin adapter](ORIGIN_ADAPTER.md), [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
+See [Sovereignty Report](SOVEREIGNTY.md), [runtime egress inventory](RUNTIME_EGRESS.md), [data map](DATA_MAP.md), [generic local import](LOCAL_IMPORT.md), [reference origin adapter](ORIGIN_ADAPTER.md), [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
 [native challenge](CHALLENGE.md), [shadow logging](SHADOW_LOG.md), [automated analysis](ANALYSIS_AUTOMATION.md), [Operator Console](OPERATOR_CONSOLE.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).

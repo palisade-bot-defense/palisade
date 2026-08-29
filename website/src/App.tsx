@@ -20,7 +20,7 @@ const repositoryParts = [
     name: "Local evaluation",
     status: "Encrypted",
     summary: "Measure decisions and linked outcomes inside the deployment boundary before enforcement.",
-    items: ["Append-only rotated shadow logs", "Aggregate confidence intervals", "Deterministic replay and recommendations"],
+    items: ["Vendor-neutral owner-only import", "Daily rotating local pseudonyms", "Aggregate confidence intervals", "Deterministic replay and recommendations"],
   },
 ] as const;
 
@@ -177,7 +177,7 @@ export function App() {
           <div className="faq-grid">
             <details><summary>Is Palisade a validated universal bot detector?</summary><p>No. Its current confirmed-human cohort is not representative enough to support that claim. Palisade is an explainable fusion and policy layer whose thresholds must be measured on each protected surface.</p></details>
             <details><summary>Which signals can it use?</summary><p>Trusted adapters can submit normalized protocol, transport, reputation, crawler, policy and server-continuity evidence. The browser sensor adds bounded behavior counts. Raw vendor payloads are not accepted by the public decision API.</p></details>
-            <details><summary>Do I need to upload traffic logs?</summary><p>No. Normal operation uses closed signals, and optional encrypted measurement remains local. Historical imports are local-only and raw deployment data must never enter the repository or CI.</p></details>
+            <details><summary>Do I need to upload traffic logs?</summary><p>No. Normal operation uses closed signals, and optional encrypted measurement remains local. The generic historical import runs locally, pseudonymizes direct references and makes no network request. Raw or normalized deployment data must never enter the repository or hosted CI.</p></details>
             <details><summary>Can I self-host the complete project?</summary><p>Yes. The core is AGPL-3.0-only and the browser sensor is Apache-2.0. The project currently focuses exclusively on the open-source, self-hosted path.</p></details>
             <details><summary>Does self-hosting make a deployment GDPR compliant?</summary><p>No. Palisade removes mandatory vendor egress and supports minimization, but the operator must still assess purpose, legal basis, transparency, retention, processors, terminal access and deployment-specific data flows.</p></details>
           </div>

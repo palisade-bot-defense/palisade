@@ -37,7 +37,7 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
 - Unit tests cover detector evidence, score fusion, policy ordering, bounded
   state, cryptography helpers and closed validation rules.
 - Integration tests cover the HTTP API, encrypted shadow pipeline, offline
-  importer, signed rollout workflow, challenge lifecycle and reference origin
+  importer, generic local evidence importer, signed rollout workflow, challenge lifecycle and reference origin
   middleware. Origin-coverage tests exercise authenticated cumulative reports,
   idempotent retries, monotonic counters, restart baselines, the 1,024-source
   bound and rejection of free-form endpoint data. Adapter tests additionally
@@ -51,6 +51,12 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
   and outcome-ingestion loss states.
 - Privacy-guard self-tests stage renamed synthetic attack fixtures in isolated
   temporary Git repositories and require fail-closed rejection.
+
+The generic local import suite additionally rejects unknown and duplicate JSON
+fields, ambiguous label provenance, direct-reference leakage, decreasing event
+time, incomplete publication and cross-day pseudonym linkage. Owner-only file
+mode integration tests run on macOS/Linux; pure contract and pseudonym tests run
+on every supported build host.
 
 ## Known gaps
 

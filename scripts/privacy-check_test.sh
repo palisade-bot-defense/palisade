@@ -117,6 +117,24 @@ if (cd "$normalized" && "$guard") >/dev/null 2>&1; then
 	exit 1
 fi
 
+local_evidence="$test_root/local-evidence"
+new_repo "$local_evidence"
+printf '%s\n' '{"schema_version":"palisade.local-evidence-event.v1","subject_id":"synthetic"}' >"$local_evidence/renamed.txt"
+git -C "$local_evidence" add renamed.txt
+if (cd "$local_evidence" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: renamed local evidence data was accepted" >&2
+	exit 1
+fi
+
+local_evidence_input="$test_root/local-evidence-input"
+new_repo "$local_evidence_input"
+printf '%s\n' '{"schema_version":"palisade.local-evidence-input.v1","subject_ref":"synthetic-personal-reference"}' >"$local_evidence_input/renamed.txt"
+git -C "$local_evidence_input" add renamed.txt
+if (cd "$local_evidence_input" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: renamed local evidence input was accepted" >&2
+	exit 1
+fi
+
 shadow_analysis="$test_root/shadow-analysis"
 new_repo "$shadow_analysis"
 printf '%s\n' '{"schema_version":"palisade.shadow-analysis.v1","source":{"records":42}}' >"$shadow_analysis/renamed.txt"

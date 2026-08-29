@@ -36,6 +36,18 @@ PALISADE should decide from behavior without reconstructing a person's content.
 - Secret tokens in logs or replay fixtures.
 - Raw customer traffic in public issues, CI artifacts or the repository.
 
+## Local import exception
+
+The generic [`import-local-events`](../LOCAL_IMPORT.md) CLI is outside the hot
+path. In an owner-only, operator-authorized input file it accepts a bounded
+`subject_ref` and optional `session_ref` solely to derive daily rotating,
+dataset-and-pilot-separated pseudonyms. These references may contain personal
+data, including an address if the operator chooses that local mapping. They are
+never written to normalized shards, manifests, stdout or error messages and
+never sent over a network. All other raw classes above remain prohibited. The
+input and pseudonymized output stay outside Git and remain subject to the
+operator's legal basis, access controls, retention and deletion duties.
+
 Default event/session retention is five minutes in memory. Optional shadow persistence records only the bounded decision fields and normalized outcomes documented in [SHADOW_LOG.md](../SHADOW_LOG.md). It is disabled unless both a local directory and key file are configured. Records are individually authenticated and encrypted, session IDs are replaced with keyed pilot-local link keys, timestamps are quantized to seconds, retention is configurable, and paths must be owner-only and outside Git worktrees. This is not permission to persist browser events, request bodies, cookies, tokens, IP addresses, user agents or raw traffic.
 
 When event-triggered shadow evaluation is enabled, accepted browser events stay

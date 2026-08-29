@@ -67,17 +67,21 @@ become more valuable when inspected and adopted:
 2. **Normalized signal protocol:** a narrow vocabulary that lets integrations
    use strong edge evidence without forwarding raw IPs, fingerprints, URLs or
    vendor payloads.
-3. **Evidence ledger formats:** stable reasons, policy/model versions, replay
+3. **Generic local import contract:** a vendor-neutral, owner-only path that
+   pseudonymizes direct local references and keeps collection quality,
+   automation, harmful intent, continuity, decoy and challenge evidence
+   separate without a PALISADE data upload.
+4. **Evidence ledger formats:** stable reasons, policy/model versions, replay
    records and delayed-outcome linkage with explicit uncertainty.
-4. **Measured rollout artifacts:** review and rollout schemas that cryptographically
+5. **Measured rollout artifacts:** review and rollout schemas that cryptographically
    bind action, endpoint, cohort, expiry, evidence thresholds and rollback.
-5. **Humane challenge protocol:** one-time action/session binding, accessibility
+6. **Humane challenge protocol:** one-time action/session binding, accessibility
    accounting and progressive cost rather than a single visual puzzle.
-6. **Evaluation method:** chronological holdouts, unknown-label accounting,
+7. **Evaluation method:** chronological holdouts, unknown-label accounting,
    confidence intervals and poisoning/misconfiguration test fixtures.
-7. **Adapter conformance:** privacy and failure-policy tests that make PALISADE a
+8. **Adapter conformance:** privacy and failure-policy tests that make PALISADE a
    stable interoperability boundary for proxies and local security tools.
-8. **Community trust and brand:** transparent limitations, private vulnerability
+9. **Community trust and brand:** transparent limitations, private vulnerability
    handling and a clear trademark policy around the PALISADE name.
 
 Private operator datasets, keys and tuning remain with each operator. They are
