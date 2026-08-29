@@ -231,7 +231,7 @@ func (m *Middleware) issueProof(ctx context.Context, cookie http.Cookie, action 
 	return result.ProofToken, nil
 }
 
-func (m *Middleware) checkOrigin(ctx context.Context, cookie http.Cookie, classification Classification, signals Signals, sequence uint64, proof string) (originResult, error) {
+func (m *Middleware) checkOrigin(ctx context.Context, cookie http.Cookie, classification Classification, signals Signals, sequence uint64, proof, challengeBinding string) (originResult, error) {
 	payload := struct {
 		Action           string  `json:"action"`
 		EndpointClass    string  `json:"endpoint_class"`
@@ -249,6 +249,7 @@ func (m *Middleware) checkOrigin(ctx context.Context, cookie http.Cookie, classi
 		return originResult{}, err
 	}
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Palisade-Challenge-Binding", challengeBinding)
 	request.AddCookie(&cookie)
 	response, err := m.client.Do(request)
 	if err != nil {

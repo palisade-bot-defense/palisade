@@ -93,7 +93,8 @@ The `__Host-palisade_session` cookie contains only a random identifier plus issu
 
 Native challenge state is memory-only and contains a random challenge ID, the
 closed session/decision/action/endpoint/rollout bindings, attempt/state fields,
-expiries and only a hash of the one-time redemption capability. It never stores
+expiries, a hash of the server-only origin-flow capability and only a hash of
+the one-time redemption capability. It never stores
 the original URL, query, request body, IP address, user agent, cookie or sensor
 events. Only closed challenge outcomes may enter the encrypted shadow sink.
 
@@ -107,7 +108,9 @@ evidence, not an identity label and not a standalone block condition.
 
 The reference Go origin adapter additionally holds bounded, expiring sequence,
 pending-challenge and one-time retry maps. It binds the retry to method, escaped
-path and raw query with a process-random HMAC. Only the digest is retained; the
+path, raw query and decision sequence with a process-random HMAC. The pending
+entry also retains one opaque 32-byte origin-flow capability until redemption.
+Only digests and that capability are retained; the
 application URL, query, body, user-agent value and PALISADE tokens are never
 stored in this map or sent as observations.
 

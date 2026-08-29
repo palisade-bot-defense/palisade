@@ -379,7 +379,7 @@ func (s *Server) handleOriginCheck(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusServiceUnavailable, "challenge_service_unavailable")
 			return
 		}
-		metadata, err := s.challenges.Issue(request, decision, time.Now().UTC())
+		metadata, err := s.challenges.Issue(request, decision, r.Header.Get("X-Palisade-Challenge-Binding"), time.Now().UTC())
 		if err != nil {
 			s.logger.Error("challenge issuance failed", "decision_id", decision.DecisionID, "error", err)
 			writeError(w, http.StatusServiceUnavailable, "challenge_issue_failed")
@@ -469,16 +469,17 @@ func (s *Server) handleChallengeRedeem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request struct {
-		ChallengeID     string `json:"challenge_id"`
-		RedemptionToken string `json:"redemption_token"`
-		Action          string `json:"action"`
-		EndpointClass   string `json:"endpoint_class"`
+		ChallengeID       string `json:"challenge_id"`
+		RedemptionToken   string `json:"redemption_token"`
+		RedemptionBinding string `json:"redemption_binding"`
+		Action            string `json:"action"`
+		EndpointClass     string `json:"endpoint_class"`
 	}
 	if err := decodeJSON(w, r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	if err := s.challenges.Redeem(request.ChallengeID, sessionID, request.RedemptionToken, request.Action, request.EndpointClass, time.Now().UTC()); err != nil {
+	if err := s.challenges.Redeem(request.ChallengeID, sessionID, request.RedemptionToken, request.RedemptionBinding, request.Action, request.EndpointClass, time.Now().UTC()); err != nil {
 		s.writeChallengeError(w, err, request.ChallengeID, sessionID)
 		return
 	}

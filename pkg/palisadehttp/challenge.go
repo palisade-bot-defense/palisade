@@ -43,6 +43,14 @@ type challengeRedeemRequest struct {
 	EndpointClass   string `json:"endpoint_class"`
 }
 
+type challengeServiceRedeemRequest struct {
+	ChallengeID       string `json:"challenge_id"`
+	RedemptionToken   string `json:"redemption_token"`
+	RedemptionBinding string `json:"redemption_binding"`
+	Action            string `json:"action"`
+	EndpointClass     string `json:"endpoint_class"`
+}
+
 type challengeFallbackRequest struct {
 	ChallengeID string `json:"challenge_id"`
 }
@@ -256,7 +264,7 @@ func (m *Middleware) handleChallengeRedeem(w http.ResponseWriter, r *http.Reques
 		writeAdapterError(w, http.StatusConflict, "challenge_retry_not_bound")
 		return
 	}
-	grant, err := m.state.reserveGrant(pending.Value, payload.ChallengeID, cookie.Value, payload.Action, payload.EndpointClass, m.now().UTC())
+	grant, redemptionBinding, err := m.state.reserveGrant(pending.Value, payload.ChallengeID, cookie.Value, payload.Action, payload.EndpointClass, m.now().UTC())
 	if err != nil {
 		if errors.Is(err, ErrInvalidPending) {
 			writeAdapterError(w, http.StatusConflict, "challenge_retry_not_bound")
@@ -265,7 +273,11 @@ func (m *Middleware) handleChallengeRedeem(w http.ResponseWriter, r *http.Reques
 		writeAdapterError(w, http.StatusServiceUnavailable, "palisade_unavailable")
 		return
 	}
-	status, err := m.postJSON(r.Context(), "/v1/challenge/redeem", payload, &cookie, false, nil)
+	servicePayload := challengeServiceRedeemRequest{
+		ChallengeID: payload.ChallengeID, RedemptionToken: payload.RedemptionToken, RedemptionBinding: redemptionBinding,
+		Action: payload.Action, EndpointClass: payload.EndpointClass,
+	}
+	status, err := m.postJSON(r.Context(), "/v1/challenge/redeem", servicePayload, &cookie, false, nil)
 	if err != nil {
 		m.state.releaseGrant(grant.Value, pending.Value)
 		writeAdapterError(w, http.StatusServiceUnavailable, "palisade_unavailable")
@@ -318,7 +330,7 @@ func (m *Middleware) challengeCookie(w http.ResponseWriter, r *http.Request) (ht
 	return *cookie, true
 }
 
-func (m *Middleware) writeChallengePage(w http.ResponseWriter, r *http.Request, challengeID, sessionValue string, classification Classification) {
+func (m *Middleware) writeChallengePage(w http.ResponseWriter, r *http.Request, challengeID, sessionValue string, classification Classification, challengeBinding [32]byte) {
 	var body bytes.Buffer
 	if err := challengePage.Execute(&body, struct {
 		Prefix, ChallengeID, Action, EndpointClass, FallbackPath string
@@ -326,7 +338,7 @@ func (m *Middleware) writeChallengePage(w http.ResponseWriter, r *http.Request, 
 		writeAdapterError(w, http.StatusInternalServerError, "palisade_challenge_page_failed")
 		return
 	}
-	pending, err := m.state.issuePending(r, classification, challengeID, sessionValue, m.now().UTC())
+	pending, err := m.state.issuePending(r, classification, challengeID, sessionValue, challengeBinding, m.now().UTC())
 	if err != nil {
 		writeAdapterError(w, http.StatusServiceUnavailable, "palisade_unavailable")
 		return
@@ -368,7 +380,7 @@ func decodeClientJSON(w http.ResponseWriter, r *http.Request, target any) error 
 }
 
 func validChallengeMetadata(metadata challengeMetadata, now time.Time) bool {
-	return validChallengeID(metadata.ChallengeID) && metadata.Family == "timed_confirmation_v1" && metadata.ReadyAt.Before(metadata.ExpiresAt) &&
+	return validChallengeID(metadata.ChallengeID) && metadata.Family == "timed_confirmation_v2" && metadata.ReadyAt.Before(metadata.ExpiresAt) &&
 		metadata.ExpiresAt.After(now) && !metadata.ExpiresAt.After(now.Add(DefaultPendingTTL)) && metadata.AttemptsRemaining >= 0 && metadata.AttemptsRemaining <= 20 && stableToken(metadata.VerificationToken, 43) &&
 		metadata.Accessibility.NonVisual && metadata.Accessibility.KeyboardOnly && metadata.Accessibility.FallbackOffered
 }

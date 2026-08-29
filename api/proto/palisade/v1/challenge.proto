@@ -54,6 +54,9 @@ message RedeemChallengeRequest {
   string redemption_token = 3;
   string action = 4;
   string endpoint_class = 5;
+  // Backend-only capability bound to the original origin flow. It must not be
+  // exposed to or accepted from browser-controlled input.
+  string redemption_binding = 6;
 }
 
 message RedeemChallengeResponse {}

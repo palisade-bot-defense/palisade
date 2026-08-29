@@ -24,6 +24,8 @@ import (
 
 type fakeEngine struct{}
 
+const testChallengeBinding = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+
 func (fakeEngine) Decide(context.Context, core.DecisionRequest) (core.Decision, error) {
 	return core.Decision{DecisionID: "test", Action: core.ActionAllow, ExpiresAt: time.Now()}, nil
 }
@@ -672,6 +674,7 @@ func TestOriginCheckAppliesOnlyValidatedDirectiveStatus(t *testing.T) {
 			server := New(fixedEngine{decision: decision}, tokens, "key", slog.Default()).WithSessionCookies(cookies, true).WithChallenges(challengeService)
 			request := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"`+claims.SessionID+`","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
 			request.AddCookie(&issuedCookie)
+			request.Header.Set("X-Palisade-Challenge-Binding", testChallengeBinding)
 			response := httptest.NewRecorder()
 			server.Handler().ServeHTTP(response, request)
 			if response.Code != test.status || response.Body.Len() != 0 {
@@ -717,6 +720,7 @@ func TestNativeChallengeHTTPFlowRecordsOutcomeAndRejectsReplay(t *testing.T) {
 
 	origin := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"`+claims.SessionID+`","action":"read","endpoint_class":"public_content","sequence":1,"observations":{}}`))
 	origin.AddCookie(&issuedCookie)
+	origin.Header.Set("X-Palisade-Challenge-Binding", testChallengeBinding)
 	originResponse := httptest.NewRecorder()
 	handler.ServeHTTP(originResponse, origin)
 	challengeID := originResponse.Header().Get("X-Palisade-Challenge-ID")
@@ -758,8 +762,18 @@ func TestNativeChallengeHTTPFlowRecordsOutcomeAndRejectsReplay(t *testing.T) {
 	}
 
 	redeemBody, _ := json.Marshal(map[string]string{
-		"challenge_id": challengeID, "redemption_token": verification.RedemptionToken, "action": "read", "endpoint_class": "public_content",
+		"challenge_id": challengeID, "redemption_token": verification.RedemptionToken, "redemption_binding": testChallengeBinding, "action": "read", "endpoint_class": "public_content",
 	})
+	relayBody, _ := json.Marshal(map[string]string{
+		"challenge_id": challengeID, "redemption_token": verification.RedemptionToken, "redemption_binding": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", "action": "read", "endpoint_class": "public_content",
+	})
+	relay := httptest.NewRequest(http.MethodPost, "/v1/challenge/redeem", bytes.NewReader(relayBody))
+	relay.AddCookie(&issuedCookie)
+	relayResponse := httptest.NewRecorder()
+	handler.ServeHTTP(relayResponse, relay)
+	if relayResponse.Code != http.StatusBadRequest || len(recorder.outcomes) != 0 {
+		t.Fatalf("relayed challenge binding = %d outcomes=%+v", relayResponse.Code, recorder.outcomes)
+	}
 	redeem := httptest.NewRequest(http.MethodPost, "/v1/challenge/redeem", bytes.NewReader(redeemBody))
 	redeem.AddCookie(&issuedCookie)
 	redeemResponse := httptest.NewRecorder()
@@ -803,7 +817,7 @@ func TestFailedChallengeIssuanceIsNotRecordedAsApplied(t *testing.T) {
 	}, core.Decision{
 		DecisionID: "capacity-holder", Action: core.ActionChallenge, Mode: core.RuntimeModeCanary,
 		RolloutID: "canary-capacity", Directive: directive,
-	}, now); err != nil {
+	}, testChallengeBinding, now); err != nil {
 		t.Fatal(err)
 	}
 	recorder := &recordingShadow{}
@@ -817,6 +831,7 @@ func TestFailedChallengeIssuanceIsNotRecordedAsApplied(t *testing.T) {
 		WithChallenges(challengeService)
 	request := httptest.NewRequest(http.MethodPost, "/v1/origin-check", bytes.NewBufferString(`{"session_id":"`+claims.SessionID+`","action":"read","endpoint_class":"public_content","sequence":2,"observations":{}}`))
 	request.AddCookie(&issuedCookie)
+	request.Header.Set("X-Palisade-Challenge-Binding", testChallengeBinding)
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusServiceUnavailable || recorder.decisions != 0 {

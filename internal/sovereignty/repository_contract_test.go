@@ -94,6 +94,9 @@ func TestRuntimeEgressManifestMatchesReviewedSourceCallsites(t *testing.T) {
 		if entry.MandatoryVendorService || entry.RawNetworkIdentifiersAllowed || len(entry.DataClasses) == 0 {
 			t.Fatalf("unsafe runtime egress entry: %+v", entry)
 		}
+		if entry.ID == "origin_adapter_to_palisade" && !slices.Contains(entry.DataClasses, "one_time_origin_flow_binding") {
+			t.Fatalf("origin adapter egress omits the challenge flow binding: %+v", entry)
+		}
 		for _, path := range entry.SourcePaths {
 			manifestPathSet[path] = true
 		}
@@ -112,15 +115,15 @@ func TestRuntimeEgressManifestMatchesReviewedSourceCallsites(t *testing.T) {
 func TestDataMapIsClosedAndContainsNoRawAcceptedClass(t *testing.T) {
 	root := repositoryRoot(t)
 	var manifest dataMapManifest
-	readRepositoryJSON(t, root, "manifests/data-map-v5.json", &manifest)
-	if manifest.SchemaVersion != "palisade.data-map.v5" || manifest.Scope != "reference_product_data_flows" ||
+	readRepositoryJSON(t, root, "manifests/data-map-v6.json", &manifest)
+	if manifest.SchemaVersion != "palisade.data-map.v6" || manifest.Scope != "reference_product_data_flows" ||
 		manifest.DefaultRules.ExternalExport || manifest.DefaultRules.RawNetworkIdentifiers != "excluded_from_runtime_and_persisted_output" ||
 		manifest.DefaultRules.ContentCollection != "excluded" || manifest.DefaultRules.MissingBrowserSensor != "neutral" {
 		t.Fatalf("unexpected data map defaults: %+v", manifest.DefaultRules)
 	}
 	wantFlowIDs := []string{
 		"aggregate_analysis", "browser_event_ingest", "continuity_cookie", "decision_request",
-		"delayed_outcome", "local_evidence_import", "local_holdout_evaluation", "local_sequence_analysis", "native_challenge_lifecycle", "native_decoy_lifecycle", "operator_console_summary", "shadow_measurement", "sovereignty_report",
+		"delayed_outcome", "local_evidence_import", "local_holdout_evaluation", "local_sequence_analysis", "native_challenge_lifecycle", "native_decoy_lifecycle", "operator_console_summary", "origin_challenge_binding", "shadow_measurement", "sovereignty_report",
 	}
 	wantDirectReferences := []string{"operator_session_reference_may_be_personal_data", "operator_subject_reference_may_include_network_identifier"}
 	wantSequenceLinkage := []string{"daily_rotating_pseudonym_for_sequence_linkage"}
@@ -155,6 +158,10 @@ func TestDataMapIsClosedAndContainsNoRawAcceptedClass(t *testing.T) {
 			if !reflect.DeepEqual(flow.TransientDataClasses, wantHoldoutInputs) || flow.NetworkScope != "local_filesystem_only" || flow.Persistence != "operator_controlled_owner_only_artifact" {
 				t.Fatalf("local holdout boundary is incomplete: %+v", flow)
 			}
+		} else if flow.ID == "origin_challenge_binding" {
+			if !reflect.DeepEqual(flow.DataClasses, []string{"one_time_origin_flow_binding"}) || flow.NetworkScope != "operator_configured_internal_endpoint" || flow.Persistence != "bounded_memory_fifteen_minutes" {
+				t.Fatalf("origin challenge binding boundary is incomplete: %+v", flow)
+			}
 		} else if len(flow.TransientDataClasses) != 0 {
 			t.Fatalf("unexpected transient input classes on flow %q: %#v", flow.ID, flow.TransientDataClasses)
 		}
@@ -179,6 +186,7 @@ func TestSovereigntyRepositorySchemasAreValidJSON(t *testing.T) {
 		"schemas/data-map-v3.schema.json",
 		"schemas/data-map-v4.schema.json",
 		"schemas/data-map-v5.schema.json",
+		"schemas/data-map-v6.schema.json",
 		"schemas/local-evidence-event-v1.schema.json",
 		"schemas/local-family-annotation-v1.schema.json",
 		"schemas/local-evidence-input-v1.schema.json",

@@ -188,6 +188,12 @@ paths:
       operationId: checkOrigin
       security:
         - sessionCookie: []
+      parameters:
+        - in: header
+          name: X-Palisade-Challenge-Binding
+          required: false
+          description: Opaque server-generated origin-flow capability. The reference adapter sends it on every check and PALISADE requires the same value for challenge redemption. It must never be exposed to browser code or logs.
+          schema: { type: string, minLength: 43, maxLength: 43, pattern: "^[A-Za-z0-9_-]+$" }
       requestBody:
         required: true
         content:
@@ -609,7 +615,7 @@ components:
       required: [challenge_id, family, ready_at, expires_at, attempts_remaining, verification_token, accessibility]
       properties:
         challenge_id: { type: string, minLength: 32, maxLength: 32, pattern: "^[A-Za-z0-9_-]+$" }
-        family: { type: string, enum: [timed_confirmation_v1] }
+        family: { type: string, enum: [timed_confirmation_v2] }
         ready_at: { type: string, format: date-time }
         expires_at: { type: string, format: date-time }
         attempts_remaining: { type: integer, minimum: 0, maximum: 20 }
@@ -640,10 +646,16 @@ components:
     ChallengeRedeemRequest:
       type: object
       additionalProperties: false
-      required: [challenge_id, redemption_token, action, endpoint_class]
+      required: [challenge_id, redemption_token, redemption_binding, action, endpoint_class]
       properties:
         challenge_id: { type: string, minLength: 32, maxLength: 32, pattern: "^[A-Za-z0-9_-]+$" }
         redemption_token: { type: string, minLength: 43, maxLength: 43, pattern: "^[A-Za-z0-9_-]+$" }
+        redemption_binding:
+          type: string
+          minLength: 43
+          maxLength: 43
+          pattern: "^[A-Za-z0-9_-]+$"
+          description: Backend-only origin-flow capability copied from the matching origin check; browsers must never receive or supply it.
         action: { type: string, minLength: 1, maxLength: 80 }
         endpoint_class:
           type: string

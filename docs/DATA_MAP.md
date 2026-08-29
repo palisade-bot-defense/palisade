@@ -1,28 +1,30 @@
 # Machine-readable data map
 
-The current versioned [PALISADE data map](../manifests/data-map-v5.json) records the
+The current versioned [PALISADE data map](../manifests/data-map-v6.json) records the
 reference product's accepted data classes, destinations, network scopes and
 persistence modes. Its JSON Schema is
-[`schemas/data-map-v5.schema.json`](../schemas/data-map-v5.schema.json). The
+[`schemas/data-map-v6.schema.json`](../schemas/data-map-v6.schema.json). The
 [v1](../manifests/data-map-v1.json), [v2](../manifests/data-map-v2.json) and
-[v3](../manifests/data-map-v3.json) and [v4](../manifests/data-map-v4.json) maps remain immutable records of earlier
+[v3](../manifests/data-map-v3.json), [v4](../manifests/data-map-v4.json) and
+[v5](../manifests/data-map-v5.json) maps remain immutable records of earlier
 boundaries.
 
-The v5 map covers thirteen flows:
+The v6 map covers fourteen flows:
 
 1. bounded browser-event ingestion;
 2. trusted normalized decision requests;
 3. the signed first-party continuity cookie;
-4. the same-origin native challenge lifecycle;
-5. the backend-authenticated native decoy-capability lifecycle;
-6. optional encrypted shadow decisions;
-7. delayed closed outcome labels;
-8. local aggregate analysis;
-9. the generic local evidence import;
-10. bounded local aggregate sequence analysis;
-11. local chronological and optional unseen-family holdout evaluation;
-12. the loopback Operator Console summary; and
-13. the non-identifying Sovereignty Report.
+4. the server-only origin challenge binding;
+5. the same-origin native challenge lifecycle;
+6. the backend-authenticated native decoy-capability lifecycle;
+7. optional encrypted shadow decisions;
+8. delayed closed outcome labels;
+9. local aggregate analysis;
+10. the generic local evidence import;
+11. bounded local aggregate sequence analysis;
+12. local chronological and optional unseen-family holdout evaluation;
+13. the loopback Operator Console summary; and
+14. the non-identifying Sovereignty Report.
 
 Every mapped flow has `external_export: false`. That field means PALISADE does
 not export the flow to a PALISADE-operated external service. It does not override
@@ -64,6 +66,13 @@ a digest of the session handle. A consumed capability creates one bounded
 `touched|submitted` evidence event for the next matching decision. URLs, form
 fields, content, client addresses and user-agent values are outside the
 contract.
+
+Data Map v6 adds a separate server-only flow for the opaque one-time origin-flow
+binding. The reference adapter derives it from process-local secret state and
+the original closed request flow, sends it only to the operator-configured
+PALISADE endpoint and keeps it out of browser-controlled fields. PALISADE
+retains only its hash. No URL, query, request content or network identifier is
+added to the flow.
 
 The `aggregate_analysis` flow also covers chronological evaluation of the
 encrypted shadow stream. That evaluator reuses the already mapped encrypted

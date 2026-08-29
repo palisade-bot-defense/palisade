@@ -17,7 +17,7 @@ It is not a packet sniffer, a general log warehouse or a raw-vendor-event bus.
 | Contracts | OpenAPI 3.1 and protobuf | HTTP and future typed service contracts |
 | Offline research | Python and Go CLIs | Local-only import, replay, evaluation and aggregate reporting |
 | Runtime state | Bounded in-memory stores | Five-minute event/session windows for the current single-process baseline |
-| Challenge state | Bounded in-memory capability store | Short-lived session/action/endpoint binding and atomic one-time redemption |
+| Challenge state | Bounded in-memory capability store | Short-lived session/action/endpoint/origin-flow binding and atomic one-time redemption |
 | Local measurement | AES-256-GCM files | Optional append-only decision/outcome stream with rotation and retention |
 | Rollout review | Deterministic closed JSON | Report-hash binding, machine gates, narrow recommended scope and explicit operator checklist; never executable |
 | Rollout approval | Ed25519 signed JSON | Expiring endpoint/action/cohort scope reviewed by an operator |
@@ -120,7 +120,9 @@ challenge lifecycle or create a new persistent identity graph.
   discover or certify those external flows.
 - The reference middleware never forwards the application URL, query, body or
   user-agent value. A process-random HMAC of method and request target binds a
-  completed challenge to one local retry without persisting that target.
+  completed challenge to one local retry without persisting that target. A
+  second server-only capability binds PALISADE redemption to that exact origin
+  flow and decision sequence; only its hash is retained by PALISADE.
 - Live session/event state is currently process-local and expires in memory.
 - Challenge state is process-local, bounded to 100,000 entries and expires in
   at most 15 minutes. Restart invalidates outstanding capabilities; replicas

@@ -3,6 +3,7 @@ package palisadehttp
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -26,26 +27,27 @@ const (
 )
 
 type fakePalisade struct {
-	t                 *testing.T
-	now               time.Time
-	challenge         bool
-	handling          string
-	originUnavailable bool
-	sessionIssues     atomic.Int32
-	tokenIssues       atomic.Int32
-	originChecks      atomic.Int32
-	metadataGets      atomic.Int32
-	verifications     atomic.Int32
-	redemptions       atomic.Int32
-	fallbacks         atomic.Int32
-	outcomes          atomic.Int32
-	coverages         atomic.Int32
-	mu                sync.Mutex
-	originBodies      [][]byte
-	outcomeBodies     [][]byte
-	sequences         []uint64
-	coverageBodies    [][]byte
-	coverageReports   chan coverageReport
+	t                    *testing.T
+	now                  time.Time
+	challenge            bool
+	handling             string
+	originUnavailable    bool
+	sessionIssues        atomic.Int32
+	tokenIssues          atomic.Int32
+	originChecks         atomic.Int32
+	metadataGets         atomic.Int32
+	verifications        atomic.Int32
+	redemptions          atomic.Int32
+	fallbacks            atomic.Int32
+	outcomes             atomic.Int32
+	coverages            atomic.Int32
+	mu                   sync.Mutex
+	originBodies         [][]byte
+	outcomeBodies        [][]byte
+	sequences            []uint64
+	coverageBodies       [][]byte
+	coverageReports      chan coverageReport
+	lastChallengeBinding string
 }
 
 func (f *fakePalisade) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -84,9 +86,13 @@ func (f *fakePalisade) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			f.t.Errorf("origin JSON: %v", err)
 		}
 		f.sequences = append(f.sequences, payload.Sequence)
+		f.lastChallengeBinding = r.Header.Get("X-Palisade-Challenge-Binding")
 		f.mu.Unlock()
 		if payload.SessionID != "" || cookieValue(r, SessionCookieName) != testSessionValue {
 			f.t.Errorf("origin session payload/cookie = %q/%q", payload.SessionID, cookieValue(r, SessionCookieName))
+		}
+		if !stableToken(r.Header.Get("X-Palisade-Challenge-Binding"), 43) {
+			f.t.Errorf("origin challenge binding = %q", r.Header.Get("X-Palisade-Challenge-Binding"))
 		}
 		if f.originUnavailable {
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -176,7 +182,7 @@ func (f *fakePalisade) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			f.t.Errorf("metadata cookie = %q", cookieValue(r, SessionCookieName))
 		}
 		writeFakeJSON(w, http.StatusOK, map[string]any{
-			"challenge_id": testChallengeID, "family": "timed_confirmation_v1", "ready_at": f.now.Add(-time.Second),
+			"challenge_id": testChallengeID, "family": "timed_confirmation_v2", "ready_at": f.now.Add(-time.Second),
 			"expires_at": f.now.Add(5 * time.Minute), "attempts_remaining": 5, "verification_token": testVerifyToken,
 			"accessibility": map[string]bool{"non_visual": true, "keyboard_only": true, "fallback_offered": true},
 		})
@@ -192,9 +198,13 @@ func (f *fakePalisade) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 	case r.Method == http.MethodPost && r.URL.Path == "/v1/challenge/redeem":
 		f.redemptions.Add(1)
-		var payload challengeRedeemRequest
+		var payload challengeServiceRedeemRequest
 		decodeFakeJSON(f.t, r, &payload)
-		if payload.ChallengeID != testChallengeID || payload.RedemptionToken != testRedeemToken || payload.Action != "read" || payload.EndpointClass != "public_content" {
+		f.mu.Lock()
+		binding := f.lastChallengeBinding
+		f.mu.Unlock()
+		if payload.ChallengeID != testChallengeID || payload.RedemptionToken != testRedeemToken || payload.RedemptionBinding != binding ||
+			!stableToken(payload.RedemptionBinding, 43) || payload.Action != "read" || payload.EndpointClass != "public_content" {
 			f.t.Errorf("redemption payload = %+v", payload)
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -594,6 +604,15 @@ func TestChallengePageRelayAndOneTimeRetryGrant(t *testing.T) {
 		t.Fatalf("verify relay = %d %s", verifyResponse.Code, verifyResponse.Body.String())
 	}
 
+	spoofedBinding := httptest.NewRequest(http.MethodPost, "https://origin.example/__palisade/challenge/redeem", strings.NewReader(`{"challenge_id":"`+testChallengeID+`","redemption_token":"`+testRedeemToken+`","redemption_binding":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","action":"read","endpoint_class":"public_content"}`))
+	spoofedBinding.AddCookie(sessionCookie)
+	spoofedBinding.AddCookie(pendingCookie)
+	spoofedBindingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(spoofedBindingResponse, spoofedBinding)
+	if spoofedBindingResponse.Code != http.StatusBadRequest || fake.redemptions.Load() != 0 {
+		t.Fatalf("browser-controlled binding = %d backend_redeems=%d", spoofedBindingResponse.Code, fake.redemptions.Load())
+	}
+
 	redeem := httptest.NewRequest(http.MethodPost, "https://origin.example/__palisade/challenge/redeem", strings.NewReader(`{"challenge_id":"`+testChallengeID+`","redemption_token":"`+testRedeemToken+`","action":"read","endpoint_class":"public_content"}`))
 	redeem.AddCookie(sessionCookie)
 	redeem.AddCookie(pendingCookie)
@@ -759,7 +778,7 @@ func TestFallbackClosesMatchingLocalPendingState(t *testing.T) {
 	if fallbackResponse.Code != http.StatusNoContent || cleared.MaxAge != -1 || fake.fallbacks.Load() != 1 {
 		t.Fatalf("fallback = %d cookies=%v calls=%d", fallbackResponse.Code, fallbackResponse.Result().Cookies(), fake.fallbacks.Load())
 	}
-	if _, err := guard.state.reserveGrant(pending.Value, testChallengeID, session.Value, "read", "public_content", now); !errors.Is(err, ErrInvalidPending) {
+	if _, _, err := guard.state.reserveGrant(pending.Value, testChallengeID, session.Value, "read", "public_content", now); !errors.Is(err, ErrInvalidPending) {
 		t.Fatalf("fallback left pending grant usable: %v", err)
 	}
 }
@@ -772,13 +791,17 @@ func TestGrantIsConsumedExactlyOnceConcurrently(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0).UTC()
 	request := httptest.NewRequest(http.MethodGet, "https://origin.example/protected?secret=bound", nil)
 	classification := Classification{Action: "read", EndpointClass: "public_content"}
-	pending, err := state.issuePending(request, classification, testChallengeID, testSessionValue, now)
+	binding := state.challengeBinding(request, classification, testSessionValue, 1)
+	pending, err := state.issuePending(request, classification, testChallengeID, testSessionValue, binding, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cookie, err := state.reserveGrant(pending.Value, testChallengeID, testSessionValue, classification.Action, classification.EndpointClass, now)
+	cookie, encodedBinding, err := state.reserveGrant(pending.Value, testChallengeID, testSessionValue, classification.Action, classification.EndpointClass, now)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if encodedBinding != base64.RawURLEncoding.EncodeToString(binding[:]) {
+		t.Fatalf("reserved flow binding = %q", encodedBinding)
 	}
 	state.commitPending(pending.Value)
 	wrongSession := httptest.NewRequest(http.MethodGet, "https://origin.example/protected?secret=bound", nil)
@@ -815,18 +838,127 @@ func TestPendingBindingRejectsDifferentChallengeAndSession(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0).UTC()
 	request := httptest.NewRequest(http.MethodGet, "https://origin.example/protected?secret=bound", nil)
 	classification := Classification{Action: "read", EndpointClass: "public_content"}
-	pending, err := state.issuePending(request, classification, testChallengeID, testSessionValue, now)
+	binding := state.challengeBinding(request, classification, testSessionValue, 1)
+	pending, err := state.issuePending(request, classification, testChallengeID, testSessionValue, binding, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := state.reserveGrant(pending.Value, "ZYXWVUTSRQPONMLKJIHGFEDC12345678", testSessionValue, classification.Action, classification.EndpointClass, now); !errors.Is(err, ErrInvalidPending) {
+	if _, _, err := state.reserveGrant(pending.Value, "ZYXWVUTSRQPONMLKJIHGFEDC12345678", testSessionValue, classification.Action, classification.EndpointClass, now); !errors.Is(err, ErrInvalidPending) {
 		t.Fatalf("different challenge error = %v", err)
 	}
-	if _, err := state.reserveGrant(pending.Value, testChallengeID, "different-session", classification.Action, classification.EndpointClass, now); !errors.Is(err, ErrInvalidPending) {
+	if _, _, err := state.reserveGrant(pending.Value, testChallengeID, "different-session", classification.Action, classification.EndpointClass, now); !errors.Is(err, ErrInvalidPending) {
 		t.Fatalf("different session error = %v", err)
 	}
-	if _, err := state.reserveGrant(pending.Value, testChallengeID, testSessionValue, classification.Action, classification.EndpointClass, now); err != nil {
+	if _, _, err := state.reserveGrant(pending.Value, testChallengeID, testSessionValue, classification.Action, classification.EndpointClass, now); err != nil {
 		t.Fatalf("correct binding rejected: %v", err)
+	}
+}
+
+func TestOriginChallengeBindingIsTargetSequenceAndInstanceBound(t *testing.T) {
+	state, err := newBoundedState(10, 10, time.Minute, time.Minute, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	classification := Classification{Action: "read", EndpointClass: "public_content"}
+	request := httptest.NewRequest(http.MethodGet, "https://origin.example/protected?account=one", nil)
+	baseline := state.challengeBinding(request, classification, testSessionValue, 7)
+	if repeated := state.challengeBinding(request, classification, testSessionValue, 7); baseline != repeated {
+		t.Fatal("same origin flow did not produce a stable binding")
+	}
+	if encoded := base64.RawURLEncoding.EncodeToString(baseline[:]); !stableToken(encoded, 43) {
+		t.Fatalf("encoded binding = %q", encoded)
+	}
+	queryChanged := httptest.NewRequest(http.MethodGet, "https://origin.example/protected?account=two", nil)
+	if baseline == state.challengeBinding(queryChanged, classification, testSessionValue, 7) {
+		t.Fatal("binding was reusable across query targets")
+	}
+	methodChanged := httptest.NewRequest(http.MethodPost, "https://origin.example/protected?account=one", nil)
+	if baseline == state.challengeBinding(methodChanged, classification, testSessionValue, 7) {
+		t.Fatal("binding was reusable across request methods")
+	}
+	if baseline == state.challengeBinding(request, classification, "different-session", 7) {
+		t.Fatal("binding was reusable across sessions")
+	}
+	if baseline == state.challengeBinding(request, classification, testSessionValue, 8) {
+		t.Fatal("binding was reusable across decision sequences")
+	}
+	otherAction := Classification{Action: "write", EndpointClass: "public_content"}
+	if baseline == state.challengeBinding(request, otherAction, testSessionValue, 7) {
+		t.Fatal("binding was reusable across actions")
+	}
+	otherClass := Classification{Action: "read", EndpointClass: "account"}
+	if baseline == state.challengeBinding(request, otherClass, testSessionValue, 7) {
+		t.Fatal("binding was reusable across endpoint classes")
+	}
+	otherState, err := newBoundedState(10, 10, time.Minute, time.Minute, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if baseline == otherState.challengeBinding(request, classification, testSessionValue, 7) {
+		t.Fatal("binding was reusable across adapter instances")
+	}
+}
+
+func TestPendingCanBeReservedOnlyOnceConcurrently(t *testing.T) {
+	state, err := newBoundedState(10, 64, time.Minute, time.Minute, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_800_000_000, 0).UTC()
+	request := httptest.NewRequest(http.MethodGet, "https://origin.example/protected", nil)
+	classification := Classification{Action: "read", EndpointClass: "public_content"}
+	binding := state.challengeBinding(request, classification, testSessionValue, 1)
+	pending, err := state.issuePending(request, classification, testChallengeID, testSessionValue, binding, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var successes atomic.Int32
+	var wait sync.WaitGroup
+	for range 32 {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			if _, _, reserveErr := state.reserveGrant(pending.Value, testChallengeID, testSessionValue, classification.Action, classification.EndpointClass, now); reserveErr == nil {
+				successes.Add(1)
+			}
+		}()
+	}
+	wait.Wait()
+	if successes.Load() != 1 {
+		t.Fatalf("successful pending reservations = %d", successes.Load())
+	}
+}
+
+func TestPendingAndGrantExpireAtExactBoundary(t *testing.T) {
+	state, err := newBoundedState(10, 10, time.Minute, time.Minute, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_800_000_000, 0).UTC()
+	request := httptest.NewRequest(http.MethodGet, "https://origin.example/protected", nil)
+	classification := Classification{Action: "read", EndpointClass: "public_content"}
+	binding := state.challengeBinding(request, classification, testSessionValue, 1)
+	expiredPending, err := state.issuePending(request, classification, testChallengeID, testSessionValue, binding, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := state.reserveGrant(expiredPending.Value, testChallengeID, testSessionValue, classification.Action, classification.EndpointClass, now.Add(time.Minute)); !errors.Is(err, ErrInvalidPending) {
+		t.Fatalf("pending exact-boundary expiry = %v", err)
+	}
+	pending, err := state.issuePending(request, classification, testChallengeID, testSessionValue, binding, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant, _, err := state.reserveGrant(pending.Value, testChallengeID, testSessionValue, classification.Action, classification.EndpointClass, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.commitPending(pending.Value)
+	retry := httptest.NewRequest(http.MethodGet, "https://origin.example/protected", nil)
+	retry.AddCookie(&grant)
+	retry.AddCookie(&http.Cookie{Name: SessionCookieName, Value: testSessionValue})
+	if state.consumeGrant(retry, classification, now.Add(time.Minute)) {
+		t.Fatal("grant remained valid at its exact expiry boundary")
 	}
 }
 

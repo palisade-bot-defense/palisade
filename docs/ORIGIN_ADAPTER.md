@@ -201,7 +201,12 @@ It relays metadata, verification, redemption and fallback calls without
 exposing the backend credential.
 
 The initial request creates an HttpOnly, Secure, SameSite=Strict pending cookie
-and bounded in-memory entry. After successful backend redemption the adapter
+and bounded in-memory entry. On every origin check it also derives a 32-byte
+server-only flow capability from the process-random key, signed session, target
+digest, action, endpoint class and sequence. PALISADE receives its base64url
+form in `X-Palisade-Challenge-Binding` and later requires the same value during
+backend redemption. The adapter stores it only in the pending entry: browser
+HTML, JavaScript, request bodies and cookies never contain it. After successful backend redemption the adapter
 issues a second HttpOnly one-time cookie. It authorizes only the original
 method, escaped path, raw query, action and endpoint class. Those request-target
 values are represented in state only by a process-random HMAC digest. A changed
@@ -222,6 +227,11 @@ The defaults bound session counters, pending retries and granted retries to
 restart invalidates it. Keep a challenged session on one replica. Do not spread
 traffic across multiple replicas until an atomic shared-state implementation
 preserves the same expiry and consume-once semantics.
+
+Custom adapters must generate an equivalent unpredictable server-only flow
+capability, bind it to their own pending request state and keep it out of every
+browser-controlled field. Merely forwarding a browser redemption token is not
+a conforming implementation.
 
 The browser-facing baseline uses one pending and one redemption cookie name.
 Concurrent challenge completions in several tabs can therefore supersede one

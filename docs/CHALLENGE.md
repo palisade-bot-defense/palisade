@@ -13,7 +13,9 @@ A challenge is created only when all of these conditions hold:
 - `/v1/origin-check` produced an applied `challenge` action;
 - the action came from a valid signed `canary` or `enforce` rollout;
 - the decision contains a bounded, unexpired challenge directive;
-- the request session matches a valid `__Host-palisade_session` cookie.
+- the request session matches a valid `__Host-palisade_session` cookie; and
+- the trusted origin sent a fresh server-only `X-Palisade-Challenge-Binding`
+  capability for this exact request flow.
 
 Shadow decisions and direct `/v1/decision` calls never allocate challenge
 state. If challenge state cannot be created, the origin check fails with `503`
@@ -37,13 +39,22 @@ same-origin sequence while forwarding the PALISADE session cookie:
    short-lived redemption token. A request before `ready_at` returns `425` and
    `Retry-After` without consuming an attempt.
 3. Before the redemption expiry, the adapter calls
-   `POST /v1/challenge/redeem` with the original closed `action` and
-   `endpoint_class`.
+   `POST /v1/challenge/redeem` with the original closed `action`,
+   `endpoint_class` and the matching server-only `redemption_binding`.
 4. A `204` plus `X-Palisade-Challenge: redeemed` authorizes exactly one retry
    matching the original method, escaped path, raw query, action and endpoint
-   class. The reference adapter binds this locally with a process-random HMAC;
-   it never stores or sends the raw request target. A mismatched request neither
-   passes nor consumes the grant.
+   class. The reference adapter derives the flow capability and local target
+   digest with a process-random HMAC; it never stores or sends the raw request
+   target. PALISADE retains only a hash of the capability. A mismatched request
+   neither passes nor consumes the grant.
+
+The raw flow capability exists only in the trusted adapter's bounded pending
+state. It is sent server-to-server on the initial origin check and backend
+redemption, but is never put in HTML, JavaScript, a browser request body or a
+cookie. A stolen browser redemption token therefore cannot be relayed into a
+different origin flow, adapter process, session, action, endpoint class or
+sequence. Reverse proxies, tracing middleware and access logs must redact both
+`X-Palisade-Challenge-Binding` and `redemption_binding`.
 
 Do not put an original URL, query string, request body, cookie or upstream token
 in any challenge request. PALISADE intentionally does not store a return URL.
@@ -57,12 +68,12 @@ Example verification bodies:
 ```
 
 ```json
-{"challenge_id":"...","redemption_token":"...","action":"read","endpoint_class":"public_content"}
+{"challenge_id":"...","redemption_token":"...","redemption_binding":"<server-only capability>","action":"read","endpoint_class":"public_content"}
 ```
 
 ## Accessibility and fallback
 
-The protocol family is `timed_confirmation_v1`. Its contract is nonvisual,
+The protocol family is `timed_confirmation_v2`. Its contract is nonvisual,
 keyboard-operable and does not collect pointer paths, typing patterns or
 content. The origin adapter is responsible for rendering clear accessible UI,
 announcing the remaining wait without focus traps, and preserving a documented
@@ -77,7 +88,7 @@ PALISADE does not accept a fallback/return URL in this API.
 
 The baseline stores at most 100,000 challenges in process memory. Each challenge
 is bound to the session, decision, action, endpoint class, rollout, random ID,
-ready time and expiry. The default confirmation delay is two seconds, there are
+origin-flow capability hash, ready time and expiry. The default confirmation delay is two seconds, there are
 at most five invalid verification attempts, and redemption expires after at
 most 60 seconds or at the challenge expiry, whichever comes first. Challenge
 directives cannot exceed 15 minutes.

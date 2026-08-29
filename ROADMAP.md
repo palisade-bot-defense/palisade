@@ -102,7 +102,7 @@ Deliverables:
   hits are evidence rather than an automatic verdict;
 - [x] vary bounded response cost by endpoint value, evidence confidence, recent
   behavior and retry history;
-- harden one-time, action-bound challenge redemption against replay and relay;
+- [x] harden one-time, action-bound challenge redemption against replay and relay;
 - provide keyboard, screen-reader, reduced-motion and non-JavaScript fallback
   paths with equal security accounting;
 - test the progression `observe → delay → throttle → accessible step-up →

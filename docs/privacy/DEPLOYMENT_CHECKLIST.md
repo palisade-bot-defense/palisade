@@ -73,6 +73,9 @@ Primary source: [§ 25 TDDDG](https://www.gesetze-im-internet.de/ttdsg/__25.html
 - Use the shortest justified in-memory, shadow-log and backup retention.
 - Keep keys and logs owner-only, outside Git worktrees and separate from shared
   exports.
+- Redact `X-Palisade-Challenge-Binding`, `redemption_binding`, proof tokens and
+  challenge capabilities from proxy, trace and application logs. They are
+  short-lived credentials, not diagnostic fields.
 - Treat every `import-local-events` input and normalized shard as potentially
   personal data. Document the adapter mapping, key custody, daily pseudonym
   rotation, approved linkage window and deletion of inputs, outputs and
