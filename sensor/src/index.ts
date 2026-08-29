@@ -27,6 +27,11 @@ const SENSOR_VERSION = "0.2.0";
 const TIME_BUCKET_MS = 25;
 const VALUE_BUCKET = 16;
 
+function validSameOriginEndpoint(value: string): boolean {
+  return value.length >= 2 && value.length <= 256 && value.startsWith("/") && !value.startsWith("//") &&
+    !/[?#\\\u0000-\u001f\u007f]/u.test(value);
+}
+
 function bucket(value: number, size: number): number {
   return Math.max(0, Math.round(value / size) * size);
 }
@@ -43,7 +48,7 @@ export class PalisadeSensor {
   #inFlight: Promise<void> | undefined;
 
   constructor(options: SensorOptions) {
-    if (!options.endpoint) throw new Error("endpoint is required");
+    if (!validSameOriginEndpoint(options.endpoint)) throw new Error("endpoint must be a bounded same-origin path without query or fragment");
     this.#options = { flushIntervalMs: 15_000, maxBatchSize: 64, maxQueueSize: 256, ...options };
     if (!Number.isInteger(this.#options.flushIntervalMs) || this.#options.flushIntervalMs < 15_000 || this.#options.flushIntervalMs > 300_000 ||
       !Number.isInteger(this.#options.maxBatchSize) || this.#options.maxBatchSize < 1 || this.#options.maxBatchSize > 64 ||

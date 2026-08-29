@@ -43,18 +43,21 @@ as general efficacy.
 
 ## v0.2 — prove data sovereignty
 
+Status: implementation complete; the clean macOS/Linux release verification
+and first independently reproduced signed artifact set remain the exit gate.
+
 Deliverables:
 
-- publish the deterministic `palisade sovereignty-report` command and versioned
+- [x] publish the deterministic `palisade sovereignty-report` command and versioned
   JSON Schema;
-- document product invariants separately from unverified operator declarations;
-- add a static runtime-egress inventory and regression test for every new
+- [x] document product invariants separately from unverified operator declarations;
+- [x] add a static runtime-egress inventory and regression test for every new
   network client in the reference service;
-- inventory collected, derived, persisted and exported fields in a
+- [x] inventory collected, derived, persisted and exported fields in a
   machine-readable data map;
-- produce a reproducible local release checklist without GitHub Actions or
+- [x] produce a reproducible local release checklist without GitHub Actions or
   mandatory hosted build infrastructure;
-- keep private logs, normalized deployment datasets, keys and reports outside
+- [x] keep private logs, normalized deployment datasets, keys and reports outside
   every Git worktree by construction and documentation.
 
 Exit gate: a clean reference deployment can generate a reviewable sovereignty

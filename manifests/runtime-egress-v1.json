@@ -1,0 +1,103 @@
+{
+  "schema_version": "palisade.runtime-egress.v1",
+  "scope": "reference_repository_runtime",
+  "default_posture": "no_mandatory_vendor_egress",
+  "entries": [
+    {
+      "id": "origin_adapter_to_palisade",
+      "component": "reference_origin_adapter",
+      "source_paths": [
+        "pkg/palisadehttp/challenge.go",
+        "pkg/palisadehttp/client.go"
+      ],
+      "initiator": "operator_deployed_origin_adapter",
+      "destination": "operator_configured_palisade_base_url",
+      "network_scope": "operator_configured_http_endpoint",
+      "activation": "operator_enables_reference_adapter",
+      "mandatory_vendor_service": false,
+      "data_classes": [
+        "backend_authentication_credential",
+        "closed_coverage_aggregate",
+        "closed_decision_request",
+        "closed_outcome_label",
+        "opaque_decision_handle",
+        "signed_continuity_cookie"
+      ],
+      "raw_network_identifiers_allowed": false
+    },
+    {
+      "id": "browser_sensor_to_same_origin",
+      "component": "browser_sensor",
+      "source_paths": [
+        "sensor/src/index.ts"
+      ],
+      "initiator": "first_party_browser_sensor",
+      "destination": "operator_same_origin_event_path",
+      "network_scope": "same_origin_only",
+      "activation": "operator_embeds_browser_sensor",
+      "mandatory_vendor_service": false,
+      "data_classes": [
+        "bounded_browser_event_counts",
+        "one_time_event_proof",
+        "opaque_session_handle",
+        "sensor_version"
+      ],
+      "raw_network_identifiers_allowed": false
+    },
+    {
+      "id": "native_challenge_to_same_origin",
+      "component": "native_challenge",
+      "source_paths": [
+        "pkg/palisadehttp/challenge.go"
+      ],
+      "initiator": "first_party_challenge_page",
+      "destination": "operator_same_origin_challenge_path",
+      "network_scope": "same_origin_only",
+      "activation": "decision_returns_challenge_action",
+      "mandatory_vendor_service": false,
+      "data_classes": [
+        "closed_challenge_metadata",
+        "one_time_redemption_capability",
+        "signed_continuity_cookie",
+        "verification_capability"
+      ],
+      "raw_network_identifiers_allowed": false
+    },
+    {
+      "id": "operator_console_to_loopback_admin",
+      "component": "operator_console",
+      "source_paths": [
+        "dashboard/src/App.tsx"
+      ],
+      "initiator": "local_operator_browser",
+      "destination": "loopback_admin_listener",
+      "network_scope": "same_origin_loopback_only",
+      "activation": "operator_opens_local_console",
+      "mandatory_vendor_service": false,
+      "data_classes": [
+        "admin_authentication_credential",
+        "aggregate_analysis_report",
+        "aggregate_runtime_counters",
+        "readiness_status"
+      ],
+      "raw_network_identifiers_allowed": false
+    }
+  ],
+  "explicitly_absent": [
+    "reference_decision_service_outbound_runtime_client",
+    "mandatory_palisade_control_plane",
+    "mandatory_telemetry_export",
+    "cross_site_identity_graph",
+    "runtime_vendor_dns_lookup"
+  ],
+  "excluded_from_scope": [
+    "build_time_dependency_downloads",
+    "operator_selected_host_monitoring",
+    "operator_written_adapters_and_fetch_implementations",
+    "operating_system_network_services"
+  ],
+  "limitations": [
+    "the manifest is a reviewed source inventory, not packet-capture or remote-attestation evidence",
+    "operator configuration and surrounding infrastructure require a separate deployment assessment"
+  ]
+}

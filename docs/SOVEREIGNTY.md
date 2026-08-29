@@ -41,6 +41,14 @@ The schema is
 Identical declarations and PALISADE versions produce identical JSON because the
 report includes no timestamp, host name or process environment.
 
+Two independently reviewable repository artifacts support the product-level
+statements:
+
+- the [runtime egress inventory](RUNTIME_EGRESS.md) maps every reviewed outbound
+  source callsite and fails a regression test when a new one appears;
+- the [machine-readable data map](DATA_MAP.md) records accepted classes,
+  destinations, persistence modes and explicit raw exclusions.
+
 ## Product invariants in v1
 
 - no mandatory PALISADE vendor control plane;

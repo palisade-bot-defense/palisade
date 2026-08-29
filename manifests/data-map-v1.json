@@ -1,0 +1,115 @@
+{
+  "schema_version": "palisade.data-map.v1",
+  "scope": "reference_product_data_flows",
+  "default_rules": {
+    "external_export": false,
+    "raw_network_identifiers": "excluded",
+    "content_collection": "excluded",
+    "missing_browser_sensor": "neutral"
+  },
+  "flows": [
+    {
+      "id": "browser_event_ingest",
+      "source": "first_party_browser_sensor",
+      "destination": "bounded_event_store",
+      "purpose": "automation_and_continuity_evidence",
+      "data_classes": ["bounded_browser_event_counts", "one_time_event_proof", "opaque_session_handle", "sensor_version"],
+      "network_scope": "same_origin_only",
+      "persistence": "bounded_memory_five_minutes",
+      "external_export": false
+    },
+    {
+      "id": "decision_request",
+      "source": "trusted_origin_adapter",
+      "destination": "decision_engine",
+      "purpose": "explainable_risk_decision",
+      "data_classes": ["closed_decision_request", "closed_route_context", "closed_signal_classes", "opaque_session_handle"],
+      "network_scope": "operator_configured_internal_endpoint",
+      "persistence": "bounded_memory_five_minutes",
+      "external_export": false
+    },
+    {
+      "id": "continuity_cookie",
+      "source": "session_service",
+      "destination": "first_party_browser",
+      "purpose": "authenticated_session_continuity",
+      "data_classes": ["opaque_session_handle", "signed_continuity_cookie"],
+      "network_scope": "same_origin_only",
+      "persistence": "browser_cookie_twenty_four_hours",
+      "external_export": false
+    },
+    {
+      "id": "native_challenge_lifecycle",
+      "source": "first_party_challenge_page",
+      "destination": "origin_challenge_handler",
+      "purpose": "bounded_step_up_and_one_time_redemption",
+      "data_classes": ["closed_challenge_metadata", "one_time_redemption_capability", "signed_continuity_cookie", "verification_capability"],
+      "network_scope": "same_origin_only",
+      "persistence": "bounded_memory_fifteen_minutes",
+      "external_export": false
+    },
+    {
+      "id": "shadow_measurement",
+      "source": "decision_engine",
+      "destination": "operator_local_encrypted_sink",
+      "purpose": "shadow_evaluation",
+      "data_classes": ["closed_decision_result", "opaque_link_key", "stable_reason_codes", "versioned_policy_and_model"],
+      "network_scope": "local_filesystem_only",
+      "persistence": "optional_encrypted_operator_bounded_default_seven_days",
+      "external_export": false
+    },
+    {
+      "id": "delayed_outcome",
+      "source": "trusted_backend",
+      "destination": "operator_local_encrypted_sink",
+      "purpose": "decision_outcome_linkage",
+      "data_classes": ["closed_outcome_label", "opaque_decision_handle", "provenance_and_confidence"],
+      "network_scope": "operator_configured_internal_endpoint",
+      "persistence": "optional_encrypted_operator_bounded_default_seven_days",
+      "external_export": false
+    },
+    {
+      "id": "aggregate_analysis",
+      "source": "operator_local_encrypted_sink",
+      "destination": "owner_only_aggregate_report",
+      "purpose": "local_calibration_and_rollout_review",
+      "data_classes": ["aggregate_analysis_report", "aggregate_confidence_intervals", "closed_rollout_recommendation"],
+      "network_scope": "local_filesystem_only",
+      "persistence": "operator_controlled_owner_only_artifact",
+      "external_export": false
+    },
+    {
+      "id": "operator_console_summary",
+      "source": "decision_service",
+      "destination": "local_operator_browser",
+      "purpose": "aggregate_operations_visibility",
+      "data_classes": ["aggregate_analysis_report", "aggregate_runtime_counters", "readiness_status"],
+      "network_scope": "same_origin_loopback_only",
+      "persistence": "browser_memory_only",
+      "external_export": false
+    },
+    {
+      "id": "sovereignty_report",
+      "source": "local_cli",
+      "destination": "operator_selected_output",
+      "purpose": "product_and_deployment_inventory",
+      "data_classes": ["closed_operator_attestation", "product_invariants", "product_version"],
+      "network_scope": "no_network_required",
+      "persistence": "operator_controlled_artifact",
+      "external_export": false
+    }
+  ],
+  "raw_classes_excluded": [
+    "asn",
+    "dom_text",
+    "exact_pointer_path",
+    "form_content",
+    "ip_address",
+    "keystroke",
+    "request_body",
+    "request_url",
+    "tls_fingerprint",
+    "user_agent",
+    "vendor_payload"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/local-release-v1.schema.json",
+  "title": "PALISADE local release metadata v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "version", "git_commit", "source_date_epoch", "go_version"],
+  "properties": {
+    "schema_version": { "const": "palisade.local-release.v1" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$" },
+    "git_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "source_date_epoch": { "type": "integer", "minimum": 1 },
+    "go_version": { "type": "string", "pattern": "^go1\\.27\\.[0-9]+$" }
+  }
+}

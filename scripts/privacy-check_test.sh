@@ -192,8 +192,9 @@ fi
 symlink="$test_root/symlink"
 new_repo "$symlink"
 printf '%s\n' 'synthetic' >"$symlink/target.txt"
-ln -s target.txt "$symlink/link.txt"
-git -C "$symlink" add target.txt link.txt
+git -C "$symlink" add target.txt
+link_object=$(printf '%s' 'target.txt' | git -C "$symlink" hash-object -w --stdin)
+git -C "$symlink" update-index --add --cacheinfo "120000,$link_object,link.txt"
 if (cd "$symlink" && "$guard") >/dev/null 2>&1; then
 	echo "privacy-check test: tracked symlink was accepted" >&2
 	exit 1

@@ -65,6 +65,10 @@ Scores are decision support, not identity claims. Operators need an appeal/fallb
 The [Sovereignty Report](../SOVEREIGNTY.md) inventories PALISADE product
 invariants separately from closed operator declarations. It does not inspect
 network flows or turn self-hosting into a legal-compliance claim.
+The versioned [data map](../DATA_MAP.md) and [runtime egress
+inventory](../RUNTIME_EGRESS.md) make accepted flows and reviewed outbound
+calls machine-readable; surrounding operator infrastructure remains outside
+that source-level inventory.
 
 The evaluation cohort is not detector evidence. It must not contain free text,
 account or device identifiers, browser fingerprints, medical diagnoses or

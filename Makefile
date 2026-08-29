@@ -1,4 +1,4 @@
-.PHONY: build test check coverage-check privacy-check license-check offline-eval-test replay dev demo docker
+.PHONY: build test check verify release-plan release coverage-check privacy-check license-check offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -12,6 +12,17 @@ test:
 check: coverage-check privacy-check license-check
 	go vet ./...
 	pnpm typecheck
+
+verify:
+	./scripts/verify-local.sh
+
+release-plan:
+	@test -n "$(VERSION)" || (echo "VERSION is required" >&2; exit 2)
+	./scripts/release-local.sh --plan "$(VERSION)"
+
+release:
+	@test -n "$(VERSION)" || (echo "VERSION is required" >&2; exit 2)
+	./scripts/release-local.sh "$(VERSION)"
 
 coverage-check:
 	./scripts/check-go-coverage.sh

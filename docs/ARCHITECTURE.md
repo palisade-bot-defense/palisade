@@ -22,6 +22,7 @@ It is not a packet sniffer, a general log warehouse or a raw-vendor-event bus.
 | Rollout review | Deterministic closed JSON | Report-hash binding, machine gates, narrow recommended scope and explicit operator checklist; never executable |
 | Rollout approval | Ed25519 signed JSON | Expiring endpoint/action/cohort scope reviewed by an operator |
 | Sovereignty inventory | Deterministic closed JSON | Product invariants separated from unverified, non-identifying operator declarations |
+| Egress and data maps | Versioned JSON plus source regression tests | Reviewed network callsites, closed data classes, destinations, persistence and explicit exclusions |
 
 The initial deployment is a modular monolith. A database, message broker or
 distributed cache is not required by the baseline. Shared state should be added
@@ -119,5 +120,5 @@ predecessor canary on the exact same endpoint.
   rename. The serving process polls that report and retains its last valid
   snapshot when an update is missing, partial or invalid.
 
-See [Sovereignty Report](SOVEREIGNTY.md), [reference origin adapter](ORIGIN_ADAPTER.md), [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
+See [Sovereignty Report](SOVEREIGNTY.md), [runtime egress inventory](RUNTIME_EGRESS.md), [data map](DATA_MAP.md), [reference origin adapter](ORIGIN_ADAPTER.md), [signal sources](SIGNAL_SOURCES.md), [privacy boundaries](privacy/DATA_BOUNDARIES.md),
 [native challenge](CHALLENGE.md), [shadow logging](SHADOW_LOG.md), [automated analysis](ANALYSIS_AUTOMATION.md), [Operator Console](OPERATOR_CONSOLE.md), [signed rollout](ROLLOUT.md) and the [OpenAPI contract](../api/openapi.yaml).

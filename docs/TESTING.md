@@ -5,7 +5,12 @@ All repository fixtures are synthetic. Raw deployment traffic, encrypted
 shadow logs, private analysis reports and customer identifiers must never enter
 tests, CI artifacts or public failure output.
 
-## Required local and CI gates
+## Required local release gates
+
+`make verify` runs the complete gate set on a maintainer-controlled macOS or
+Linux host. The repository intentionally has no GitHub Actions workflow and no
+hosted CI requirement; local release evidence must be reviewed before a signed
+tag is published.
 
 | Layer | Gate | Current target |
 |---|---|---|
@@ -22,9 +27,10 @@ The latency test is a regression gate for the in-process decision path, not a
 claim about network, reverse-proxy or end-user latency. The benchmark
 `BenchmarkProductionDecisionPath` reports allocations and throughput for
 diagnosis without turning noisy allocation changes into an automatic release.
-GitHub-hosted enforcement also requires Actions to be enabled for the
-repository and the observed CI/Security check names to be required on `main`;
-verify those settings after repository or organization transfers.
+The runtime-egress regression test parses Go source and scans production
+TypeScript callsites. A new outbound primitive fails until its destination,
+activation, data classes and privacy boundary are added to the reviewed
+manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
 
 ## Test pyramid
 

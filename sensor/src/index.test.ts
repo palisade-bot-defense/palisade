@@ -60,6 +60,18 @@ describe("PalisadeSensor", () => {
     expect(() => new PalisadeSensor({ endpoint: "/events", flushIntervalMs: 2_000 })).toThrow(/bounds/);
   });
 
+  it("rejects endpoints that could export sensor events cross-origin", () => {
+    for (const endpoint of [
+      "https://collector.example/events",
+      "//collector.example/events",
+      "/events?tenant=private",
+      "/events#fragment",
+      "/events\nnext",
+    ]) {
+      expect(() => new PalisadeSensor({ endpoint })).toThrow(/same-origin/);
+    }
+  });
+
   it("bounds the queue without creating immediate flush bursts", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 202 }));
     const sensor = new PalisadeSensor({ endpoint: "/events", maxBatchSize: 2, maxQueueSize: 4, fetchImpl: request });

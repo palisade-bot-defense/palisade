@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/runtime-egress-v1.schema.json",
+  "title": "PALISADE runtime egress inventory v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scope", "default_posture", "entries", "explicitly_absent", "excluded_from_scope", "limitations"],
+  "properties": {
+    "schema_version": { "const": "palisade.runtime-egress.v1" },
+    "scope": { "const": "reference_repository_runtime" },
+    "default_posture": { "const": "no_mandatory_vendor_egress" },
+    "entries": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "explicitly_absent": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+    },
+    "excluded_from_scope": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "string", "minLength": 1, "maxLength": 180 }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "component", "source_paths", "initiator", "destination", "network_scope", "activation", "mandatory_vendor_service", "data_classes", "raw_network_identifiers_allowed"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "component": { "enum": ["reference_origin_adapter", "browser_sensor", "native_challenge", "operator_console"] },
+        "source_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9_./-]+$" }
+        },
+        "initiator": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "destination": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "network_scope": { "enum": ["operator_configured_http_endpoint", "same_origin_only", "same_origin_loopback_only"] },
+        "activation": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "mandatory_vendor_service": { "const": false },
+        "data_classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+        },
+        "raw_network_identifiers_allowed": { "const": false }
+      }
+    }
+  }
+}
