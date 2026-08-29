@@ -112,3 +112,8 @@ Subject and session pseudonyms are used only as transient local linkage keys.
 They and all row-level events are absent from the report. See the
 [local sequence-analysis contract](LOCAL_SEQUENCE_ANALYSIS.md) for exact
 feature definitions, resource ceilings and interpretation limits.
+
+For confirmed-label measurement, run the separate
+[`evaluate-local-holdout`](LOCAL_HOLDOUT_EVALUATION.md) workflow with a cutoff
+chosen before viewing holdout outcomes. It does not modify the normalized
+shards or authorize enforcement.

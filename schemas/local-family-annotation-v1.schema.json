@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/local-family-annotation-v1.schema.json",
+  "title": "PALISADE local family annotation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "sequence_kind", "sequence_id", "family_ref"],
+  "properties": {
+    "schema_version": { "const": "palisade.local-family-annotation.v1" },
+    "sequence_kind": { "enum": ["subject", "session"] },
+    "sequence_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
+    "family_ref": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\s\\u0000-\\u001F\\u007F](?:[^\\u0000-\\u001F\\u007F]*[^\\s\\u0000-\\u001F\\u007F])?$" }
+  }
+}

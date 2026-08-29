@@ -144,6 +144,24 @@ if (cd "$local_sequence_report" && "$guard") >/dev/null 2>&1; then
 	exit 1
 fi
 
+local_holdout_report="$test_root/local-holdout-report"
+new_repo "$local_holdout_report"
+printf '%s\n' '{"schema_version":"palisade.local-holdout-report.v1","source":{"events":42}}' >"$local_holdout_report/renamed.txt"
+git -C "$local_holdout_report" add renamed.txt
+if (cd "$local_holdout_report" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: generated local holdout report was accepted" >&2
+	exit 1
+fi
+
+local_family_annotation="$test_root/local-family-annotation"
+new_repo "$local_family_annotation"
+printf '%s\n' '{"schema_version":"palisade.local-family-annotation.v1","sequence_kind":"session","sequence_id":"synthetic","family_ref":"synthetic-family"}' >"$local_family_annotation/renamed.txt"
+git -C "$local_family_annotation" add renamed.txt
+if (cd "$local_family_annotation" && "$guard") >/dev/null 2>&1; then
+	echo "privacy-check test: renamed local family annotation was accepted" >&2
+	exit 1
+fi
+
 shadow_analysis="$test_root/shadow-analysis"
 new_repo "$shadow_analysis"
 printf '%s\n' '{"schema_version":"palisade.shadow-analysis.v1","source":{"records":42}}' >"$shadow_analysis/renamed.txt"

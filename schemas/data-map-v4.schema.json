@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/data-map-v4.schema.json",
+  "title": "PALISADE data map v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scope", "default_rules", "transient_local_input_classes", "flows", "raw_classes_excluded"],
+  "properties": {
+    "schema_version": { "const": "palisade.data-map.v4" },
+    "scope": { "const": "reference_product_data_flows" },
+    "default_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["external_export", "raw_network_identifiers", "content_collection", "missing_browser_sensor"],
+      "properties": {
+        "external_export": { "const": false },
+        "raw_network_identifiers": { "const": "excluded_from_runtime_and_persisted_output" },
+        "content_collection": { "const": "excluded" },
+        "missing_browser_sensor": { "const": "neutral" }
+      }
+    },
+    "transient_local_input_classes": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "enum": ["daily_rotating_pseudonym_for_sequence_linkage", "operator_attack_family_reference", "operator_session_reference_may_be_personal_data", "operator_subject_reference_may_include_network_identifier"] }
+    },
+    "flows": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/flow" }
+    },
+    "raw_classes_excluded": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "uniqueItems": true,
+      "items": { "enum": ["asn", "dom_text", "exact_pointer_path", "form_content", "ip_address", "keystroke", "request_body", "request_url", "tls_fingerprint", "user_agent", "vendor_payload"] }
+    }
+  },
+  "$defs": {
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "destination", "purpose", "data_classes", "transient_data_classes", "network_scope", "persistence", "external_export"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "source": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "destination": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "purpose": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "data_classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+        },
+        "transient_data_classes": {
+          "type": "array",
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["daily_rotating_pseudonym_for_sequence_linkage", "operator_attack_family_reference", "operator_session_reference_may_be_personal_data", "operator_subject_reference_may_include_network_identifier"] }
+        },
+        "network_scope": { "enum": ["same_origin_only", "operator_configured_internal_endpoint", "local_filesystem_only", "same_origin_loopback_only", "no_network_required"] },
+        "persistence": { "enum": ["bounded_memory_five_minutes", "bounded_memory_fifteen_minutes", "browser_cookie_twenty_four_hours", "optional_encrypted_operator_bounded_default_seven_days", "operator_controlled_owner_only_artifact", "browser_memory_only", "operator_controlled_artifact"] },
+        "external_export": { "const": false }
+      }
+    }
+  }
+}

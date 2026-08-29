@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/adversarial-holdout-suite-v1.schema.json",
+  "title": "PALISADE adversarial holdout conformance suite v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scope", "synthetic_only", "scenarios"],
+  "properties": {
+    "schema_version": { "const": "palisade.adversarial-holdout-suite.v1" },
+    "scope": { "const": "local_holdout_contract" },
+    "synthetic_only": { "const": true },
+    "scenarios": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "threat", "expected"],
+        "properties": {
+          "id": { "enum": ["random_split_leakage", "boundary_window_leakage", "unknown_as_human", "conflicting_confirmed_labels", "collection_failure_bias", "seen_family_leakage", "annotation_poisoning", "challenge_humanity_inference", "resource_exhaustion"] },
+          "threat": { "type": "string", "minLength": 1, "maxLength": 160 },
+          "expected": { "enum": ["predeclared_chronological_only", "exclude_crossing_window", "retain_unknown_denominator", "count_ambiguous", "retain_collection_artifact", "isolate_unseen_family", "reject_duplicate_assignment", "never_promote_to_human", "fail_closed_on_budget"] }
+        }
+      }
+    }
+  }
+}

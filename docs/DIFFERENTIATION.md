@@ -80,7 +80,10 @@ become more valuable when inspected and adopted:
 6. **Humane challenge protocol:** one-time action/session binding, accessibility
    accounting and progressive cost rather than a single visual puzzle.
 7. **Evaluation method:** chronological holdouts, unknown-label accounting,
-   confidence intervals and poisoning/misconfiguration test fixtures.
+   confidence intervals and poisoning/misconfiguration test fixtures. The
+   reference evaluator requires a predeclared time boundary, excludes crossing
+   windows and can isolate operator-annotated families never seen in baseline
+   without publishing their names.
 8. **Adapter conformance:** privacy and failure-policy tests that make PALISADE a
    stable interoperability boundary for proxies and local security tools.
 9. **Community trust and brand:** transparent limitations, private vulnerability

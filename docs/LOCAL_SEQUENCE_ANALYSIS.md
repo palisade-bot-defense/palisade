@@ -80,8 +80,9 @@ private artifact blocked by the repository privacy guard.
 - Partial or missing collection remains explicit and must not be interpreted as
   suspicious behavior by itself.
 
-The next evaluation step is chronological holdout analysis with independently
-confirmed human and abuse outcomes, unseen attack families, collection-failure
-slices and confidence intervals. Private inputs, shards and reports remain on
-the operator-controlled machine. Only reviewed aggregates or synthetic
-fixtures are candidates for publication.
+The follow-on [local holdout evaluator](LOCAL_HOLDOUT_EVALUATION.md) implements
+a predeclared chronological split, independently confirmed label denominators,
+optional unseen-family grouping, collection-failure slices and Wilson
+intervals. Private inputs, annotations, shards and reports remain on the
+operator-controlled machine. Only reviewed aggregates or synthetic fixtures
+are candidates for publication.

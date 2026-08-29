@@ -51,7 +51,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: palisade <serve|doctor|sovereignty-report|replay|import-offline|import-local-events|analyze-local-events|verify-shadow-log|analyze-shadow-log|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
+		return errors.New("usage: palisade <serve|doctor|sovereignty-report|replay|import-offline|import-local-events|analyze-local-events|evaluate-local-holdout|verify-shadow-log|analyze-shadow-log|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
 	}
 	switch args[0] {
 	case "serve":
@@ -68,6 +68,8 @@ func run(args []string) error {
 		return runLocalEventImport(args[1:])
 	case "analyze-local-events":
 		return runLocalEventAnalysis(args[1:])
+	case "evaluate-local-holdout":
+		return runLocalHoldoutEvaluation(args[1:])
 	case "verify-shadow-log":
 		return verifyShadowLog(args[1:])
 	case "analyze-shadow-log":
@@ -325,6 +327,46 @@ func runLocalEventAnalysis(args []string) error {
 		return err
 	}
 	fmt.Printf("local sequence report written: events=%d sequences=%d\n", report.Source.Events, report.Source.Sequences)
+	return nil
+}
+
+func runLocalHoldoutEvaluation(args []string) error {
+	flags := flag.NewFlagSet("evaluate-local-holdout", flag.ContinueOnError)
+	directory := flags.String("dir", "", "owner-only normalized local evidence directory outside every Git worktree")
+	holdoutStart := flags.String("holdout-start", "", "predeclared UTC RFC3339 boundary; crossing windows are excluded")
+	outputPath := flags.String("output", "", "new owner-only aggregate holdout report outside every Git worktree")
+	familyAnnotations := flags.String("family-annotations", "", "optional owner-only sequence-to-family JSONL outside every Git worktree")
+	maxShards := flags.Int("max-shards", offlineimport.DefaultLocalScanMaxShards, "hard verified-shard scan budget")
+	maxEvents := flags.Uint64("max-events", offlineimport.DefaultLocalScanMaxEvents, "hard verified-event scan budget")
+	maxBytes := flags.Int64("max-bytes", offlineimport.DefaultLocalScanMaxBytes, "hard verified-input byte budget")
+	maxActive := flags.Int("max-active-sequences", localsequence.DefaultMaxActiveSequences, "hard in-memory active sequence budget")
+	minConfirmed := flags.Uint64("min-confirmed-per-label", localsequence.DefaultMinConfirmedPerLabel, "minimum confirmed-human and confirmed-abuse windows in each chronological partition")
+	minUnseenAbuse := flags.Uint64("min-unseen-abuse", localsequence.DefaultMinUnseenAbuse, "minimum confirmed-abuse windows in the unseen-family holdout")
+	maxFamilyRecords := flags.Uint64("max-family-records", localsequence.DefaultMaxFamilyRecords, "hard family annotation record budget")
+	maxFamilyBytes := flags.Int64("max-family-bytes", localsequence.DefaultMaxFamilyBytes, "hard family annotation byte budget")
+	maxFamilyLineBytes := flags.Int("max-family-line-bytes", localsequence.DefaultMaxFamilyLineBytes, "hard family annotation line budget")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 || *directory == "" || *holdoutStart == "" || *outputPath == "" {
+		return errors.New("evaluate-local-holdout requires --dir, --holdout-start and --output and accepts no positional arguments")
+	}
+	report, err := localsequence.AnalyzeHoldoutDirectory(*directory, localsequence.HoldoutConfig{
+		Sequence: localsequence.Config{
+			ScanLimits:         offlineimport.LocalScanLimits{MaxShards: *maxShards, MaxEvents: *maxEvents, MaxBytes: *maxBytes},
+			MaxActiveSequences: *maxActive,
+		},
+		HoldoutStart: *holdoutStart, MinConfirmedPerLabel: *minConfirmed, MinUnseenAbuse: *minUnseenAbuse,
+		FamilyAnnotations: *familyAnnotations, MaxFamilyRecords: *maxFamilyRecords, MaxFamilyBytes: *maxFamilyBytes, MaxFamilyLineBytes: *maxFamilyLineBytes,
+	})
+	if err != nil {
+		return err
+	}
+	if err := localsequence.WriteHoldoutReport(*outputPath, report); err != nil {
+		return err
+	}
+	fmt.Printf("local holdout report written: baseline=%d holdout=%d unseen_family=%d readiness=%s\n",
+		report.Partitions.Baseline.Windows, report.Partitions.Holdout.Windows, report.Partitions.UnseenFamilyHoldout.Windows, report.Readiness.State)
 	return nil
 }
 

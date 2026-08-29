@@ -57,6 +57,16 @@ private, owner-only artifact because its aggregate timing and volume may be
 sensitive; the repository privacy guard rejects it by schema marker even after
 renaming.
 
+[`evaluate-local-holdout`](../LOCAL_HOLDOUT_EVALUATION.md) may additionally
+read an owner-only mapping from a normalized daily sequence pseudonym to an
+operator attack/tool family reference. Both fields are transient and reduced
+to domain-separated fixed-size digests in memory. The report persists only
+aggregate partition/slice counts, Wilson intervals, an annotation-file
+fingerprint and closed readiness reasons. It contains no sequence or family
+identifier. Annotation inputs and holdout reports are blocked from Git by both
+filename/content guards and remain subject to operator access, retention and
+deletion controls.
+
 Default event/session retention is five minutes in memory. Optional shadow persistence records only the bounded decision fields and normalized outcomes documented in [SHADOW_LOG.md](../SHADOW_LOG.md). It is disabled unless both a local directory and key file are configured. Records are individually authenticated and encrypted, session IDs are replaced with keyed pilot-local link keys, timestamps are quantized to seconds, retention is configurable, and paths must be owner-only and outside Git worktrees. This is not permission to persist browser events, request bodies, cookies, tokens, IP addresses, user agents or raw traffic.
 
 When event-triggered shadow evaluation is enabled, accepted browser events stay

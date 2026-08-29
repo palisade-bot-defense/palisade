@@ -65,6 +65,14 @@ boundaries, enforces one heap entry per active sequence, keeps the three
 evidence dimensions separate and searches serialized reports for row-level
 identifiers. Its package is part of the 70% security-critical coverage gate.
 
+The holdout suite runs the importer, verified reader, sequence engine, optional
+family annotations and aggregate evaluator end to end on synthetic data. It
+tests predeclared chronological separation, crossing-window exclusion,
+unknown/ambiguous labels, collection artifacts, seen versus unseen families,
+duplicate annotation poisoning, hard annotation budgets and absence of
+sequence/family identifiers in serialized reports. The public adversarial
+scenario contract contains no deployment records.
+
 ## Known gaps
 
 The current baseline does not yet include a real-browser end-to-end suite,

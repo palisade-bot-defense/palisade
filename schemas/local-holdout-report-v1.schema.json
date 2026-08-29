@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/local-holdout-report-v1.schema.json",
+  "title": "PALISADE local chronological holdout report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_schema_version", "config", "feature_definitions", "rule_definitions", "source", "split", "families", "partitions", "readiness", "limitations"],
+  "properties": {
+    "schema_version": { "const": "palisade.local-holdout-report.v1" },
+    "source_schema_version": { "const": "palisade.local-evidence-event.v1" },
+    "config": { "$ref": "#/$defs/config" },
+    "feature_definitions": { "$ref": "#/$defs/feature_definitions" },
+    "rule_definitions": {
+      "const": [
+        { "id": "burst_behavior", "description": "clustered or high-rate burst shape" },
+        { "id": "automation_high", "description": "maximum operator-declared automation evidence is high" },
+        { "id": "abuse_intent_high", "description": "maximum operator-declared abuse-intent evidence is high" },
+        { "id": "active_decoy", "description": "decoy interaction reached touched or submitted" },
+        { "id": "combined_candidate", "description": "burst behavior, high automation, high abuse intent or active decoy" }
+      ]
+    },
+    "source": { "$ref": "#/$defs/source" },
+    "split": { "$ref": "#/$defs/split" },
+    "families": { "$ref": "#/$defs/families" },
+    "partitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline", "holdout", "unseen_family_holdout"],
+      "properties": {
+        "baseline": { "$ref": "#/$defs/partition" },
+        "holdout": { "$ref": "#/$defs/partition" },
+        "unseen_family_holdout": { "$ref": "#/$defs/partition" }
+      }
+    },
+    "readiness": { "$ref": "#/$defs/readiness" },
+    "limitations": {
+      "const": [
+        "candidate rules are fixed diagnostics and are not production enforcement thresholds",
+        "operator evidence and family mappings are declarations and are not independently verified",
+        "unknown labels are not confirmed-human labels",
+        "boundary-crossing windows are excluded from both chronological partitions",
+        "endpoint membership slices are non-exclusive and must not be summed",
+        "challenge completion does not establish humanity",
+        "unseen family status is relative only to supplied annotation coverage",
+        "the report emits no subject, session or family identifiers and no row-level events"
+      ]
+    }
+  },
+  "$defs": {
+    "count": { "type": "integer", "minimum": 0 },
+    "utc": { "type": "string", "format": "date-time", "pattern": "Z$", "maxLength": 40 },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_active_sequences", "max_scan_shards", "max_scan_events", "max_scan_bytes", "min_confirmed_per_label", "min_unseen_abuse", "max_family_records", "max_family_bytes", "max_family_line_bytes"],
+      "properties": {
+        "max_active_sequences": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "max_scan_shards": { "type": "integer", "minimum": 1, "maximum": 999999 },
+        "max_scan_events": { "type": "integer", "minimum": 1, "maximum": 100000000 },
+        "max_scan_bytes": { "type": "integer", "minimum": 1, "maximum": 1099511627776 },
+        "min_confirmed_per_label": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "min_unseen_abuse": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "max_family_records": { "type": "integer", "minimum": 1, "maximum": 5000000 },
+        "max_family_bytes": { "type": "integer", "minimum": 1, "maximum": 1073741824 },
+        "max_family_line_bytes": { "type": "integer", "minimum": 256, "maximum": 65536 }
+      }
+    },
+    "feature_definitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inactivity_seconds", "maximum_window_seconds", "clustered_minimum_events", "clustered_maximum_duration_seconds", "high_rate_minimum_peak_minute_events", "sustained_minimum_events", "sustained_minimum_duration_seconds"],
+      "properties": {
+        "inactivity_seconds": { "const": 300 },
+        "maximum_window_seconds": { "const": 900 },
+        "clustered_minimum_events": { "const": 20 },
+        "clustered_maximum_duration_seconds": { "const": 60 },
+        "high_rate_minimum_peak_minute_events": { "const": 60 },
+        "sustained_minimum_events": { "const": 20 },
+        "sustained_minimum_duration_seconds": { "const": 300 }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shards", "events", "bytes", "sequences"],
+      "properties": {
+        "shards": { "$ref": "#/$defs/count" },
+        "events": { "$ref": "#/$defs/count" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "sequences": { "$ref": "#/$defs/count" },
+        "first_at": { "$ref": "#/$defs/utc" },
+        "last_at": { "$ref": "#/$defs/utc" }
+      }
+    },
+    "split": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "holdout_start", "boundary_windows_excluded", "boundary_events_excluded", "boundary_labels"],
+      "properties": {
+        "method": { "const": "predeclared_window_start" },
+        "holdout_start": { "$ref": "#/$defs/utc" },
+        "boundary_windows_excluded": { "$ref": "#/$defs/count" },
+        "boundary_events_excluded": { "$ref": "#/$defs/count" },
+        "boundary_labels": { "$ref": "#/$defs/labels" }
+      }
+    },
+    "families": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["annotations_supplied", "annotation_records", "annotation_bytes", "annotated_windows", "unannotated_windows", "baseline_distinct", "holdout_distinct", "unseen_distinct", "unseen_holdout_windows", "annotated_confirmed_abuse_windows", "unannotated_confirmed_abuse_windows"],
+      "properties": {
+        "annotations_supplied": { "type": "boolean" },
+        "annotation_records": { "$ref": "#/$defs/count" },
+        "annotation_bytes": { "type": "integer", "minimum": 0 },
+        "annotation_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "annotated_windows": { "$ref": "#/$defs/count" },
+        "unannotated_windows": { "$ref": "#/$defs/count" },
+        "baseline_distinct": { "$ref": "#/$defs/count" },
+        "holdout_distinct": { "$ref": "#/$defs/count" },
+        "unseen_distinct": { "$ref": "#/$defs/count" },
+        "unseen_holdout_windows": { "$ref": "#/$defs/count" },
+        "annotated_confirmed_abuse_windows": { "$ref": "#/$defs/count" },
+        "unannotated_confirmed_abuse_windows": { "$ref": "#/$defs/count" }
+      }
+    },
+    "partition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["windows", "events", "labels", "collection", "rules", "endpoints"],
+      "properties": {
+        "windows": { "$ref": "#/$defs/count" },
+        "events": { "$ref": "#/$defs/count" },
+        "labels": { "$ref": "#/$defs/labels" },
+        "collection": { "$ref": "#/$defs/collection" },
+        "rules": { "$ref": "#/$defs/rules" },
+        "endpoints": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": { "$ref": "#/$defs/endpoint" }
+        }
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endpoint_class", "windows", "labels", "rules"],
+      "properties": {
+        "endpoint_class": { "enum": ["public_content", "account", "authentication", "transaction", "api", "decoy", "other"] },
+        "windows": { "$ref": "#/$defs/count" },
+        "labels": { "$ref": "#/$defs/labels" },
+        "rules": { "$ref": "#/$defs/rules" }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unknown", "human_confirmed", "operator_confirmed_abuse", "ambiguous"],
+      "properties": {
+        "unknown": { "$ref": "#/$defs/count" },
+        "human_confirmed": { "$ref": "#/$defs/count" },
+        "operator_confirmed_abuse": { "$ref": "#/$defs/count" },
+        "ambiguous": { "$ref": "#/$defs/count" }
+      }
+    },
+    "collection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clean", "with_artifact"],
+      "properties": {
+        "clean": { "$ref": "#/$defs/count" },
+        "with_artifact": { "$ref": "#/$defs/count" }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/rule_evaluation" }
+    },
+    "rule_evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "flagged", "unflagged", "confirmed_human_flag_rate", "confirmed_abuse_capture_rate", "unknown_flag_rate"],
+      "properties": {
+        "rule_id": { "enum": ["burst_behavior", "automation_high", "abuse_intent_high", "active_decoy", "combined_candidate"] },
+        "flagged": { "$ref": "#/$defs/labels" },
+        "unflagged": { "$ref": "#/$defs/labels" },
+        "confirmed_human_flag_rate": { "$ref": "#/$defs/proportion" },
+        "confirmed_abuse_capture_rate": { "$ref": "#/$defs/proportion" },
+        "unknown_flag_rate": { "$ref": "#/$defs/proportion" }
+      }
+    },
+    "proportion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "total", "rate", "lower_95", "upper_95"],
+      "properties": {
+        "count": { "$ref": "#/$defs/count" },
+        "total": { "$ref": "#/$defs/count" },
+        "rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lower_95": { "type": "number", "minimum": 0, "maximum": 1 },
+        "upper_95": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "reasons", "automatic_enforcement"],
+      "properties": {
+        "state": { "enum": ["insufficient_chronological_partitions", "insufficient_confirmed_labels", "chronological_holdout_ready", "chronological_and_unseen_family_ready"] },
+        "reasons": {
+          "type": "array",
+          "maxItems": 9,
+          "uniqueItems": true,
+          "items": { "enum": ["baseline_empty", "holdout_empty", "baseline_confirmed_human_below_minimum", "baseline_confirmed_abuse_below_minimum", "holdout_confirmed_human_below_minimum", "holdout_confirmed_abuse_below_minimum", "family_annotations_not_supplied", "family_confirmed_abuse_annotations_incomplete", "unseen_family_confirmed_abuse_below_minimum"] }
+        },
+        "automatic_enforcement": { "const": false }
+      }
+    }
+  }
+}

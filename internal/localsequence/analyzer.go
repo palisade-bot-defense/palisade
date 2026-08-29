@@ -27,28 +27,51 @@ type analyzer struct {
 	report      Report
 	active      map[string]*sequence
 	expirations expirationHeap
+	onWindow    func(windowFeature) error
 }
 
 type sequence struct {
-	key              string
-	heapIndex        int
-	expires          time.Time
-	first            time.Time
-	last             time.Time
-	events           uint64
-	minuteStart      time.Time
-	minuteEvents     uint64
-	peakMinute       uint64
-	previousEndpoint string
-	endpointSeen     [7]bool
-	automation       uint8
-	abuseIntent      uint8
-	continuity       uint8
-	collectionIssue  bool
-	decoy            uint8
-	challenge        uint8
-	humanLabel       bool
-	abuseLabel       bool
+	key                 string
+	heapIndex           int
+	expires             time.Time
+	first               time.Time
+	last                time.Time
+	events              uint64
+	minuteStart         time.Time
+	minuteEvents        uint64
+	peakMinute          uint64
+	previousEndpoint    string
+	endpointSeen        [7]bool
+	sensitiveEscalation uint64
+	decoyEntry          uint64
+	automation          uint8
+	abuseIntent         uint8
+	continuity          uint8
+	collectionIssue     bool
+	decoy               uint8
+	challenge           uint8
+	humanLabel          bool
+	abuseLabel          bool
+}
+
+type windowFeature struct {
+	key                 string
+	first               time.Time
+	last                time.Time
+	events              uint64
+	burstShape          string
+	peakMinuteBucket    string
+	endpointSeen        [7]bool
+	sensitiveEscalation uint64
+	decoyEntry          uint64
+	collectionIssue     bool
+	automation          uint8
+	abuseIntent         uint8
+	continuity          uint8
+	decoy               uint8
+	challenge           uint8
+	humanLabel          bool
+	abuseLabel          bool
 }
 
 type expirationHeap []*sequence
@@ -89,7 +112,9 @@ func AnalyzeDirectory(directory string, config Config) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	a.finish()
+	if err := a.finish(); err != nil {
+		return Report{}, err
+	}
 	a.report.Source.Shards = verified.Shards
 	a.report.Source.Events = verified.Events
 	a.report.Source.Bytes = verified.Bytes
@@ -152,7 +177,9 @@ func (a *analyzer) observe(event offlineimport.LocalEvent) error {
 	if err != nil {
 		return errors.New("normalized event time is invalid")
 	}
-	a.expire(observedAt)
+	if err := a.expire(observedAt); err != nil {
+		return err
+	}
 	key := "subject:" + event.SubjectID
 	if event.SessionID != "" {
 		key = "session:" + event.SessionID
@@ -160,7 +187,9 @@ func (a *analyzer) observe(event offlineimport.LocalEvent) error {
 	current := a.active[key]
 	if current != nil && !observedAt.Before(current.first.Add(MaximumWindowDuration)) {
 		heap.Remove(&a.expirations, current.heapIndex)
-		a.finalize(current, closeMaxDuration)
+		if err := a.finalize(current, closeMaxDuration); err != nil {
+			return err
+		}
 		delete(a.active, key)
 		current = nil
 	}
@@ -210,9 +239,11 @@ func (a *analyzer) observeEvent(current *sequence, observedAt time.Time, event o
 		}
 		if !sensitiveEndpoint(current.previousEndpoint) && sensitiveEndpoint(event.EndpointClass) {
 			a.report.EndpointTransitions.SensitiveEscalation++
+			current.sensitiveEscalation++
 		}
 		if current.previousEndpoint != "decoy" && event.EndpointClass == "decoy" {
 			a.report.EndpointTransitions.DecoyEntry++
+			current.decoyEntry++
 		}
 	}
 	current.previousEndpoint = event.EndpointClass
@@ -240,23 +271,29 @@ func (a *analyzer) observeEvent(current *sequence, observedAt time.Time, event o
 	}
 }
 
-func (a *analyzer) expire(now time.Time) {
+func (a *analyzer) expire(now time.Time) error {
 	for a.expirations.Len() > 0 && !a.expirations[0].expires.After(now) {
 		current := heap.Pop(&a.expirations).(*sequence)
-		a.finalize(current, closeInactivity)
 		delete(a.active, current.key)
+		if err := a.finalize(current, closeInactivity); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (a *analyzer) finish() {
+func (a *analyzer) finish() error {
 	for a.expirations.Len() > 0 {
 		current := heap.Pop(&a.expirations).(*sequence)
-		a.finalize(current, closeEndOfInput)
 		delete(a.active, current.key)
+		if err := a.finalize(current, closeEndOfInput); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (a *analyzer) finalize(current *sequence, reason string) {
+func (a *analyzer) finalize(current *sequence, reason string) error {
 	a.report.Source.Sequences++
 	a.report.Windows.Total++
 	switch reason {
@@ -268,26 +305,36 @@ func (a *analyzer) finalize(current *sequence, reason string) {
 		a.report.Windows.EndOfInput++
 	}
 	duration := current.last.Sub(current.first)
+	burstShape := "sparse"
 	switch {
 	case current.events == 1:
+		burstShape = "single"
 		a.report.BurstShapes.Single++
 	case current.peakMinute >= highRateMinimumPeakMinute:
+		burstShape = "high_rate"
 		a.report.BurstShapes.HighRate++
 	case current.events >= clusteredMinimumEvents && duration <= clusteredMaximumDuration:
+		burstShape = "clustered"
 		a.report.BurstShapes.Clustered++
 	case current.events >= sustainedMinimumEvents && duration >= sustainedMinimumDuration:
+		burstShape = "sustained"
 		a.report.BurstShapes.Sustained++
 	default:
 		a.report.BurstShapes.Sparse++
 	}
+	peakBucket := "sixty_plus"
 	switch {
 	case current.peakMinute == 1:
+		peakBucket = "one"
 		a.report.PeakMinuteEvents.One++
 	case current.peakMinute <= 5:
+		peakBucket = "two_to_five"
 		a.report.PeakMinuteEvents.TwoToFive++
 	case current.peakMinute <= 20:
+		peakBucket = "six_to_twenty"
 		a.report.PeakMinuteEvents.SixToTwenty++
 	case current.peakMinute <= 59:
+		peakBucket = "twenty_one_to_fifty_nine"
 		a.report.PeakMinuteEvents.TwentyOneToFiftyNine++
 	default:
 		a.report.PeakMinuteEvents.SixtyPlus++
@@ -317,6 +364,17 @@ func (a *analyzer) finalize(current *sequence, reason string) {
 	default:
 		a.report.Labels.Unknown++
 	}
+	if a.onWindow != nil {
+		return a.onWindow(windowFeature{
+			key: current.key, first: current.first, last: current.last, events: current.events,
+			burstShape: burstShape, peakMinuteBucket: peakBucket, endpointSeen: current.endpointSeen,
+			sensitiveEscalation: current.sensitiveEscalation, decoyEntry: current.decoyEntry,
+			collectionIssue: current.collectionIssue, automation: current.automation, abuseIntent: current.abuseIntent,
+			continuity: current.continuity, decoy: current.decoy, challenge: current.challenge,
+			humanLabel: current.humanLabel, abuseLabel: current.abuseLabel,
+		})
+	}
+	return nil
 }
 
 func endpointIndex(value string) int {

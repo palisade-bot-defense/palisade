@@ -1,0 +1,52 @@
+{
+  "schema_version": "palisade.adversarial-holdout-suite.v1",
+  "scope": "local_holdout_contract",
+  "synthetic_only": true,
+  "scenarios": [
+    {
+      "id": "random_split_leakage",
+      "threat": "repeated behavior from one campaign appears in training and holdout",
+      "expected": "predeclared_chronological_only"
+    },
+    {
+      "id": "boundary_window_leakage",
+      "threat": "one sequence spans the predeclared chronological boundary",
+      "expected": "exclude_crossing_window"
+    },
+    {
+      "id": "unknown_as_human",
+      "threat": "unlabeled traffic is silently used as a benign cohort",
+      "expected": "retain_unknown_denominator"
+    },
+    {
+      "id": "conflicting_confirmed_labels",
+      "threat": "one sequence receives both confirmed-human and confirmed-abuse evidence",
+      "expected": "count_ambiguous"
+    },
+    {
+      "id": "collection_failure_bias",
+      "threat": "partial or missing collection is interpreted as attacker behavior",
+      "expected": "retain_collection_artifact"
+    },
+    {
+      "id": "seen_family_leakage",
+      "threat": "an attack family observed before the cutoff is described as unseen",
+      "expected": "isolate_unseen_family"
+    },
+    {
+      "id": "annotation_poisoning",
+      "threat": "one sequence is assigned to multiple operator family references",
+      "expected": "reject_duplicate_assignment"
+    },
+    {
+      "id": "challenge_humanity_inference",
+      "threat": "a passed challenge is promoted to a confirmed-human label",
+      "expected": "never_promote_to_human"
+    },
+    {
+      "id": "resource_exhaustion",
+      "threat": "annotation or active-window growth exceeds the declared local budget",
+      "expected": "fail_closed_on_budget"
+    }
+  ]
+}

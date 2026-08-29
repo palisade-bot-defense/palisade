@@ -67,8 +67,9 @@ privacy and license checks pass from a clean checkout.
 ## v0.3 — prove the local evidence loop
 
 Status: in progress. Generic import and bounded aggregate sequence derivation
-are implemented; chronological holdout and adversarial evaluation are the next
-active blocks.
+are implemented. The local chronological/unseen-family evaluator and its first
+synthetic adversarial contract are implemented; representative private
+evaluation remains the active evidence gate.
 
 Deliverables:
 
@@ -78,6 +79,9 @@ Deliverables:
   IP addresses, URLs, form data or exact pointer paths;
 - [x] distinguish collection artifacts, automation evidence, harmful intent and
   session continuity in reports;
+- [x] implement a one-pass local evaluator with a predeclared chronological
+  boundary, fixed diagnostic rules, endpoint slices, Wilson intervals and an
+  optional unseen-family partition;
 - evaluate by endpoint class on chronological holdouts and unseen attack
   families instead of random row splits;
 - link delayed confirmed-human and operator-confirmed-abuse outcomes to the exact

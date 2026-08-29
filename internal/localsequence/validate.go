@@ -51,7 +51,7 @@ func ValidateReport(report Report) error {
 		if windows != 0 || report.Source.FirstAt != "" || report.Source.LastAt != "" {
 			return errors.New("empty local sequence report has observations")
 		}
-	} else if windows == 0 || !validUTC(report.Source.FirstAt) || !validUTC(report.Source.LastAt) || report.Source.LastAt < report.Source.FirstAt {
+	} else if report.Source.Shards == 0 || report.Source.Bytes == 0 || windows == 0 || !validUTC(report.Source.FirstAt) || !validUTC(report.Source.LastAt) || report.Source.LastAt < report.Source.FirstAt {
 		return errors.New("local sequence report source range is invalid")
 	}
 	return nil

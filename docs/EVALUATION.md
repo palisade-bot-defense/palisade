@@ -49,6 +49,17 @@ benign labels or used to claim a false-positive rate.
 
 Use time-based holdouts and group related campaigns, networks and tooling into one split. A random request split leaks repeated attacker behavior and produces unrealistically strong results. Maintain an unseen-family red-team set.
 
+For generic normalized local evidence, `palisade evaluate-local-holdout`
+implements this boundary in one verified streaming pass. The operator must
+predeclare an absolute UTC `--holdout-start`; windows crossing it are excluded
+and counted. Optional owner-only family annotations identify a holdout family
+as unseen only when that family did not occur in an annotated baseline window.
+The closed report contains only aggregate confusion counts, Wilson intervals,
+endpoint membership slices and readiness reasons. See
+[local holdout evaluation](LOCAL_HOLDOUT_EVALUATION.md). Running the command on
+private data is still required before this roadmap item can be considered
+empirically complete.
+
 ## Required metrics
 
 - False-positive rate and challenge rate for confirmed human sessions.

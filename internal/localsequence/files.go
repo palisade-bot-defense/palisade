@@ -12,6 +12,17 @@ func WriteReport(path string, report Report) error {
 	if err := ValidateReport(report); err != nil {
 		return err
 	}
+	return writePrivateReport(path, report, maximumReportBytes)
+}
+
+func WriteHoldoutReport(path string, report HoldoutReport) error {
+	if err := ValidateHoldoutReport(report); err != nil {
+		return err
+	}
+	return writePrivateReport(path, report, maximumHoldoutReportBytes)
+}
+
+func writePrivateReport(path string, report any, maximumBytes int) error {
 	var encoded bytes.Buffer
 	encoder := json.NewEncoder(&encoded)
 	encoder.SetEscapeHTML(false)
@@ -19,45 +30,45 @@ func WriteReport(path string, report Report) error {
 	if err := encoder.Encode(report); err != nil {
 		return errors.New("encode local sequence report")
 	}
-	if encoded.Len() > maximumReportBytes {
-		return errors.New("local sequence report exceeds its size limit")
+	if encoded.Len() > maximumBytes {
+		return errors.New("local aggregate report exceeds its size limit")
 	}
 	target, err := safeReportPath(path)
 	if err != nil {
 		return err
 	}
 	if err := writeExclusive(target, encoded.Bytes()); err != nil {
-		return errors.New("write local sequence report")
+		return errors.New("write local aggregate report")
 	}
 	if err := syncDirectory(filepath.Dir(target)); err != nil {
-		return errors.New("sync local sequence report directory")
+		return errors.New("sync local aggregate report directory")
 	}
 	return nil
 }
 
 func safeReportPath(path string) (string, error) {
 	if path == "" {
-		return "", errors.New("local sequence report path is required")
+		return "", errors.New("local aggregate report path is required")
 	}
 	absolute, err := filepath.Abs(path)
 	if err != nil {
-		return "", errors.New("resolve local sequence report path")
+		return "", errors.New("resolve local aggregate report path")
 	}
 	parentPath := filepath.Clean(filepath.Dir(absolute))
 	parent, err := filepath.EvalSymlinks(parentPath)
 	if err != nil || parent != parentPath {
-		return "", errors.New("local sequence report parent must be canonical and contain no symlinks")
+		return "", errors.New("local aggregate report parent must be canonical and contain no symlinks")
 	}
 	info, err := os.Stat(parent)
 	if err != nil || !info.IsDir() || info.Mode().Perm()&0o077 != 0 {
-		return "", errors.New("local sequence report parent must be an owner-only directory")
+		return "", errors.New("local aggregate report parent must be an owner-only directory")
 	}
 	target := filepath.Join(parent, filepath.Base(absolute))
 	if insideGitWorktree(target) {
-		return "", errors.New("local sequence report must remain outside every Git worktree")
+		return "", errors.New("local aggregate report must remain outside every Git worktree")
 	}
 	if _, err := os.Lstat(target); !errors.Is(err, os.ErrNotExist) {
-		return "", errors.New("local sequence report already exists")
+		return "", errors.New("local aggregate report already exists")
 	}
 	return target, nil
 }

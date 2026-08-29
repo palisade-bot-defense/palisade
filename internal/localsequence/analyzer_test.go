@@ -41,8 +41,12 @@ func TestAnalyzerSeparatesEvidenceLanesAndEmitsOnlyAggregates(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	a.finish()
+	if err := a.finish(); err != nil {
+		t.Fatal(err)
+	}
+	a.report.Source.Shards = 1
 	a.report.Source.Events = uint64(len(events))
+	a.report.Source.Bytes = 400
 	a.report.Source.FirstAt = events[0].ObservedAt
 	a.report.Source.LastAt = events[len(events)-1].ObservedAt
 	if err := ValidateReport(a.report); err != nil {
@@ -86,7 +90,9 @@ func TestAnalyzerUsesBoundedWindowsAndOneHeapEntryPerActiveKey(t *testing.T) {
 	if err := a.observe(localEvent(base.Add(15*time.Minute), "subject-a", "session-a", "api")); err != nil {
 		t.Fatal(err)
 	}
-	a.finish()
+	if err := a.finish(); err != nil {
+		t.Fatal(err)
+	}
 	if a.report.Windows.MaxDuration != 1 || a.report.Windows.EndOfInput != 1 || a.report.Windows.Total != 2 {
 		t.Fatalf("window closure = %+v", a.report.Windows)
 	}
@@ -115,7 +121,9 @@ func TestAnalyzerOutputIsDeterministic(t *testing.T) {
 		if err := a.observe(event); err != nil {
 			t.Fatal(err)
 		}
-		a.finish()
+		if err := a.finish(); err != nil {
+			t.Fatal(err)
+		}
 		a.report.Source.Events = 1
 		a.report.Source.FirstAt = event.ObservedAt
 		a.report.Source.LastAt = event.ObservedAt

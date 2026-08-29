@@ -48,7 +48,7 @@ func ScanLocalDirectory(directory string, limits LocalScanLimits, consume func(L
 	if err != nil {
 		return manifest, verified, err
 	}
-	if err := decodeStrictLocalJSON(manifestBytes, &manifest); err != nil {
+	if err := DecodeStrictJSON(manifestBytes, &manifest); err != nil {
 		return manifest, verified, errors.New("local evidence manifest violates the closed contract")
 	}
 	if err := validateLocalManifest(manifest, limits); err != nil {
@@ -220,7 +220,7 @@ func scanLocalShard(path string, expected ShardStats, maxLineBytes int, maxEvent
 			return count, errors.New("local evidence scan event budget exceeded")
 		}
 		var event LocalEvent
-		if err := decodeStrictLocalJSON(scanner.Bytes(), &event); err != nil || ValidateLocalEvent(event) != nil {
+		if err := DecodeStrictJSON(scanner.Bytes(), &event); err != nil || ValidateLocalEvent(event) != nil {
 			_ = file.Close()
 			return count, errors.New("local evidence shard contains an invalid event")
 		}
@@ -282,7 +282,9 @@ func verifyLocalDirectoryEntries(root string, shards []ShardStats) error {
 	return nil
 }
 
-func decodeStrictLocalJSON(encoded []byte, destination any) error {
+// DecodeStrictJSON decodes exactly one JSON value and rejects duplicate keys,
+// unknown fields, empty input and trailing content.
+func DecodeStrictJSON(encoded []byte, destination any) error {
 	if len(bytes.TrimSpace(encoded)) == 0 {
 		return errors.New("empty JSON is not accepted")
 	}

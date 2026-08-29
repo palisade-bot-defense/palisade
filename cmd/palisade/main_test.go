@@ -168,6 +168,20 @@ func TestLocalEventAnalysisRequiresPathsAndRejectsUnsafeBudget(t *testing.T) {
 	}
 }
 
+func TestLocalHoldoutEvaluationRequiresPredeclaredUTCBoundary(t *testing.T) {
+	if err := runLocalHoldoutEvaluation(nil); err == nil || !strings.Contains(err.Error(), "requires --dir, --holdout-start and --output") {
+		t.Fatalf("missing local holdout arguments error = %v", err)
+	}
+	err := runLocalHoldoutEvaluation([]string{
+		"--dir", "synthetic-input",
+		"--holdout-start", "2026-08-29T14:00:00+02:00",
+		"--output", "synthetic-output",
+	})
+	if err == nil || !strings.Contains(err.Error(), "UTC RFC3339") {
+		t.Fatalf("non-UTC holdout boundary error = %v", err)
+	}
+}
+
 func TestServeRequiresBothShadowLogPaths(t *testing.T) {
 	err := serve([]string{"--dev", "--shadow-log-dir", "synthetic-shadow-dir"})
 	if err == nil || !strings.Contains(err.Error(), "configured together") {

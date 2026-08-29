@@ -20,7 +20,7 @@ const repositoryParts = [
     name: "Local evaluation",
     status: "Encrypted",
     summary: "Measure decisions and linked outcomes inside the deployment boundary before enforcement.",
-    items: ["Vendor-neutral owner-only import", "Bounded minute-scale sequence aggregates", "Aggregate confidence intervals", "Deterministic replay and recommendations"],
+    items: ["Vendor-neutral owner-only import", "Predeclared chronological holdouts", "Unseen-family aggregate slices", "Deterministic replay and recommendations"],
   },
 ] as const;
 

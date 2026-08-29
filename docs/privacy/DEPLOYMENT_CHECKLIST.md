@@ -81,6 +81,10 @@ Primary source: [§ 25 TDDDG](https://www.gesetze-im-internet.de/ttdsg/__25.html
   contain no row-level event or pseudonym. Restrict report access, choose a
   deletion period and never publish a report without a separate disclosure
   review of its aggregate time ranges, volumes and labels.
+- Predeclare chronological holdout boundaries and family taxonomies before
+  inspecting holdout outcomes. Restrict family-annotation access, document who
+  assigned each taxonomy and delete annotation files and aggregate reports on
+  the approved schedule. A hash or pseudonym is not anonymization.
 - Limit operator-console and report access; never expose the demo container
   admin listener beyond host loopback.
 - Keep `sensor_missing` neutral. Do not disadvantage consent refusal merely by

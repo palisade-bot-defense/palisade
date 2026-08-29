@@ -1,14 +1,14 @@
 # Machine-readable data map
 
-The current versioned [PALISADE data map](../manifests/data-map-v3.json) records the
+The current versioned [PALISADE data map](../manifests/data-map-v4.json) records the
 reference product's accepted data classes, destinations, network scopes and
 persistence modes. Its JSON Schema is
-[`schemas/data-map-v3.schema.json`](../schemas/data-map-v3.schema.json). The
-[v1](../manifests/data-map-v1.json) and [v2](../manifests/data-map-v2.json) maps
-remain immutable records of the pre-generic-import and pre-sequence-analysis
+[`schemas/data-map-v4.schema.json`](../schemas/data-map-v4.schema.json). The
+[v1](../manifests/data-map-v1.json), [v2](../manifests/data-map-v2.json) and
+[v3](../manifests/data-map-v3.json) maps remain immutable records of earlier
 boundaries.
 
-The v3 map covers eleven flows:
+The v4 map covers twelve flows:
 
 1. bounded browser-event ingestion;
 2. trusted normalized decision requests;
@@ -19,8 +19,9 @@ The v3 map covers eleven flows:
 7. local aggregate analysis;
 8. the generic local evidence import;
 9. bounded local aggregate sequence analysis;
-10. the loopback Operator Console summary; and
-11. the non-identifying Sovereignty Report.
+10. local chronological and optional unseen-family holdout evaluation;
+11. the loopback Operator Console summary; and
+12. the non-identifying Sovereignty Report.
 
 Every mapped flow has `external_export: false`. That field means PALISADE does
 not export the flow to a PALISADE-operated external service. It does not override
@@ -46,6 +47,14 @@ but only aggregate feature and evidence-lane counts are persisted in the
 sequence report. No subject/session pseudonym or row-level event is a report
 data class. The report remains owner-only because aggregate activity volume and
 time ranges may still reveal operational information.
+
+Data Map v4 adds local holdout evaluation. An optional owner-only annotation
+file supplies normalized daily sequence pseudonyms and an operator attack/tool
+family reference. Both are transient; the evaluator retains domain-separated
+digests for equality within one run and persists only family counts plus the
+annotation-file fingerprint. No sequence pseudonym or family reference appears
+in the report. The annotation input and aggregate report remain private
+operator artifacts.
 
 `TestDataMapIsClosedAndContainsNoRawAcceptedClass` rejects duplicate flows,
 external-export flags, missing boundaries and any raw excluded class that is
