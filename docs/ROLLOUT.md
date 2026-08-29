@@ -173,6 +173,14 @@ client. Validate and consume only these documented values. The challenge result
 must return later as a normalized outcome; challenge completion is not human
 confirmation.
 
+The executable progression contract covers all five response levels in order,
+including their bounded handling, status, retry, expiry, signed-action cap and
+fail-back-to-shadow behavior. Existing adapter consumer tests separately bind
+those directives to the documented response headers. The suite also exercises the immutable rollout
+controller and bounded five-minute response history under synthetic concurrent
+load. These tests establish deterministic local invariants; they do not claim
+reverse-proxy capacity, user-perceived latency or detection efficacy.
+
 ## 6. Measure and review the exact canary
 
 Keep writing encrypted decision/outcome records, then create a new aggregate

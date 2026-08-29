@@ -1,6 +1,8 @@
 package session
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -84,5 +86,42 @@ func TestRecordEnforcementIgnoresPassUnknownAndMissingSession(t *testing.T) {
 	snapshot := store.Observe("known", 2, "public_content", now.Add(time.Second))
 	if snapshot.RecentEnforcements != 0 || snapshot.PrematureRetries != 0 || len(store.entries) != 1 {
 		t.Fatalf("invalid directive created response history: snapshot=%+v entries=%d", snapshot, len(store.entries))
+	}
+}
+
+func TestEnforcementHistoryStaysBoundedUnderConcurrentLoad(t *testing.T) {
+	const maximumSessions = 256
+	const workers = 32
+	const sessionsPerWorker = 250
+	store := NewMemoryStore(5*time.Minute, maximumSessions)
+	now := time.Unix(1_800_000_000, 0).UTC()
+	var wait sync.WaitGroup
+	for worker := 0; worker < workers; worker++ {
+		wait.Add(1)
+		go func(worker int) {
+			defer wait.Done()
+			for index := 0; index < sessionsPerWorker; index++ {
+				sessionID := fmt.Sprintf("load-%02d-%04d", worker, index)
+				store.Observe(sessionID, 1, "public_content", now)
+				store.RecordEnforcement(sessionID, core.EnforcementDirective{
+					Handling: "throttle", RetryAfterSeconds: 5, ExpiresAt: now.Add(5 * time.Second),
+				}, now)
+				store.Observe(sessionID, 2, "public_content", now.Add(time.Second))
+			}
+		}(worker)
+	}
+	wait.Wait()
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if len(store.entries) > maximumSessions {
+		t.Fatalf("session store grew to %d entries, maximum %d", len(store.entries), maximumSessions)
+	}
+	for sessionID, current := range store.entries {
+		// Capacity eviction may remove a session between its three operations;
+		// surviving state must still remain internally bounded and coherent.
+		if current.snapshot.RequestCount < 1 || current.snapshot.RequestCount > 2 || current.snapshot.RecentEnforcements > 1 || current.snapshot.PrematureRetries > 1 ||
+			current.snapshot.PrematureRetries > current.snapshot.RecentEnforcements {
+			t.Fatalf("corrupt concurrent state for %s: %+v", sessionID, current.snapshot)
+		}
 	}
 }

@@ -105,7 +105,7 @@ Deliverables:
 - [x] harden one-time, action-bound challenge redemption against replay and relay;
 - [x] provide keyboard, screen-reader, reduced-motion and non-JavaScript fallback
   paths with equal security accounting;
-- test the progression `observe → delay → throttle → accessible step-up →
+- [x] test the progression `observe → delay → throttle → accessible step-up →
   temporary block` under load and failure;
 - make challenge abandonment and fallback first-class rollout budgets.
 

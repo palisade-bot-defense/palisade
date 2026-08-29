@@ -90,6 +90,17 @@ raise cost, signed maxima and rollout expiry remain absolute, and retry history
 expires with the bounded session. Engine integration tests cover the first
 response and a premature retry without relying on wall-clock sleeps.
 
+The v0.4 progression contract runs the ordered sequence `observe → delay →
+throttle → accessible step-up → temporary block` through the rollout boundary
+and asserts its closed handling, status, retry and expiry values. Failure cases
+prove that an expired rollout and an excluded endpoint return to shadow
+`observe`, while a lower signed maximum caps rather than raises the action. A
+synthetic concurrency test applies 32,000 mixed progression decisions and
+requires deterministic results; a separate 8,000-session stress test keeps the
+five-minute response-history store within its configured 256-entry bound under
+concurrent eviction. Both run under `go test -race`; the diagnostic
+`BenchmarkProgressionController` reports the isolated controller cost.
+
 The versioned [public adversarial suite](ADVERSARIAL_FIXTURES.md) links the
 roadmap threat categories for replay, poisoning, missing signals, spoofed
 headers, accessibility and adapter failures to executable synthetic tests. A
@@ -100,7 +111,8 @@ closed expected result or points at a missing test function.
 
 The current baseline does not yet include a real-browser end-to-end suite,
 reverse-proxy/TLS deployment tests, multi-replica challenge-state tests or a
-sustained load environment. Add those with the corresponding product feature;
-do not simulate unsupported production guarantees. False-positive,
+sustained end-to-end load environment. The in-process concurrency contract is
+not a proxy-capacity or production-throughput claim. Add those environments
+with the corresponding product feature; do not simulate unsupported production guarantees. False-positive,
 accessibility and challenge-abandonment rates require linked deployment
 outcomes and cannot be replaced by synthetic test coverage.
