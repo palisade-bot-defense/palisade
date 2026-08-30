@@ -33,7 +33,7 @@ go test -race ./...
 go vet ./...
 
 echo "verify-local: offline evaluator and synthetic protocol runners"
-python3 -m unittest scripts/test_evaluate_offline.py scripts/test_operator_shadow_drill.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compare_release_reproduction.py scripts/test_compatibility_freeze.py scripts/test_migration_matrix.py
+python3 -m unittest scripts/test_evaluate_offline.py scripts/test_operator_shadow_drill.py scripts/test_load_test_local.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compare_release_reproduction.py scripts/test_compatibility_freeze.py scripts/test_migration_matrix.py
 python3 scripts/benchmark_local.py --verify benchmarks/synthetic-baseline-afc23a3.json
 python3 scripts/red_team_findings.py --verify reports/red-team/synthetic-findings-25aaba7.json
 python3 scripts/check_compatibility_freeze.py

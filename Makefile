@@ -1,4 +1,4 @@
-.PHONY: build test check verify browser-e2e browser-e2e-check deployment-tls-test release-plan release release-compare release-reproduction-verify release-sign release-verify release-signing-check operator-shadow-drill red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check migration-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
+.PHONY: build test check verify browser-e2e browser-e2e-check deployment-tls-test release-plan release release-compare release-reproduction-verify release-sign release-verify release-signing-check operator-shadow-drill load-test-plan load-test-local red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check migration-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -6,7 +6,7 @@ build:
 
 test:
 	go test -race ./...
-	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_operator_shadow_drill.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compare_release_reproduction.py scripts/test_compatibility_freeze.py scripts/test_migration_matrix.py
+	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_operator_shadow_drill.py scripts/test_load_test_local.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compare_release_reproduction.py scripts/test_compatibility_freeze.py scripts/test_migration_matrix.py
 	pnpm test
 
 check: coverage-check privacy-check license-check compatibility-check migration-check browser-e2e-check
@@ -59,6 +59,13 @@ release-signing-check:
 
 operator-shadow-drill:
 	./scripts/operator-shadow-drill.sh
+
+load-test-plan:
+	python3 scripts/load_test_local.py --plan
+
+load-test-local:
+	@test -n "$(BINARY)" || (echo "BINARY is required" >&2; exit 2)
+	python3 scripts/load_test_local.py --binary "$(BINARY)"
 
 red-team:
 	python3 scripts/run_red_team.py
