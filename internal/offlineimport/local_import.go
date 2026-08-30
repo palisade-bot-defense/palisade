@@ -46,13 +46,12 @@ func RunLocal(config LocalConfig) (result LocalResult, returnErr error) {
 		return result, err
 	}
 	completed := false
-	budget := newBudgets(Config{
-		MaxDecompressedBytes: config.MaxInputBytes,
-		MaxInputRecords:      config.MaxInputRecords,
-		MaxEvents:            config.MaxEvents,
-		MaxShards:            config.MaxShards,
-		MaxOutputBytes:       config.MaxOutputBytes,
-		MaxWorkingBytes:      1,
+	budget := newBudgets(budgetLimits{
+		MaxInputBytes:   config.MaxInputBytes,
+		MaxInputRecords: config.MaxInputRecords,
+		MaxEvents:       config.MaxEvents,
+		MaxShards:       config.MaxShards,
+		MaxOutputBytes:  config.MaxOutputBytes,
 	})
 	writer := newLocalShardWriter(stagingDir, config.ShardSize, budget)
 	defer func() {
@@ -73,6 +72,10 @@ func RunLocal(config LocalConfig) (result LocalResult, returnErr error) {
 		LogicalName: "operator-events.jsonl",
 		SizeBytes:   openedStats.SizeBytes,
 		SHA256:      openedStats.SHA256,
+	}
+	if openedStats.SizeBytes > config.MaxInputBytes {
+		_ = file.Close()
+		return result, ErrInputByteBudget
 	}
 	consumed := newConsumedInput(file)
 	scanner := bufio.NewScanner(&budgetReader{reader: consumed, budget: budget})
@@ -220,7 +223,7 @@ func normalizeLocalConfig(config LocalConfig) (LocalConfig, error) {
 		return config, fmt.Errorf("maximum line size must be between %d and %d bytes", MinimumMaxLineSize, MaximumMaxLineSize)
 	}
 	if config.MaxInputBytes == 0 {
-		config.MaxInputBytes = DefaultMaxDecompressedBytes
+		config.MaxInputBytes = DefaultMaxInputBytes
 	}
 	if config.MaxInputRecords == 0 {
 		config.MaxInputRecords = DefaultMaxInputRecords

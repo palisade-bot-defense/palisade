@@ -6,40 +6,35 @@ import (
 )
 
 var (
-	ErrDecompressedBudget = errors.New("offline import decompressed-byte budget exceeded")
-	ErrRecordBudget       = errors.New("offline import input-record budget exceeded")
-	ErrEventBudget        = errors.New("offline import event budget exceeded")
-	ErrShardBudget        = errors.New("offline import shard budget exceeded")
-	ErrOutputBudget       = errors.New("offline import output-byte budget exceeded")
-	ErrWorkingBudget      = errors.New("offline import working-byte budget exceeded")
-	ErrInputChanged       = errors.New("offline import input changed during processing")
-	ErrCleanup            = errors.New("offline import cleanup failed")
-	ErrEventOrder         = errors.New("offline import event order is decreasing")
+	ErrInputByteBudget = errors.New("local evidence import input-byte budget exceeded")
+	ErrRecordBudget    = errors.New("local evidence import input-record budget exceeded")
+	ErrEventBudget     = errors.New("local evidence import event budget exceeded")
+	ErrShardBudget     = errors.New("local evidence import shard budget exceeded")
+	ErrOutputBudget    = errors.New("local evidence import output-byte budget exceeded")
+	ErrInputChanged    = errors.New("local evidence import input changed during processing")
+	ErrCleanup         = errors.New("local evidence import cleanup failed")
 )
 
 type budgets struct {
-	maxDecompressed int64
-	maxRecords      uint64
-	maxEvents       uint64
-	maxShards       int
-	maxOutput       int64
-	maxWorking      int64
-	decompressed    int64
-	records         uint64
-	events          uint64
-	shards          int
-	output          int64
-	working         int64
+	maxInputBytes int64
+	maxRecords    uint64
+	maxEvents     uint64
+	maxShards     int
+	maxOutput     int64
+	inputBytes    int64
+	records       uint64
+	events        uint64
+	shards        int
+	output        int64
 }
 
-func newBudgets(config Config) *budgets {
+func newBudgets(config budgetLimits) *budgets {
 	return &budgets{
-		maxDecompressed: config.MaxDecompressedBytes,
-		maxRecords:      config.MaxInputRecords,
-		maxEvents:       config.MaxEvents,
-		maxShards:       config.MaxShards,
-		maxOutput:       config.MaxOutputBytes,
-		maxWorking:      config.MaxWorkingBytes,
+		maxInputBytes: config.MaxInputBytes,
+		maxRecords:    config.MaxInputRecords,
+		maxEvents:     config.MaxEvents,
+		maxShards:     config.MaxShards,
+		maxOutput:     config.MaxOutputBytes,
 	}
 }
 
@@ -75,21 +70,6 @@ func (b *budgets) addOutput(n int64) error {
 	return nil
 }
 
-func (b *budgets) addWorking(n int64) error {
-	if n < 0 || b.working > b.maxWorking-n {
-		return ErrWorkingBudget
-	}
-	b.working += n
-	return nil
-}
-
-func (b *budgets) releaseWorking(n int64) {
-	b.working -= n
-	if b.working < 0 {
-		b.working = 0
-	}
-}
-
 type budgetReader struct {
 	reader io.Reader
 	budget *budgets
@@ -99,13 +79,13 @@ func (r *budgetReader) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-	remaining := r.budget.maxDecompressed - r.budget.decompressed
+	remaining := r.budget.maxInputBytes - r.budget.inputBytes
 	if remaining <= 0 {
 		var probe [1]byte
 		n, err := r.reader.Read(probe[:])
 		if n > 0 {
 			p[0] = probe[0]
-			return n, ErrDecompressedBudget
+			return n, ErrInputByteBudget
 		}
 		return 0, err
 	}
@@ -113,9 +93,9 @@ func (r *budgetReader) Read(p []byte) (int, error) {
 		p = p[:remaining]
 	}
 	n, err := r.reader.Read(p)
-	r.budget.decompressed += int64(n)
-	if r.budget.decompressed > r.budget.maxDecompressed {
-		return n, ErrDecompressedBudget
+	r.budget.inputBytes += int64(n)
+	if r.budget.inputBytes > r.budget.maxInputBytes {
+		return n, ErrInputByteBudget
 	}
 	return n, err
 }

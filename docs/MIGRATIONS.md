@@ -1,9 +1,9 @@
 # Artifact lifecycle and migrations
 
-Runbook contract: `palisade.runbook.migrations.v1`.
+Runbook contract: `palisade.runbook.migrations.v2`.
 
 PALISADE treats a version change as a trust-boundary change, not a JSON rewrite.
-The machine-readable [`migration-matrix-v1.json`](../manifests/migration-matrix-v1.json)
+The machine-readable [`migration-matrix-v2.json`](../manifests/migration-matrix-v2.json)
 classifies every contract in the compatibility freeze and records every
 historical schema still present in the repository. `make migration-check` fails
 when a path, lifecycle class, predecessor or transition strategy changes without
@@ -45,6 +45,16 @@ fixtures and inventories and are never runtime authority.
 | Rollout review | v4 | v1-v3 unsupported | regenerate with `palisade prepare-review` from a current report |
 | Rollout plan | v2 | v1 unsupported | reissue with `palisade prepare-rollout` from a current review |
 | Data map | v6 | v1-v5 repository history only | replace through reviewed repository change |
+| Compatibility freeze | v2 | v1 repository history only | replace through reviewed repository change |
+| Migration matrix | v2 | v1 repository history only | replace through reviewed repository change |
+
+The source-specific `palisade.offline-event.v1` and
+`palisade.offline-manifest.v1` drafts were withdrawn before a stable release.
+No reader or migration is promised for them. Their supported replacements are
+the closed `palisade.local-evidence-event.v1` and
+`palisade.local-evidence-manifest.v1` contracts; operators regenerate those
+artifacts locally from an authorized export through the documented adapter
+boundary rather than treating an old draft as trusted input.
 
 Shadow v1 outcomes do not contain a `decision_id`. PALISADE cannot reconstruct
 that linkage without guessing, so it retains the authenticated legacy reader

@@ -20,7 +20,7 @@ tag is published.
 | Decision hot path | `TestInProcessDecisionP95MeetsPilotBudget` | p95 below 10 ms over 1000 in-process decisions using the production detector set |
 | TypeScript | `pnpm test` and `pnpm typecheck` | sensor, dashboard and website pass |
 | Reproducible assets | `pnpm build` | sensor, embedded dashboard and website build from the lockfile |
-| Offline evaluation | `python3 -m unittest scripts/test_evaluate_offline.py` | synthetic evaluation cases pass |
+| Local evidence import and evaluation | `go test -race ./internal/offlineimport ./internal/localsequence` | synthetic contract, privacy-boundary, budget and holdout cases pass |
 | Privacy/licensing | `make privacy-check` and `make license-check` | repository-index attack fixtures and license boundary pass |
 | Release authenticity | `make release-signing-check` | exact artifact manifest, pinned signer, private-key isolation and tamper rejection pass offline |
 | Release reproducibility | `python3 -m unittest scripts/test_compare_release_reproduction.py` | exact two-candidate byte comparison, signed-tag provenance, closed attestation, unsafe archive and publication-race cases pass offline |

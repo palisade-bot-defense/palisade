@@ -14,7 +14,7 @@ except ModuleNotFoundError:
     import check_compatibility_freeze
 
 
-SCHEMA_VERSION = "palisade.migration-matrix.v1"
+SCHEMA_VERSION = "palisade.migration-matrix.v2"
 SCOPE = "all_frozen_and_historical_versioned_contracts"
 INVARIANTS = [
     "writers_emit_current_only",
@@ -24,7 +24,7 @@ INVARIANTS = [
     "migration_has_no_network_or_raw_export",
     "missing_linkage_is_never_synthesized",
 ]
-TOP_LEVEL_FIELDS = {"schema_version", "scope", "invariants", "classifications", "transitions"}
+TOP_LEVEL_FIELDS = {"schema_version", "scope", "invariants", "classifications", "transitions", "withdrawals"}
 CLASSIFICATION_FIELDS = {"runtime_exchange", "local_persistence", "maintainer_evidence", "repository_control"}
 TRANSITION_FIELDS = {
     "family", "current_schema", "previous_schemas", "previous_support", "strategy", "operator_command", "loss_boundary"
@@ -44,7 +44,6 @@ EXPECTED_CLASSIFICATIONS = {
         "schemas/local-evidence-event-v1.schema.json", "schemas/local-evidence-input-v1.schema.json",
         "schemas/local-evidence-manifest-v1.schema.json", "schemas/local-family-annotation-v1.schema.json",
         "schemas/local-holdout-report-v1.schema.json", "schemas/local-sequence-report-v1.schema.json",
-        "schemas/offline-event-v1.schema.json", "schemas/offline-manifest-v1.schema.json",
         "schemas/rollout-review-v4.schema.json", "schemas/shadow-analysis-report-v4.schema.json",
         "schemas/shadow-holdout-report-v1.schema.json", "schemas/shadow-record-v1.schema.json",
         "schemas/shadow-record-v2.schema.json", "schemas/shadow-record-v3.schema.json",
@@ -56,16 +55,28 @@ EXPECTED_CLASSIFICATIONS = {
     },
     "repository_control": {
         "schemas/adversarial-holdout-suite-v1.schema.json", "schemas/adversarial-suite-v1.schema.json",
-        "schemas/compatibility-freeze-v1.schema.json", "schemas/data-map-v6.schema.json",
-        "schemas/migration-matrix-v1.schema.json", "schemas/origin-adapter-conformance-v1.schema.json",
+        "schemas/compatibility-freeze-v2.schema.json", "schemas/data-map-v6.schema.json",
+        "schemas/migration-matrix-v2.schema.json", "schemas/origin-adapter-conformance-v1.schema.json",
         "schemas/red-team-suite-v1.schema.json", "schemas/runtime-egress-v1.schema.json",
     },
 }
 
 EXPECTED_TRANSITIONS = {
+    "compatibility_freeze": {
+        "current_schema": "schemas/compatibility-freeze-v2.schema.json",
+        "previous_schemas": ["schemas/compatibility-freeze-v1.schema.json"],
+        "previous_support": "unsupported_historical", "strategy": "repository_replacement",
+        "operator_command": "none", "loss_boundary": "repository_control_not_runtime_input",
+    },
     "data_map": {
         "current_schema": "schemas/data-map-v6.schema.json",
         "previous_schemas": [f"schemas/data-map-v{version}.schema.json" for version in range(1, 6)],
+        "previous_support": "unsupported_historical", "strategy": "repository_replacement",
+        "operator_command": "none", "loss_boundary": "repository_control_not_runtime_input",
+    },
+    "migration_matrix": {
+        "current_schema": "schemas/migration-matrix-v2.schema.json",
+        "previous_schemas": ["schemas/migration-matrix-v1.schema.json"],
         "previous_support": "unsupported_historical", "strategy": "repository_replacement",
         "operator_command": "none", "loss_boundary": "repository_control_not_runtime_input",
     },
@@ -140,7 +151,10 @@ def validate_matrix(document: dict[str, object], root: Path) -> None:
     if document["invariants"] != INVARIANTS:
         raise MatrixError("migration safety invariants changed")
 
-    freeze = check_compatibility_freeze.load_manifest(root / "manifests/compatibility-freeze-v1.json")
+    if document["withdrawals"] != check_compatibility_freeze.WITHDRAWN_PRE_STABLE:
+        raise MatrixError("pre-stable withdrawals and compatibility freeze disagree")
+
+    freeze = check_compatibility_freeze.load_manifest(root / "manifests/compatibility-freeze-v2.json")
     check_compatibility_freeze.validate_manifest(freeze, root)
     expected_frozen = check_compatibility_freeze.STABLE_CURRENT | check_compatibility_freeze.LEGACY_READ
 
@@ -201,7 +215,7 @@ def validate_matrix(document: dict[str, object], root: Path) -> None:
 def main() -> int:
     root = Path(__file__).resolve().parent.parent
     try:
-        validate_matrix(load_matrix(root / "manifests/migration-matrix-v1.json"), root)
+        validate_matrix(load_matrix(root / "manifests/migration-matrix-v2.json"), root)
     except (MatrixError, check_compatibility_freeze.FreezeError) as error:
         print(f"migration-check: failed: {error}", file=sys.stderr)
         return 1

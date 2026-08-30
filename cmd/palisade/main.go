@@ -52,7 +52,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: palisade <serve|doctor|sovereignty-report|replay|import-offline|import-local-events|analyze-local-events|evaluate-local-holdout|verify-shadow-log|analyze-shadow-log|evaluate-shadow-holdout|artifact-keygen|prepare-local-artifact|verify-local-artifact|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
+		return errors.New("usage: palisade <serve|doctor|sovereignty-report|replay|import-local-events|analyze-local-events|evaluate-local-holdout|verify-shadow-log|analyze-shadow-log|evaluate-shadow-holdout|artifact-keygen|prepare-local-artifact|verify-local-artifact|rollout-keygen|prepare-review|prepare-rollout|verify-rollout|version>")
 	}
 	switch args[0] {
 	case "serve":
@@ -63,8 +63,6 @@ func run(args []string) error {
 		return sovereigntyReport(args[1:], os.Stdout)
 	case "replay":
 		return runReplay(args[1:])
-	case "import-offline":
-		return runOfflineImport(args[1:])
 	case "import-local-events":
 		return runLocalEventImport(args[1:])
 	case "analyze-local-events":
@@ -254,55 +252,6 @@ func verifyShadowLog(args []string) error {
 	return nil
 }
 
-func runOfflineImport(args []string) error {
-	flags := flag.NewFlagSet("import-offline", flag.ContinueOnError)
-	inputDir := flags.String("input-dir", "", "directory containing the exact offline Shield export files")
-	outputDir := flags.String("output-dir", "", "new output directory outside every Git worktree")
-	keyFile := flags.String("pseudonym-key-file", "", "0600 file containing at least 32 bytes")
-	datasetID := flags.String("dataset-id", "", "non-secret stable identifier for this source dataset")
-	pilotID := flags.String("pilot-id", "", "non-secret stable identifier for this deployment or pilot")
-	provenance := flags.String("provenance", offlineimport.ProvenanceOffline, "input provenance (offline_export only)")
-	anubisPeerSource := flags.String("anubis-peer-source", offlineimport.AnubisPeerDirect, "Anubis peer field: direct_peer_only or trusted_x_real_ip")
-	shardSize := flags.Int("shard-size", offlineimport.DefaultShardSize, "normalized events per shard")
-	maxLineBytes := flags.Int("max-line-bytes", offlineimport.DefaultMaxLineSize, "maximum decompressed line size")
-	sortChunkSize := flags.Int("sort-chunk-size", offlineimport.DefaultSortChunkSize, "events retained in memory per external-sort run")
-	maxDecompressedBytes := flags.Int64("max-decompressed-bytes", offlineimport.DefaultMaxDecompressedBytes, "hard total decompressed input byte budget")
-	maxInputRecords := flags.Uint64("max-input-records", offlineimport.DefaultMaxInputRecords, "hard total input record budget")
-	maxEvents := flags.Uint64("max-events", offlineimport.DefaultMaxEvents, "hard normalized event budget")
-	maxShards := flags.Int("max-shards", offlineimport.DefaultMaxShards, "hard output shard budget")
-	maxOutputBytes := flags.Int64("max-output-bytes", offlineimport.DefaultMaxOutputBytes, "hard final output byte budget")
-	maxWorkingBytes := flags.Int64("max-working-bytes", offlineimport.DefaultMaxWorkingBytes, "hard temporary sort byte budget")
-	if err := flags.Parse(args); err != nil {
-		return err
-	}
-	if flags.NArg() != 0 {
-		return errors.New("import-offline does not accept positional arguments")
-	}
-	result, err := offlineimport.Run(offlineimport.Config{
-		InputDir:             *inputDir,
-		OutputDir:            *outputDir,
-		PseudonymKeyFile:     *keyFile,
-		DatasetID:            *datasetID,
-		PilotID:              *pilotID,
-		Provenance:           *provenance,
-		AnubisPeerSource:     *anubisPeerSource,
-		ShardSize:            *shardSize,
-		MaxLineBytes:         *maxLineBytes,
-		SortChunkSize:        *sortChunkSize,
-		MaxDecompressedBytes: *maxDecompressedBytes,
-		MaxInputRecords:      *maxInputRecords,
-		MaxEvents:            *maxEvents,
-		MaxShards:            *maxShards,
-		MaxOutputBytes:       *maxOutputBytes,
-		MaxWorkingBytes:      *maxWorkingBytes,
-	})
-	if err != nil {
-		return err
-	}
-	fmt.Printf("offline import complete: events=%d invalid=%d skipped=%d\nmanifest: %s\n", result.Events, result.Invalid, result.Skipped, result.ManifestPath)
-	return nil
-}
-
 func runLocalEventImport(args []string) error {
 	flags := flag.NewFlagSet("import-local-events", flag.ContinueOnError)
 	inputFile := flags.String("input-file", "", "owner-only operator-normalized JSONL file outside every Git worktree")
@@ -313,7 +262,7 @@ func runLocalEventImport(args []string) error {
 	provenance := flags.String("provenance", offlineimport.ProvenanceOperatorExport, "input provenance (operator_authorized_export only)")
 	shardSize := flags.Int("shard-size", offlineimport.DefaultShardSize, "normalized events per shard")
 	maxLineBytes := flags.Int("max-line-bytes", offlineimport.DefaultMaxLineSize, "maximum JSONL line size")
-	maxInputBytes := flags.Int64("max-input-bytes", offlineimport.DefaultMaxDecompressedBytes, "hard input byte budget")
+	maxInputBytes := flags.Int64("max-input-bytes", offlineimport.DefaultMaxInputBytes, "hard input byte budget")
 	maxInputRecords := flags.Uint64("max-input-records", offlineimport.DefaultMaxInputRecords, "hard input record budget")
 	maxEvents := flags.Uint64("max-events", offlineimport.DefaultMaxEvents, "hard normalized event budget")
 	maxShards := flags.Int("max-shards", offlineimport.DefaultMaxShards, "hard output shard budget")
