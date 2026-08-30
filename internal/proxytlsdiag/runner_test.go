@@ -29,18 +29,20 @@ import (
 )
 
 const (
-	privatePath   = "/private-path-marker"
-	privateQuery  = "private-query-marker=value"
-	privateBody   = "private-body-marker"
-	privateAgent  = "private-user-agent-marker"
-	privateCookie = "private-cookie-marker"
-	apiKey        = "synthetic-local-diagnostic-api-key"
+	privatePath           = "/private-path-marker"
+	privateQuery          = "private-query-marker=value"
+	privateBody           = "private-body-marker"
+	privateAgent          = "private-user-agent-marker"
+	privateCookie         = "private-cookie-marker"
+	apiKey                = "synthetic-local-diagnostic-api-key"
+	serviceHTTP2TLS       = "http2_tls"
+	serviceHTTP1Plaintext = "http1_plaintext"
 )
 
 var privateMarkers = []string{
 	"private-path-marker", "private-query-marker", "private-body-marker", "private-user-agent-marker",
 	"private-cookie-marker", "application_session", "192.0.2.15", "cf-connecting-ip",
-	"x-forwarded-for", "x-forwarded-proto", "x-real-ip",
+	"192.0.2.30", "198.51.100.77", "x-forwarded-for", "x-forwarded-proto", "x-real-ip",
 }
 
 type boundaryState struct {
@@ -217,7 +219,7 @@ func executeOperation(parent context.Context, client *http.Client, baseURL strin
 
 func newOriginMiddlewareScenario() (*diagnosticScenario, error) {
 	boundaries := &boundaryState{}
-	serviceFixture := &serviceFixture{expectedSecurity: "trusted_proxy_tls", expectedSource: "trusted_proxy", boundaries: boundaries}
+	serviceFixture := &serviceFixture{expectedRequestTransport: serviceHTTP2TLS, expectedProtocol: "http2", expectedSecurity: "trusted_proxy_tls", expectedSource: "trusted_proxy", boundaries: boundaries}
 	service := startHTTP2TLSServer(serviceFixture)
 	guard, err := palisadehttp.New(palisadehttp.Config{
 		BaseURL: service.URL, APIKey: apiKey, HTTPClient: service.Client(), FailureMode: palisadehttp.FailClosed,
@@ -256,7 +258,7 @@ func newOriginMiddlewareScenario() (*diagnosticScenario, error) {
 
 func newReverseProxyScenario() (*diagnosticScenario, error) {
 	boundaries := &boundaryState{}
-	serviceFixture := &serviceFixture{expectedSecurity: "direct_tls", expectedSource: "direct", boundaries: boundaries}
+	serviceFixture := &serviceFixture{expectedRequestTransport: serviceHTTP2TLS, expectedProtocol: "http2", expectedSecurity: "direct_tls", expectedSource: "direct", boundaries: boundaries}
 	service := startHTTP2TLSServer(serviceFixture)
 	upstreamFixture := &upstreamFixture{boundaries: boundaries}
 	upstream := startHTTP2TLSServer(upstreamFixture)
@@ -349,18 +351,22 @@ func (fixture *upstreamFixture) ServeHTTP(writer http.ResponseWriter, request *h
 }
 
 type serviceFixture struct {
-	expectedSecurity string
-	expectedSource   string
-	requests         atomic.Int64
-	sessions         atomic.Int64
-	decisions        atomic.Int64
-	boundaries       *boundaryState
+	expectedRequestTransport string
+	expectedProtocol         string
+	expectedSecurity         string
+	expectedSource           string
+	requests                 atomic.Int64
+	sessions                 atomic.Int64
+	decisions                atomic.Int64
+	boundaries               *boundaryState
 }
 
 func (fixture *serviceFixture) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	fixture.requests.Add(1)
 	invalid := false
-	if request.TLS == nil || request.ProtoMajor != 2 {
+	validTransport := fixture.expectedRequestTransport == serviceHTTP2TLS && request.TLS != nil && request.ProtoMajor == 2
+	validTransport = validTransport || fixture.expectedRequestTransport == serviceHTTP1Plaintext && request.TLS == nil && request.ProtoMajor == 1
+	if !validTransport {
 		fixture.boundaries.protocol.Add(1)
 		invalid = true
 	}
@@ -442,7 +448,7 @@ func (fixture *serviceFixture) serveOrigin(writer http.ResponseWriter, request *
 	binding := request.Header.Get("X-Palisade-Challenge-Binding")
 	if request.Method != http.MethodPost || cookieErr != nil || cookie.Value == "" || decodeLoose(body, &payload) != nil ||
 		payload.Action != "write" || payload.EndpointClass != "account" || payload.Sequence == 0 || payload.ProofToken == "" ||
-		payload.Observations.TransportProtocol != "http2" || payload.Observations.TransportSecurity != fixture.expectedSecurity ||
+		payload.Observations.TransportProtocol != fixture.expectedProtocol || payload.Observations.TransportSecurity != fixture.expectedSecurity ||
 		payload.Observations.ClientAddressSource != fixture.expectedSource || len(binding) != 43 {
 		fixture.boundaries.service.Add(1)
 		writer.WriteHeader(http.StatusBadRequest)

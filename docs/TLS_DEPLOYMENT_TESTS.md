@@ -19,6 +19,12 @@ For bounded repeated requests through both topologies, use the separate
 case is part of this gate; the sustained run remains an explicit opt-in because
 timing varies by host.
 
+An additional opt-in [pinned nginx deployment test](NGINX_DEPLOYMENT_TEST.md)
+runs an actual nginx process in a private Docker network. Unlike this portable
+Go suite, it is evidence for one exact proxy digest and configuration. Its
+static plan/configuration checks are part of `make test`; the container run is
+`make nginx-deployment-test`.
+
 ## Trusted TLS terminator boundary
 
 `TestTrustedTLSTerminatorDeploymentRejectsDirectHeaderSpoof` constructs this
@@ -67,7 +73,8 @@ unknown/unverified crawler class.
 This suite proves the behavior of the two repository reference adapters on a
 single local machine. It is not evidence for:
 
-- a particular CDN, load balancer, nginx build or cloud proxy configuration;
+- a particular CDN, load balancer, cloud proxy or nginx build other than the
+  separately pinned and tested local nginx contract;
 - public-PKI validation, certificate issuance, rotation or revocation;
 - HTTP/3, QUIC, cross-host routing or production DNS;
 - multi-replica state sharing, failover or distributed one-time redemption;

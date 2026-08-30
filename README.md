@@ -220,6 +220,13 @@ never forwarding application request data to PALISADE. Both adapters run the
 same nine-case portable suite. See the [reverse-proxy guide](docs/REVERSE_PROXY_ADAPTER.md)
 for its intentionally narrower challenge and single-process state boundary.
 
+For the first concrete deployment boundary, the repository also ships an
+opt-in [digest-pinned nginx integration test](docs/NGINX_DEPLOYMENT_TEST.md).
+It negotiates real HTTP/2 over TLS, proxies to the Go origin middleware on an
+internal Docker network and proves that direct forwarding-header spoofing does
+not acquire trusted-proxy semantics. It is a configuration contract for that
+exact local topology, not a CDN, public-PKI, capacity or efficacy claim.
+
 Both adapters can authenticate vendor-neutral local WAF, reputation,
 TLS/HTTP-fingerprint and request-time challenge context with the signed
 [`palisade.edge-signals.v1`](docs/UPSTREAM_SIGNALS.md) envelope. The bridge
