@@ -46,4 +46,7 @@ echo "verify-local: licensing and staged-index privacy boundaries"
 ./scripts/privacy-check.sh
 ./scripts/privacy-check_test.sh
 
+echo "verify-local: offline release signing and tamper detection"
+./scripts/release-signing_test.sh
+
 echo "verify-local: all local gates passed"

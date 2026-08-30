@@ -11,6 +11,7 @@ Describe the defensive problem and the smallest change that addresses it.
 - [ ] False-positive impact considered
 - [ ] No secrets, personal data or live production traffic included
 - [ ] Privacy boundaries preserved
+- [ ] Release-signing self-test run when release or governance code changes
 
 ## License
 

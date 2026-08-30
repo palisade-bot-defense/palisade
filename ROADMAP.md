@@ -119,6 +119,10 @@ abandonment budget; rollback is exercised and timed.
 
 ## v0.5 — build the open deployment ecosystem
 
+Status: implementation complete; enrolling independent public release and
+security responders, publishing a reviewed release key and independently
+reproducing the first signed artifact set remain the operational exit gate.
+
 Deliverables:
 
 - [x] stabilize the normalized HTTP and protobuf adapter contracts;
@@ -130,7 +134,7 @@ Deliverables:
   detector bundles and rollout plans;
 - [x] document compatibility with local upstream signals such as WAF verdicts,
   reputation classes and challenge outcomes without embedding vendor payloads;
-- create maintainer, security-response and release-signing processes that do not
+- [x] create maintainer, security-response and release-signing processes that do not
   depend on one private deployment.
 
 Exit gate: two independently implemented adapters pass the same privacy,

@@ -22,6 +22,7 @@ tag is published.
 | Reproducible assets | `pnpm build` | sensor, embedded dashboard and website build from the lockfile |
 | Offline evaluation | `python3 -m unittest scripts/test_evaluate_offline.py` | synthetic evaluation cases pass |
 | Privacy/licensing | `make privacy-check` and `make license-check` | repository-index attack fixtures and license boundary pass |
+| Release authenticity | `make release-signing-check` | exact artifact manifest, pinned signer, private-key isolation and tamper rejection pass offline |
 
 The latency test is a regression gate for the in-process decision path, not a
 claim about network, reverse-proxy or end-user latency. The benchmark
@@ -75,6 +76,9 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
   and outcome-ingestion loss states.
 - Privacy-guard self-tests stage renamed synthetic attack fixtures in isolated
   temporary Git repositories and require fail-closed rejection.
+- Release-signing self-tests use temporary synthetic keys and artifacts outside
+  the repository. They reject permissive or worktree-resident private keys,
+  modified artifacts and an unpinned signer without publishing a tag or release.
 
 The generic local import suite additionally rejects unknown and duplicate JSON
 fields, ambiguous label provenance, direct-reference leakage, decreasing event

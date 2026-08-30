@@ -1,0 +1,6 @@
+# Bootstrap file for PALISADE release SSH signing identities.
+#
+# No production-supported release signer is enrolled yet. A public key must be
+# added through normal review before any artifact release can pass the documented
+# publication gate. Format:
+# identity namespaces="palisade-release" ssh-ed25519 BASE64 [comment]

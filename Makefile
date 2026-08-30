@@ -1,4 +1,4 @@
-.PHONY: build test check verify release-plan release coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
+.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -23,6 +23,19 @@ release-plan:
 release:
 	@test -n "$(VERSION)" || (echo "VERSION is required" >&2; exit 2)
 	./scripts/release-local.sh "$(VERSION)"
+
+release-sign:
+	@test -n "$(VERSION)" || (echo "VERSION is required" >&2; exit 2)
+	@test -n "$(SIGNER)" || (echo "SIGNER is required" >&2; exit 2)
+	@test -n "$(KEY_FILE)" || (echo "KEY_FILE is required" >&2; exit 2)
+	./scripts/sign-release-checksums.sh "$(SIGNER)" "$(KEY_FILE)" "dist/release/$(VERSION)"
+
+release-verify:
+	@test -n "$(VERSION)" || (echo "VERSION is required" >&2; exit 2)
+	./scripts/verify-release.sh "$(VERSION)" "dist/release/$(VERSION)" "maintainers/release-allowed-signers"
+
+release-signing-check:
+	./scripts/release-signing_test.sh
 
 coverage-check:
 	./scripts/check-go-coverage.sh
