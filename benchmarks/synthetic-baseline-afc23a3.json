@@ -1,0 +1,249 @@
+{
+  "environment": {
+    "cgo_enabled": false,
+    "go_version": "go1.27.0",
+    "goarch": "arm64",
+    "gomaxprocs": 1,
+    "goos": "linux"
+  },
+  "latency_profiles": [
+    {
+      "p50_ns": 3125,
+      "p95_budget_ns": 10000000,
+      "p95_ns": 5958,
+      "p99_ns": 30042,
+      "profile": "production_shadow_decision",
+      "samples": 1000
+    },
+    {
+      "p50_ns": 3625,
+      "p95_budget_ns": 10000000,
+      "p95_ns": 7250,
+      "p99_ns": 45542,
+      "profile": "signed_adaptive_enforcement_decision",
+      "samples": 1000
+    }
+  ],
+  "limitations": [
+    "synthetic fixtures only; no deployment or customer records",
+    "in-process Go execution only; excludes proxy, network, TLS and browser latency",
+    "single logical CPU; not a concurrent, multi-replica or capacity measurement",
+    "does not measure detection efficacy, false-positive rate or challenge outcomes",
+    "microbenchmark run dispersion is not an operation-level latency percentile",
+    "results vary with hardware, operating system, power state and Go toolchain",
+    "race detector is excluded from timing runs and remains a separate release gate"
+  ],
+  "microbenchmarks": [
+    {
+      "allocations_per_op": {
+        "maximum": 31.0,
+        "median": 31.0,
+        "minimum": 31.0
+      },
+      "benchmark": "BenchmarkProductionDecisionPath",
+      "bytes_per_op": {
+        "maximum": 2335.0,
+        "median": 2335.0,
+        "minimum": 2335.0
+      },
+      "iterations_total": 538123,
+      "ns_per_op": {
+        "maximum": 3976.0,
+        "median": 3952.0,
+        "minimum": 3806.0
+      },
+      "package": "./internal/engine",
+      "profile": "production_shadow_decision",
+      "runs": 7,
+      "samples": [
+        {
+          "allocations_per_op": 31.0,
+          "bytes_per_op": 2335.0,
+          "iterations": 74683,
+          "ns_per_op": 3976.0
+        },
+        {
+          "allocations_per_op": 31.0,
+          "bytes_per_op": 2335.0,
+          "iterations": 76020,
+          "ns_per_op": 3952.0
+        },
+        {
+          "allocations_per_op": 31.0,
+          "bytes_per_op": 2335.0,
+          "iterations": 77010,
+          "ns_per_op": 3959.0
+        },
+        {
+          "allocations_per_op": 31.0,
+          "bytes_per_op": 2335.0,
+          "iterations": 75967,
+          "ns_per_op": 3976.0
+        },
+        {
+          "allocations_per_op": 31.0,
+          "bytes_per_op": 2335.0,
+          "iterations": 78824,
+          "ns_per_op": 3806.0
+        },
+        {
+          "allocations_per_op": 31.0,
+          "bytes_per_op": 2335.0,
+          "iterations": 76772,
+          "ns_per_op": 3835.0
+        },
+        {
+          "allocations_per_op": 31.0,
+          "bytes_per_op": 2335.0,
+          "iterations": 78847,
+          "ns_per_op": 3832.0
+        }
+      ]
+    },
+    {
+      "allocations_per_op": {
+        "maximum": 25.0,
+        "median": 25.0,
+        "minimum": 25.0
+      },
+      "benchmark": "BenchmarkSignedAdaptiveDecisionPath",
+      "bytes_per_op": {
+        "maximum": 3639.0,
+        "median": 3639.0,
+        "minimum": 3639.0
+      },
+      "iterations_total": 458954,
+      "ns_per_op": {
+        "maximum": 4676.0,
+        "median": 4530.0,
+        "minimum": 4474.0
+      },
+      "package": "./internal/engine",
+      "profile": "signed_adaptive_enforcement_decision",
+      "runs": 7,
+      "samples": [
+        {
+          "allocations_per_op": 25.0,
+          "bytes_per_op": 3639.0,
+          "iterations": 65004,
+          "ns_per_op": 4676.0
+        },
+        {
+          "allocations_per_op": 25.0,
+          "bytes_per_op": 3639.0,
+          "iterations": 62647,
+          "ns_per_op": 4644.0
+        },
+        {
+          "allocations_per_op": 25.0,
+          "bytes_per_op": 3639.0,
+          "iterations": 66378,
+          "ns_per_op": 4542.0
+        },
+        {
+          "allocations_per_op": 25.0,
+          "bytes_per_op": 3639.0,
+          "iterations": 65970,
+          "ns_per_op": 4502.0
+        },
+        {
+          "allocations_per_op": 25.0,
+          "bytes_per_op": 3639.0,
+          "iterations": 66146,
+          "ns_per_op": 4474.0
+        },
+        {
+          "allocations_per_op": 25.0,
+          "bytes_per_op": 3639.0,
+          "iterations": 66472,
+          "ns_per_op": 4530.0
+        },
+        {
+          "allocations_per_op": 25.0,
+          "bytes_per_op": 3639.0,
+          "iterations": 66337,
+          "ns_per_op": 4507.0
+        }
+      ]
+    },
+    {
+      "allocations_per_op": {
+        "maximum": 0.0,
+        "median": 0.0,
+        "minimum": 0.0
+      },
+      "benchmark": "BenchmarkProgressionController",
+      "bytes_per_op": {
+        "maximum": 32.0,
+        "median": 31.0,
+        "minimum": 31.0
+      },
+      "iterations_total": 16775935,
+      "ns_per_op": {
+        "maximum": 126.3,
+        "median": 123.7,
+        "minimum": 123.1
+      },
+      "package": "./internal/rollout",
+      "profile": "progression_controller",
+      "runs": 7,
+      "samples": [
+        {
+          "allocations_per_op": 0.0,
+          "bytes_per_op": 31.0,
+          "iterations": 2488077,
+          "ns_per_op": 124.6
+        },
+        {
+          "allocations_per_op": 0.0,
+          "bytes_per_op": 31.0,
+          "iterations": 2426821,
+          "ns_per_op": 123.1
+        },
+        {
+          "allocations_per_op": 0.0,
+          "bytes_per_op": 31.0,
+          "iterations": 2449162,
+          "ns_per_op": 123.3
+        },
+        {
+          "allocations_per_op": 0.0,
+          "bytes_per_op": 32.0,
+          "iterations": 2424590,
+          "ns_per_op": 126.3
+        },
+        {
+          "allocations_per_op": 0.0,
+          "bytes_per_op": 31.0,
+          "iterations": 2418351,
+          "ns_per_op": 123.7
+        },
+        {
+          "allocations_per_op": 0.0,
+          "bytes_per_op": 31.0,
+          "iterations": 2433952,
+          "ns_per_op": 123.7
+        },
+        {
+          "allocations_per_op": 0.0,
+          "bytes_per_op": 31.0,
+          "iterations": 2134982,
+          "ns_per_op": 124.4
+        }
+      ]
+    }
+  ],
+  "protocol": {
+    "latency_samples_per_profile": 1000,
+    "logical_cpus": 1,
+    "microbenchmark_benchtime": "250ms",
+    "microbenchmark_samples": 7,
+    "module_downloads_disabled": true,
+    "race_detector_enabled": false
+  },
+  "raw_deployment_records_used": false,
+  "schema_version": "palisade.synthetic-benchmark-report.v1",
+  "source_commit": "afc23a3a8c6f61c7e8ff3a1661c0031e4886b3e2",
+  "suite_version": "palisade.synthetic-benchmark-suite.v1",
+  "synthetic_only": true
+}

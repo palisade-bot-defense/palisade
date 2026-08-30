@@ -1,4 +1,4 @@
-.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check red-team red-team-plan benchmark-plan benchmark-local coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
+.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check red-team red-team-plan benchmark-plan benchmark-local benchmark-verify coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -49,6 +49,10 @@ benchmark-plan:
 benchmark-local:
 	@test -n "$(OUTPUT)" || (echo "OUTPUT is required" >&2; exit 2)
 	python3 scripts/benchmark_local.py --output "$(OUTPUT)"
+
+benchmark-verify:
+	@test -n "$(REPORT)" || (echo "REPORT is required" >&2; exit 2)
+	python3 scripts/benchmark_local.py --verify "$(REPORT)"
 
 coverage-check:
 	./scripts/check-go-coverage.sh

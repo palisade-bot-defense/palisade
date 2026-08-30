@@ -34,6 +34,7 @@ go vet ./...
 
 echo "verify-local: offline evaluator and synthetic protocol runners"
 python3 -m unittest scripts/test_evaluate_offline.py scripts/test_run_red_team.py scripts/test_benchmark_local.py
+python3 scripts/benchmark_local.py --verify benchmarks/synthetic-baseline-afc23a3.json
 
 echo "verify-local: synthetic red-team baseline with module downloads disabled"
 python3 scripts/run_red_team.py

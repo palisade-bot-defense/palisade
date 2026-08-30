@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 import subprocess
@@ -9,6 +10,11 @@ from scripts import benchmark_local
 
 
 class BenchmarkLocalTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.repository_root = Path(__file__).resolve().parent.parent
+        cls.public_report_path = cls.repository_root / "benchmarks/synthetic-baseline-afc23a3.json"
+
     def test_latency_marker_is_closed_and_ordered(self):
         output = (
             "=== RUN   TestInProcessDecisionP95MeetsPilotBudget\n"
@@ -106,6 +112,46 @@ class BenchmarkLocalTests(unittest.TestCase):
         self.assertEqual(environment["GOSUMDB"], "off")
         self.assertEqual(environment["GOTOOLCHAIN"], "local")
         self.assertEqual(environment["GOFLAGS"], "-mod=readonly")
+
+    def test_public_baseline_is_closed_and_source_commit_is_reachable(self):
+        report = benchmark_local.load_report(self.public_report_path)
+        benchmark_local.validate_report(report, self.repository_root)
+
+    def test_public_baseline_schema_matches_runtime_versions(self):
+        schema = json.loads(
+            (self.repository_root / "schemas/synthetic-benchmark-report-v1.schema.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(schema["properties"]["schema_version"]["const"], benchmark_local.SCHEMA_VERSION)
+        self.assertEqual(schema["properties"]["suite_version"]["const"], benchmark_local.SUITE_VERSION)
+        self.assertEqual(
+            schema["properties"]["protocol"]["properties"]["microbenchmark_samples"]["const"],
+            benchmark_local.BENCHMARK_SAMPLES,
+        )
+
+    def test_removed_limitation_is_rejected(self):
+        report = copy.deepcopy(benchmark_local.load_report(self.public_report_path))
+        report["limitations"].pop()
+        with self.assertRaisesRegex(benchmark_local.BenchmarkError, "limitations"):
+            benchmark_local.validate_report(report)
+
+    def test_rewritten_sample_summary_is_rejected(self):
+        report = copy.deepcopy(benchmark_local.load_report(self.public_report_path))
+        report["microbenchmarks"][0]["ns_per_op"]["median"] = 1.0
+        with self.assertRaisesRegex(benchmark_local.BenchmarkError, "does not match"):
+            benchmark_local.validate_report(report)
+
+    def test_boolean_protocol_number_is_rejected(self):
+        report = copy.deepcopy(benchmark_local.load_report(self.public_report_path))
+        report["protocol"]["logical_cpus"] = True
+        with self.assertRaisesRegex(benchmark_local.BenchmarkError, "protocol"):
+            benchmark_local.validate_report(report)
+
+    def test_duplicate_report_key_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "report.json"
+            path.write_text('{"schema_version":"one","schema_version":"two"}', encoding="utf-8")
+            with self.assertRaisesRegex(benchmark_local.BenchmarkError, "duplicate JSON key"):
+                benchmark_local.load_report(path)
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -36,6 +37,26 @@ LIMITATIONS = (
     "results vary with hardware, operating system, power state and Go toolchain",
     "race detector is excluded from timing runs and remains a separate release gate",
 )
+TOP_LEVEL_FIELDS = {
+    "schema_version",
+    "suite_version",
+    "source_commit",
+    "synthetic_only",
+    "raw_deployment_records_used",
+    "protocol",
+    "environment",
+    "latency_profiles",
+    "microbenchmarks",
+    "limitations",
+}
+PROTOCOL = {
+    "logical_cpus": 1,
+    "latency_samples_per_profile": 1000,
+    "microbenchmark_samples": BENCHMARK_SAMPLES,
+    "microbenchmark_benchtime": BENCHTIME,
+    "module_downloads_disabled": True,
+    "race_detector_enabled": False,
+}
 LATENCY_MARKER = re.compile(
     r"PALISADE_BENCHMARK_LATENCY\s+"
     r"p50_ns=(\d+)\s+p95_ns=(\d+)\s+p99_ns=(\d+)\s+"
@@ -51,6 +72,169 @@ BENCHMARK_LINE = re.compile(
 
 class BenchmarkError(ValueError):
     """The benchmark protocol or output violated its closed contract."""
+
+
+def _closed_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise BenchmarkError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def load_report(path: Path) -> dict[str, object]:
+    if path.is_symlink() or not path.is_file():
+        raise BenchmarkError("benchmark report must be a regular non-symlink file")
+    if path.stat().st_size > 128 * 1024:
+        raise BenchmarkError("benchmark report exceeds the 128 KiB contract budget")
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_closed_object)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise BenchmarkError(f"cannot read benchmark report: {error}") from error
+    if not isinstance(document, dict):
+        raise BenchmarkError("benchmark report root must be an object")
+    return document
+
+
+def _is_integer(value: object, minimum: int = 0) -> bool:
+    return type(value) is int and value >= minimum
+
+
+def _is_number(value: object, minimum: float = 0.0, exclusive: bool = False) -> bool:
+    if type(value) not in (int, float) or not math.isfinite(float(value)):
+        return False
+    return float(value) > minimum if exclusive else float(value) >= minimum
+
+
+def _validate_summary(summary: object, values: list[float], field: str) -> None:
+    if not isinstance(summary, dict) or set(summary) != {"median", "minimum", "maximum"}:
+        raise BenchmarkError(f"{field} summary fields are not closed")
+    if any(not _is_number(summary[key]) for key in summary):
+        raise BenchmarkError(f"{field} summary contains a non-finite or negative value")
+    expected = {
+        "median": statistics.median(values),
+        "minimum": min(values),
+        "maximum": max(values),
+    }
+    if summary != expected:
+        raise BenchmarkError(f"{field} summary does not match the seven published samples")
+
+
+def validate_report(document: dict[str, object], repository_root: Path | None = None) -> None:
+    if set(document) != TOP_LEVEL_FIELDS:
+        raise BenchmarkError("benchmark report top-level fields are not closed")
+    if document["schema_version"] != SCHEMA_VERSION or document["suite_version"] != SUITE_VERSION:
+        raise BenchmarkError("benchmark report version is unsupported")
+    if document["synthetic_only"] is not True or document["raw_deployment_records_used"] is not False:
+        raise BenchmarkError("benchmark report must remain synthetic and exclude deployment records")
+    source_commit = document["source_commit"]
+    if not isinstance(source_commit, str) or re.fullmatch(r"[0-9a-f]{40}", source_commit) is None:
+        raise BenchmarkError("benchmark source commit is invalid")
+    protocol = document["protocol"]
+    if (
+        not isinstance(protocol, dict)
+        or protocol != PROTOCOL
+        or any(type(protocol[key]) is not type(value) for key, value in PROTOCOL.items())
+    ):
+        raise BenchmarkError("benchmark protocol fields or values changed")
+    if document["limitations"] != list(LIMITATIONS):
+        raise BenchmarkError("benchmark limitations are missing, reordered or changed")
+
+    environment = document["environment"]
+    if not isinstance(environment, dict) or set(environment) != {
+        "go_version", "goos", "goarch", "cgo_enabled", "gomaxprocs"
+    }:
+        raise BenchmarkError("benchmark environment fields are not closed")
+    if (
+        not isinstance(environment["go_version"], str)
+        or re.fullmatch(r"go1\.27(?:\.\d+)?", environment["go_version"]) is None
+        or not isinstance(environment["goos"], str)
+        or re.fullmatch(r"[a-z0-9]+", environment["goos"]) is None
+        or not isinstance(environment["goarch"], str)
+        or re.fullmatch(r"[a-z0-9]+", environment["goarch"]) is None
+        or type(environment["cgo_enabled"]) is not bool
+        or not _is_integer(environment["gomaxprocs"], 1)
+        or environment["gomaxprocs"] != 1
+    ):
+        raise BenchmarkError("benchmark environment values are invalid")
+
+    latency_profiles = document["latency_profiles"]
+    if not isinstance(latency_profiles, list) or len(latency_profiles) != len(LATENCY_TESTS):
+        raise BenchmarkError("benchmark latency profile count changed")
+    latency_fields = {"profile", "samples", "p50_ns", "p95_ns", "p99_ns", "p95_budget_ns"}
+    for latency, (profile, _) in zip(latency_profiles, LATENCY_TESTS):
+        if not isinstance(latency, dict) or set(latency) != latency_fields or latency["profile"] != profile:
+            raise BenchmarkError("benchmark latency profile fields or order changed")
+        if (
+            not _is_integer(latency["samples"], 1)
+            or latency["samples"] != 1000
+            or not _is_integer(latency["p95_budget_ns"], 1)
+            or latency["p95_budget_ns"] != 10_000_000
+            or any(not _is_integer(latency[key]) for key in ("p50_ns", "p95_ns", "p99_ns"))
+            or not latency["p50_ns"] <= latency["p95_ns"] <= latency["p99_ns"]
+            or latency["p95_ns"] >= latency["p95_budget_ns"]
+        ):
+            raise BenchmarkError("benchmark latency percentiles, sample count or budget are invalid")
+
+    microbenchmarks = document["microbenchmarks"]
+    if not isinstance(microbenchmarks, list) or len(microbenchmarks) != len(BENCHMARKS):
+        raise BenchmarkError("microbenchmark profile count changed")
+    benchmark_fields = {
+        "profile", "package", "benchmark", "runs", "iterations_total",
+        "ns_per_op", "bytes_per_op", "allocations_per_op", "samples",
+    }
+    sample_fields = {"iterations", "ns_per_op", "bytes_per_op", "allocations_per_op"}
+    for benchmark, (profile, package, name) in zip(microbenchmarks, BENCHMARKS):
+        if (
+            not isinstance(benchmark, dict)
+            or set(benchmark) != benchmark_fields
+            or (benchmark["profile"], benchmark["package"], benchmark["benchmark"]) != (profile, package, name)
+            or not _is_integer(benchmark["runs"], 1)
+            or benchmark["runs"] != BENCHMARK_SAMPLES
+        ):
+            raise BenchmarkError("microbenchmark fields, identity or order changed")
+        samples = benchmark["samples"]
+        if not isinstance(samples, list) or len(samples) != BENCHMARK_SAMPLES:
+            raise BenchmarkError("microbenchmark must retain exactly seven samples")
+        for sample in samples:
+            if (
+                not isinstance(sample, dict)
+                or set(sample) != sample_fields
+                or not _is_integer(sample["iterations"], 1)
+                or not _is_number(sample["ns_per_op"], 0, exclusive=True)
+                or not _is_number(sample["bytes_per_op"])
+                or not _is_number(sample["allocations_per_op"])
+            ):
+                raise BenchmarkError("microbenchmark sample is malformed or non-finite")
+        if (
+            not _is_integer(benchmark["iterations_total"], 1)
+            or benchmark["iterations_total"] != sum(sample["iterations"] for sample in samples)
+        ):
+            raise BenchmarkError("microbenchmark iteration total does not match its samples")
+        _validate_summary(benchmark["ns_per_op"], [float(sample["ns_per_op"]) for sample in samples], "ns_per_op")
+        _validate_summary(benchmark["bytes_per_op"], [float(sample["bytes_per_op"]) for sample in samples], "bytes_per_op")
+        _validate_summary(
+            benchmark["allocations_per_op"],
+            [float(sample["allocations_per_op"]) for sample in samples],
+            "allocations_per_op",
+        )
+
+    if repository_root is not None:
+        exists = subprocess.run(
+            ["git", "cat-file", "-e", f"{source_commit}^{{commit}}"],
+            cwd=repository_root,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        ancestor = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", source_commit, "HEAD"],
+            cwd=repository_root,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if exists.returncode != 0 or ancestor.returncode != 0:
+            raise BenchmarkError("benchmark source commit is unavailable or not an ancestor of HEAD")
 
 
 def benchmark_environment() -> dict[str, str]:
@@ -220,25 +404,20 @@ def build_report(repository_root: Path) -> dict[str, object]:
         microbenchmarks.append(
             {"profile": profile, "package": package, "benchmark": benchmark_name, **result}
         )
-    return {
+    report = {
         "schema_version": SCHEMA_VERSION,
         "suite_version": SUITE_VERSION,
         "source_commit": source_commit,
         "synthetic_only": True,
         "raw_deployment_records_used": False,
-        "protocol": {
-            "logical_cpus": 1,
-            "latency_samples_per_profile": 1000,
-            "microbenchmark_samples": BENCHMARK_SAMPLES,
-            "microbenchmark_benchtime": BENCHTIME,
-            "module_downloads_disabled": True,
-            "race_detector_enabled": False,
-        },
+        "protocol": dict(PROTOCOL),
         "environment": machine,
         "latency_profiles": latency_profiles,
         "microbenchmarks": microbenchmarks,
         "limitations": list(LIMITATIONS),
     }
+    validate_report(report, repository_root)
+    return report
 
 
 def _inside_git_worktree(path: Path) -> bool:
@@ -310,9 +489,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--plan", action="store_true", help="print the fixed protocol without running Go")
     parser.add_argument("--output", type=Path, help="create the aggregate JSON report outside every Git worktree")
+    parser.add_argument("--verify", type=Path, help="validate an existing aggregate benchmark report")
     arguments = parser.parse_args(argv)
-    if arguments.plan == (arguments.output is not None):
-        parser.error("choose exactly one of --plan or --output")
+    if sum((arguments.plan, arguments.output is not None, arguments.verify is not None)) != 1:
+        parser.error("choose exactly one of --plan, --output or --verify")
     repository_root = Path(__file__).resolve().parent.parent
     if arguments.plan:
         for command in execution_plan():
@@ -320,11 +500,21 @@ def main(argv: list[str] | None = None) -> int:
         print(f"benchmark: planned {len(LATENCY_TESTS)} latency profiles and {len(BENCHMARKS)} microbenchmarks")
         return 0
     try:
-        report = build_report(repository_root)
-        write_report_create_only(arguments.output, report)
+        if arguments.verify is not None:
+            report = load_report(arguments.verify)
+            validate_report(report, repository_root)
+        else:
+            report = build_report(repository_root)
+            write_report_create_only(arguments.output, report)
     except (BenchmarkError, FileNotFoundError, subprocess.CalledProcessError) as error:
         print(f"benchmark: failed: {error}", file=sys.stderr)
         return 1
+    if arguments.verify is not None:
+        print(
+            f"benchmark: verified {len(report['latency_profiles'])} latency profiles and "
+            f"{len(report['microbenchmarks'])} microbenchmarks; synthetic aggregates only"
+        )
+        return 0
     print(
         f"benchmark: wrote {len(report['latency_profiles'])} latency profiles and "
         f"{len(report['microbenchmarks'])} microbenchmarks; synthetic aggregates only"
