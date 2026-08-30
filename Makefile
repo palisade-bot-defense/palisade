@@ -1,4 +1,4 @@
-.PHONY: build test check verify release-plan release release-compare release-reproduction-verify release-sign release-verify release-signing-check operator-shadow-drill red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
+.PHONY: build test check verify release-plan release release-compare release-reproduction-verify release-sign release-verify release-signing-check operator-shadow-drill red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check migration-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -6,10 +6,10 @@ build:
 
 test:
 	go test -race ./...
-	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_operator_shadow_drill.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compare_release_reproduction.py scripts/test_compatibility_freeze.py
+	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_operator_shadow_drill.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compare_release_reproduction.py scripts/test_compatibility_freeze.py scripts/test_migration_matrix.py
 	pnpm test
 
-check: coverage-check privacy-check license-check compatibility-check
+check: coverage-check privacy-check license-check compatibility-check migration-check
 	go vet ./...
 	pnpm typecheck
 
@@ -78,6 +78,9 @@ benchmark-verify:
 
 compatibility-check:
 	python3 scripts/check_compatibility_freeze.py
+
+migration-check:
+	python3 scripts/check_migration_matrix.py
 
 coverage-check:
 	./scripts/check-go-coverage.sh

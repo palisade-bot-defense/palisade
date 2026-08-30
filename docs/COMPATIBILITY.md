@@ -4,6 +4,9 @@ Contract version: `palisade.compatibility-policy.v1`.
 
 PALISADE freezes only the public surfaces listed in
 [`compatibility-freeze-v1.json`](../manifests/compatibility-freeze-v1.json).
+A separate closed [artifact lifecycle and migration matrix](MIGRATIONS.md)
+classifies every frozen contract and every historical schema retained in the
+repository.
 A filename containing `v1` is not, by itself, a support promise. Historical,
 draft and internal files that are absent from the manifest remain outside the
 v1 compatibility boundary.
@@ -49,12 +52,14 @@ exists elsewhere.
 
 ## Persisted artifacts and migrations
 
-Every persisted or exchanged artifact carries its own `schema_version`.
-Readers reject unknown versions. Writers emit only the manifest's current
-version. A migration must be local, deterministic, bounded and create-only; it
-must never upload private artifacts or overwrite its input. Until such a
-migration exists, the old version remains either `legacy_read` or unsupported,
-as recorded by the manifest.
+Every persisted or exchanged contract carries an explicit version marker. JSON
+artifacts normally use `schema_version`; signed edge envelopes use `version`,
+HTTP uses its `/v1` path and protobuf uses its `palisade.v1` package. Readers
+reject unknown versions. Writers emit only the manifest's current version. A
+migration must be local, deterministic, bounded and create-only; it must never
+upload private artifacts or overwrite its input. Until such a migration exists,
+the old version remains either `legacy_read` or unsupported, as recorded by the
+matrix.
 
 Current Shadow writers emit v3 records while authenticated v1/v2 records remain
 `legacy_read`. Current analysis emits v4 reports and does not accept historical
@@ -81,7 +86,9 @@ Run the local gate with:
 
 ```sh
 make compatibility-check
+make migration-check
 ```
 
-The check validates the closed manifest, exact file hashes, unique paths,
-stability classes and required coverage. It performs no network access.
+The checks validate the closed freeze, exact file hashes, unique paths,
+stability classes, lifecycle classification and all historical transition
+strategies. They perform no network access.

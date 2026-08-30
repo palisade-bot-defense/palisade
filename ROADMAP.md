@@ -185,6 +185,11 @@ The first stable release requires:
 - a supportable maintainer and vulnerability-disclosure process;
 - no dependency on private PALISADE-operated services.
 
+The versioned artifact-lifecycle and migration matrix now covers every frozen
+contract and historical schema in the repository. This closes the local
+migration-contract implementation item, but it does not close the representative
+deployment, independent-review or maintainer-capacity gates above.
+
 Version 1.0 will still not claim universal bot detection, universal legal
 compliance or an unsolvable challenge.
 
