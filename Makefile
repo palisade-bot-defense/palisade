@@ -1,4 +1,4 @@
-.PHONY: build test check verify browser-e2e browser-e2e-check deployment-tls-test release-plan release release-compare release-reproduction-verify release-sign release-verify release-signing-check operator-shadow-drill load-test-plan load-test-local red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check migration-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract replay dev demo docker
+.PHONY: build test check verify browser-e2e browser-e2e-check deployment-tls-test proxy-tls-load-plan proxy-tls-load-local release-plan release release-compare release-reproduction-verify release-sign release-verify release-signing-check operator-shadow-drill load-test-plan load-test-local red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check migration-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract replay dev demo docker
 
 build:
 	pnpm build
@@ -24,6 +24,13 @@ browser-e2e-check:
 
 deployment-tls-test:
 	go test -race ./pkg/palisadehttp ./pkg/palisadeproxy -run 'Test.*TLS.*Deployment' -count=1
+	go test -race ./internal/proxytlsdiag -run '^TestReferenceAdaptersOverLoopbackHTTP2TLS$$' -count=1
+
+proxy-tls-load-plan:
+	PALISADE_PROXY_TLS_DURATION_SECONDS="$(DURATION_SECONDS)" PALISADE_PROXY_TLS_CONCURRENCY="$(CONCURRENCY)" PALISADE_PROXY_TLS_MAX_OPERATIONS="$(MAX_OPERATIONS)" go test ./internal/proxytlsdiag -run '^TestProxyTLSLoadPlan$$' -count=1 -v
+
+proxy-tls-load-local:
+	PALISADE_RUN_PROXY_TLS_LOAD=1 PALISADE_PROXY_TLS_DURATION_SECONDS="$(DURATION_SECONDS)" PALISADE_PROXY_TLS_CONCURRENCY="$(CONCURRENCY)" PALISADE_PROXY_TLS_MAX_OPERATIONS="$(MAX_OPERATIONS)" go test ./internal/proxytlsdiag -run '^TestProxyTLSLoadDiagnostic$$' -count=1 -v
 
 release-plan:
 	@test -n "$(VERSION)" || (echo "VERSION is required" >&2; exit 2)

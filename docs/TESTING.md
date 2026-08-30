@@ -28,6 +28,7 @@ tag is published.
 | Synthetic findings contract | `python3 -m unittest scripts/test_red_team_findings.py` | report closure, suite binding, provenance, create-only output and limitation tamper cases pass |
 | Operator Shadow drill | `make operator-shadow-drill` | production secrets, session/proof flow, encrypted records, aggregate analysis, unsigned-enforcement rejection and Shadow restart pass on loopback |
 | TLS/proxy deployment boundary | `make deployment-tls-test` | both reference adapters pass real local TCP/TLS/HTTP/2 trust and privacy checks under the race detector |
+| Proxy/TLS load diagnostic | `make proxy-tls-load-plan` then `make proxy-tls-load-local` | bounded opt-in HTTP/2/TLS repetition passes both reference adapters with closed aggregate output; no production capacity claim |
 | Published synthetic benchmark | `make benchmark-verify REPORT=benchmarks/synthetic-baseline-afc23a3.json` | exact profiles, samples, recomputed summaries, source commit and limitations pass |
 | v1 compatibility freeze | `make compatibility-check` | exact public contracts, legacy readers, threat model and runbook hashes pass |
 | Artifact lifecycle and migrations | `make migration-check` | every frozen contract has one lifecycle class and every predecessor has one reviewed transition strategy |
@@ -58,6 +59,11 @@ throughput and nearest-rank p50/p95/p99/max latency. It is deliberately not a
 release threshold: local scheduler and hardware variance must not be confused
 with a stable performance regression gate, and the runner does not model a
 proxy, TLS, multiple replicas or production traffic.
+The opt-in [local proxy/TLS load diagnostic](PROXY_TLS_LOAD_TEST.md) complements
+that runner with repeated complete protected requests through both Go reference
+adapters on ephemeral loopback HTTP/2/TLS hops. Its small contract case runs
+under the race gate; the sustained timing run is host-dependent and has no
+release threshold.
 The runtime-egress regression test parses Go source and scans production
 TypeScript callsites. A new outbound primitive fails until its destination,
 activation, data classes and privacy boundary are added to the reviewed
@@ -197,8 +203,10 @@ proxy boundary, direct forwarding-header spoof rejection and raw-request
 isolation from PALISADE. The bounded
 [local HTTP load diagnostic](LOCAL_LOAD_TEST.md) now covers sustained
 single-process loopback HTTP/1.1 session, proof and origin-decision traffic. The
-baseline still does not include a specific external proxy implementation,
-public-PKI and certificate-rotation exercises, sustained proxy/TLS load,
+bounded [local proxy/TLS load diagnostic](PROXY_TLS_LOAD_TEST.md) now repeats
+the same protected workflow through both Go reference adapters over loopback
+HTTP/2/TLS. The baseline still does not include a specific external proxy
+implementation, public-PKI and certificate-rotation exercises,
 HTTP/3, multi-replica challenge state, assistive-technology automation or a
 representative production capacity environment. These local contracts are not
 proxy-capacity, production-throughput or human-accessibility claims. Add those

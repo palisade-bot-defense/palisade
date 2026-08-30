@@ -100,3 +100,8 @@ The existing in-process p95-below-10-ms test remains the release latency gate.
 Deployment capacity must be measured in the operator's architecture with
 representative, lawfully handled traffic and linked outcomes. Raw inputs and
 private reports stay outside Git and are never required by this diagnostic.
+
+The complementary [proxy/TLS load diagnostic](PROXY_TLS_LOAD_TEST.md) repeats
+complete synthetic protected requests through both Go reference adapters over
+loopback HTTP/2 and TLS. Neither local diagnostic models an external proxy or
+establishes production capacity.

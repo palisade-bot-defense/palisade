@@ -14,6 +14,11 @@ make deployment-tls-test
 The same tests are also included in `go test -race ./...` and therefore in the
 complete local release verification.
 
+For bounded repeated requests through both topologies, use the separate
+[local proxy/TLS load diagnostic](PROXY_TLS_LOAD_TEST.md). Its short contract
+case is part of this gate; the sustained run remains an explicit opt-in because
+timing varies by host.
+
 ## Trusted TLS terminator boundary
 
 `TestTrustedTLSTerminatorDeploymentRejectsDirectHeaderSpoof` constructs this
@@ -66,7 +71,7 @@ single local machine. It is not evidence for:
 - public-PKI validation, certificate issuance, rotation or revocation;
 - HTTP/3, QUIC, cross-host routing or production DNS;
 - multi-replica state sharing, failover or distributed one-time redemption;
-- sustained proxy capacity, network latency, detector efficacy or false-positive rates.
+- production proxy capacity, cross-host latency, detector efficacy or false-positive rates.
 
 Before enforcement, operators must still validate their exact immediate proxy
 ranges, header rewriting, TLS trust, failure policy and rollback path in the
