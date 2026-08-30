@@ -36,6 +36,34 @@ It creates no result file, performs no scanning and has no target argument.
 Run the exercise on a disconnected host or with an operating-system/container
 network sandbox; PALISADE's local release verification uses the same restriction.
 
+## Machine-readable findings
+
+A public synthetic findings record can be created only from a clean commit and
+only after all twelve named controls pass. The generator records the exact
+source commit, suite digest, Go environment, closed scenario results and fixed
+limitations. It never captures command output, hostnames, paths, targets,
+traffic or operator configuration.
+
+Create the owner-only report outside every Git worktree:
+
+```sh
+mkdir -m 700 /safe/local/red-team-output
+make red-team-report OUTPUT=/safe/local/red-team-output/findings.json
+```
+
+The output is create-only and mode `0600`. Review it before copying the bounded
+aggregate JSON into a public evidence directory. Verify any reviewed copy with:
+
+```sh
+make red-team-verify REPORT=/path/to/findings.json
+```
+
+The verifier recomputes the suite hash, requires all scenario identities and
+test references in suite order, checks the exact source commit is reachable,
+and rejects changed limitations or a partial/failed result presented as a
+passing baseline. Operating-system network isolation remains an operator
+boundary and is deliberately not claimed by the JSON record.
+
 ## Exercise record
 
 Copy [`red-team/EXERCISE_TEMPLATE.md`](red-team/EXERCISE_TEMPLATE.md) into the

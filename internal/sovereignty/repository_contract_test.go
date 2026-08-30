@@ -207,6 +207,7 @@ func TestSovereigntyRepositorySchemasAreValidJSON(t *testing.T) {
 		"schemas/shadow-holdout-report-v1.schema.json",
 		"schemas/sovereignty-report-v1.schema.json",
 		"schemas/synthetic-benchmark-report-v1.schema.json",
+		"schemas/synthetic-red-team-findings-v1.schema.json",
 	} {
 		var schema map[string]any
 		readRepositoryJSON(t, root, path, &schema)
