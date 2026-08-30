@@ -29,6 +29,7 @@ tag is published.
 | Operator Shadow drill | `make operator-shadow-drill` | production secrets, session/proof flow, encrypted records, aggregate analysis, unsigned-enforcement rejection and Shadow restart pass on loopback |
 | Published synthetic benchmark | `make benchmark-verify REPORT=benchmarks/synthetic-baseline-afc23a3.json` | exact profiles, samples, recomputed summaries, source commit and limitations pass |
 | v1 compatibility freeze | `make compatibility-check` | exact public contracts, legacy readers, threat model and runbook hashes pass |
+| Artifact lifecycle and migrations | `make migration-check` | every frozen contract has one lifecycle class and every predecessor has one reviewed transition strategy |
 
 The latency tests are regression gates for the in-process decision paths, not
 claims about network, reverse-proxy or end-user latency. They report p50, p95
@@ -122,6 +123,13 @@ decision/endpoint linkage is preserved, unknown and ambiguous labels stay in
 the denominator, endpoint/cohort slices sum to their partition and private
 decision IDs never enter the report. File tests require create-only `0600`
 output outside Git.
+
+The migration-matrix suite requires exact coverage of every frozen API/schema
+and every historical schema still present in the repository. It rejects missing
+or duplicate lifecycle classifications, unreviewed transition changes and any
+attempt to rewrite Shadow v1 outcomes as if their absent decision linkage were
+known. Historical analyses and reviews can only be regenerated from current
+authenticated sources and never retain rollout authority.
 
 Adaptive-response tests prove that each closed cost factor changes only the
 bounded throttle or temporary-block duration, weak/benign evidence cannot

@@ -1,0 +1,128 @@
+{
+  "schema_version": "palisade.migration-matrix.v1",
+  "scope": "all_frozen_and_historical_versioned_contracts",
+  "invariants": [
+    "writers_emit_current_only",
+    "unknown_versions_are_rejected",
+    "migration_is_local_bounded_and_create_only",
+    "migration_never_overwrites_input",
+    "migration_has_no_network_or_raw_export",
+    "missing_linkage_is_never_synthesized"
+  ],
+  "classifications": {
+    "runtime_exchange": [
+      "api/contracts/normalized-signal-v1.json",
+      "api/openapi.yaml",
+      "api/proto/palisade/v1/challenge.proto",
+      "api/proto/palisade/v1/common.proto",
+      "api/proto/palisade/v1/coverage.proto",
+      "api/proto/palisade/v1/decision.proto",
+      "api/proto/palisade/v1/decoy.proto",
+      "api/proto/palisade/v1/event.proto",
+      "schemas/crawler-registry-v1.schema.json",
+      "schemas/detector-bundle-v1.schema.json",
+      "schemas/edge-signal-envelope-v1.schema.json",
+      "schemas/local-artifact-v1.schema.json",
+      "schemas/normalized-signal-contract-v1.schema.json",
+      "schemas/policy-bundle-v1.schema.json",
+      "schemas/rollout-plan-v2.schema.json"
+    ],
+    "local_persistence": [
+      "schemas/local-evidence-event-v1.schema.json",
+      "schemas/local-evidence-input-v1.schema.json",
+      "schemas/local-evidence-manifest-v1.schema.json",
+      "schemas/local-family-annotation-v1.schema.json",
+      "schemas/local-holdout-report-v1.schema.json",
+      "schemas/local-sequence-report-v1.schema.json",
+      "schemas/offline-event-v1.schema.json",
+      "schemas/offline-manifest-v1.schema.json",
+      "schemas/rollout-review-v4.schema.json",
+      "schemas/shadow-analysis-report-v4.schema.json",
+      "schemas/shadow-holdout-report-v1.schema.json",
+      "schemas/shadow-record-v1.schema.json",
+      "schemas/shadow-record-v2.schema.json",
+      "schemas/shadow-record-v3.schema.json",
+      "schemas/sovereignty-report-v1.schema.json"
+    ],
+    "maintainer_evidence": [
+      "schemas/local-release-v1.schema.json",
+      "schemas/release-reproduction-v1.schema.json",
+      "schemas/synthetic-benchmark-report-v1.schema.json",
+      "schemas/synthetic-red-team-findings-v1.schema.json"
+    ],
+    "repository_control": [
+      "schemas/adversarial-holdout-suite-v1.schema.json",
+      "schemas/adversarial-suite-v1.schema.json",
+      "schemas/compatibility-freeze-v1.schema.json",
+      "schemas/data-map-v6.schema.json",
+      "schemas/migration-matrix-v1.schema.json",
+      "schemas/origin-adapter-conformance-v1.schema.json",
+      "schemas/red-team-suite-v1.schema.json",
+      "schemas/runtime-egress-v1.schema.json"
+    ]
+  },
+  "transitions": [
+    {
+      "family": "data_map",
+      "current_schema": "schemas/data-map-v6.schema.json",
+      "previous_schemas": [
+        "schemas/data-map-v1.schema.json",
+        "schemas/data-map-v2.schema.json",
+        "schemas/data-map-v3.schema.json",
+        "schemas/data-map-v4.schema.json",
+        "schemas/data-map-v5.schema.json"
+      ],
+      "previous_support": "unsupported_historical",
+      "strategy": "repository_replacement",
+      "operator_command": "none",
+      "loss_boundary": "repository_control_not_runtime_input"
+    },
+    {
+      "family": "rollout_plan",
+      "current_schema": "schemas/rollout-plan-v2.schema.json",
+      "previous_schemas": ["schemas/rollout-plan-v1.schema.json"],
+      "previous_support": "unsupported_historical",
+      "strategy": "reissue_from_current_review",
+      "operator_command": "palisade prepare-rollout",
+      "loss_boundary": "old_signed_authority_is_not_reused"
+    },
+    {
+      "family": "rollout_review",
+      "current_schema": "schemas/rollout-review-v4.schema.json",
+      "previous_schemas": [
+        "schemas/rollout-review-v1.schema.json",
+        "schemas/rollout-review-v2.schema.json",
+        "schemas/rollout-review-v3.schema.json"
+      ],
+      "previous_support": "unsupported_historical",
+      "strategy": "regenerate_from_authenticated_source",
+      "operator_command": "palisade prepare-review",
+      "loss_boundary": "historical_review_is_not_activation_authority"
+    },
+    {
+      "family": "shadow_analysis",
+      "current_schema": "schemas/shadow-analysis-report-v4.schema.json",
+      "previous_schemas": [
+        "schemas/shadow-analysis-report-v1.schema.json",
+        "schemas/shadow-analysis-report-v2.schema.json",
+        "schemas/shadow-analysis-report-v3.schema.json"
+      ],
+      "previous_support": "unsupported_historical",
+      "strategy": "regenerate_from_authenticated_source",
+      "operator_command": "palisade analyze-shadow-log",
+      "loss_boundary": "historical_report_is_not_rollout_authority"
+    },
+    {
+      "family": "shadow_record",
+      "current_schema": "schemas/shadow-record-v3.schema.json",
+      "previous_schemas": [
+        "schemas/shadow-record-v1.schema.json",
+        "schemas/shadow-record-v2.schema.json"
+      ],
+      "previous_support": "legacy_read",
+      "strategy": "legacy_read_no_rewrite",
+      "operator_command": "palisade verify-shadow-log",
+      "loss_boundary": "v1_outcome_has_no_decision_id"
+    }
+  ]
+}

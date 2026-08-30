@@ -19,7 +19,7 @@ CURRENT_SCHEMA_NAMES = {
     "adversarial-holdout-suite-v1", "adversarial-suite-v1", "compatibility-freeze-v1", "crawler-registry-v1", "data-map-v6",
     "detector-bundle-v1", "edge-signal-envelope-v1", "local-artifact-v1", "local-evidence-event-v1",
     "local-evidence-input-v1", "local-evidence-manifest-v1", "local-family-annotation-v1",
-    "local-holdout-report-v1", "local-release-v1", "local-sequence-report-v1",
+    "local-holdout-report-v1", "local-release-v1", "local-sequence-report-v1", "migration-matrix-v1",
     "normalized-signal-contract-v1", "offline-event-v1", "offline-manifest-v1",
     "origin-adapter-conformance-v1", "policy-bundle-v1", "red-team-suite-v1", "release-reproduction-v1", "rollout-plan-v2",
     "rollout-review-v4", "runtime-egress-v1", "shadow-analysis-report-v4", "shadow-holdout-report-v1",
@@ -30,6 +30,7 @@ STABLE_CURRENT = API_PATHS | {f"schemas/{name}.schema.json" for name in CURRENT_
 LEGACY_READ = {"schemas/shadow-record-v1.schema.json", "schemas/shadow-record-v2.schema.json"}
 SAFETY_MARKERS = {
     "docs/COMPATIBILITY.md": "palisade.compatibility-policy.v1",
+    "docs/MIGRATIONS.md": "palisade.runbook.migrations.v1",
     "docs/THREAT_MODEL.md": "palisade.threat-model.v1",
     "docs/CHALLENGE.md": "palisade.runbook.challenge.v1",
     "docs/OPERATOR_SHADOW_DRILL.md": "palisade.runbook.operator-shadow-drill.v1",

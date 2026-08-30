@@ -25,6 +25,7 @@
     "schemas/local-holdout-report-v1.schema.json": "f0c8c262f803047433778f592c04744294718d132c53b67ecd18f4c31df592af",
     "schemas/local-release-v1.schema.json": "f8bb4c670ffce19bf669fb8bb2f1cbfbc3c198130b013fa903393dd7f1af184d",
     "schemas/local-sequence-report-v1.schema.json": "eb8f62d0b85cfe6bd5855dc49e3baa6d5df260853a4c1a670b61ed7fd0054c8e",
+    "schemas/migration-matrix-v1.schema.json": "6491e74c27ba6e5bb997b2b982817cf559432e023cf49de0a5dcb9fed9c98242",
     "schemas/normalized-signal-contract-v1.schema.json": "b1b6a3a910f56a8c697b3a5f23039ad41b6d63a29ee209741dc56db29df8de06",
     "schemas/offline-event-v1.schema.json": "32bccb348567b13ae5f0ad9a781690b6c77f3f21d0b9e25dc41923d0d587bde6",
     "schemas/offline-manifest-v1.schema.json": "448af0ddded79af36a0b376a72a198fd4ae6c70f7a8d365ba5bcec708ca42b45",
@@ -48,7 +49,8 @@
   },
   "safety_documents": {
     "docs/CHALLENGE.md": "0af602dd5de0c10b405803086aa6a6aeecdb1021bce056fef07cf573351cf17d",
-    "docs/COMPATIBILITY.md": "de81296f0271fb3f0232f806e7789cb6e8202d9fea6319dd4f00ad671e438ef1",
+    "docs/COMPATIBILITY.md": "fea1b11eefb15d2b133110128c5a3a4943a85a6750bb951fe3fde3be6977c943",
+    "docs/MIGRATIONS.md": "35a5d58aae888f5b6ec4c7d21ea32bf5f7fca38dfebfd4bf3c44d572928034c0",
     "docs/OPERATOR_SHADOW_DRILL.md": "d42acc89fab165005759614f3fbe068502f594385ca3a9e3faf52e5013d0abff",
     "docs/ORIGIN_ADAPTER.md": "ce49fa1bfb971f4fdb8738465852fad6b926c163024d67fcaac190a7f9e84b31",
     "docs/RELEASING.md": "ba07940614a260002c435683e0d28cdfafd9e4835fa943ba2d071ee609899319",
