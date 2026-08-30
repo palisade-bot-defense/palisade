@@ -58,7 +58,7 @@ func run(args []string) error {
 	case "serve":
 		return serve(args[1:])
 	case "doctor":
-		return doctor()
+		return doctor(args[1:], os.Stdout)
 	case "sovereignty-report":
 		return sovereigntyReport(args[1:], os.Stdout)
 	case "replay":
@@ -507,11 +507,7 @@ func serve(args []string) error {
 	if *rolloutPlanPath != "" && *shadowLogDir == "" {
 		return errors.New("signed rollout plans require the encrypted shadow log for measurement and rollback evidence")
 	}
-	secret, apiKey, err := secrets(*dev)
-	if err != nil {
-		return err
-	}
-	adminKey, err := adminSecret(*dev, apiKey)
+	secret, apiKey, adminKey, err := runtimeSecrets(*dev)
 	if err != nil {
 		return err
 	}
@@ -655,15 +651,15 @@ func serve(args []string) error {
 	return errors.Join(err, secondServerErr, shadowCloseErr)
 }
 
-func doctor() error {
-	_, keyPresent := os.LookupEnv("PALISADE_HMAC_KEY")
-	_, apiKeyPresent := os.LookupEnv("PALISADE_API_KEY")
-	_, adminKeyPresent := os.LookupEnv("PALISADE_ADMIN_KEY")
-	fmt.Printf("PALISADE doctor\nversion: %s\ngo: %s\nhmac_key: %t\napi_key: %t\nadmin_key: %t\n", version, runtime.Version(), keyPresent, apiKeyPresent, adminKeyPresent)
-	if !keyPresent || !apiKeyPresent || !adminKeyPresent {
-		return errors.New("production secrets are missing; use serve --dev only for local development")
+func doctor(args []string, output io.Writer) error {
+	if len(args) != 0 {
+		return errors.New("doctor accepts no arguments")
 	}
-	return nil
+	if _, _, _, err := runtimeSecrets(false); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(output, "PALISADE doctor\nversion: %s\ngo: %s\nscope: production_environment_only\nproduction_secrets: valid\nsecret_separation: valid\ndefault_runtime_mode: shadow\nresult: valid\n", version, runtime.Version())
+	return err
 }
 
 func runReplay(args []string) error {
@@ -820,9 +816,15 @@ func secrets(dev bool) ([]byte, string, error) {
 	encoded := os.Getenv("PALISADE_HMAC_KEY")
 	apiKey := os.Getenv("PALISADE_API_KEY")
 	if encoded != "" && apiKey != "" {
+		if len(encoded) > 5462 {
+			return nil, "", errors.New("PALISADE_HMAC_KEY must be base64url without padding and decode to 32-4096 bytes")
+		}
+		if !validCredential(apiKey) {
+			return nil, "", errors.New("PALISADE_API_KEY must contain 32-4096 bytes without ASCII whitespace or control characters")
+		}
 		secret, err := base64.RawURLEncoding.DecodeString(encoded)
-		if err != nil || len(secret) < 32 {
-			return nil, "", errors.New("PALISADE_HMAC_KEY must be base64url without padding and decode to at least 32 bytes")
+		if err != nil || len(secret) < 32 || len(secret) > 4096 {
+			return nil, "", errors.New("PALISADE_HMAC_KEY must be base64url without padding and decode to 32-4096 bytes")
 		}
 		return secret, apiKey, nil
 	}
@@ -836,18 +838,56 @@ func secrets(dev bool) ([]byte, string, error) {
 	return secret, "development-only", nil
 }
 
+func runtimeSecrets(dev bool) ([]byte, string, string, error) {
+	secret, apiKey, err := secrets(dev)
+	if err != nil {
+		return nil, "", "", err
+	}
+	adminKey, err := adminSecret(dev, apiKey)
+	if err != nil {
+		return nil, "", "", err
+	}
+	if err := validateSecretSeparation(secret, apiKey, adminKey); err != nil {
+		return nil, "", "", err
+	}
+	return secret, apiKey, adminKey, nil
+}
+
 func adminSecret(dev bool, apiKey string) (string, error) {
 	adminKey := os.Getenv("PALISADE_ADMIN_KEY")
 	if adminKey == "" && dev {
 		return "development-only-admin", nil
 	}
-	if len(adminKey) < 32 {
-		return "", errors.New("PALISADE_ADMIN_KEY must contain at least 32 bytes when configured")
+	if !validCredential(adminKey) {
+		return "", errors.New("PALISADE_ADMIN_KEY must contain 32-4096 bytes without ASCII whitespace or control characters when configured")
 	}
 	if len(adminKey) == len(apiKey) && subtle.ConstantTimeCompare([]byte(adminKey), []byte(apiKey)) == 1 {
 		return "", errors.New("PALISADE_ADMIN_KEY must be distinct from PALISADE_API_KEY")
 	}
 	return adminKey, nil
+}
+
+func validCredential(value string) bool {
+	if len(value) < 32 || len(value) > 4096 || value == "replace-with-long-random-api-key" ||
+		value == "replace-with-a-distinct-long-random-admin-key" {
+		return false
+	}
+	for index := range len(value) {
+		if value[index] <= 0x20 || value[index] == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
+func validateSecretSeparation(secret []byte, apiKey, adminKey string) error {
+	if len(secret) == len(apiKey) && subtle.ConstantTimeCompare(secret, []byte(apiKey)) == 1 {
+		return errors.New("PALISADE_HMAC_KEY must be distinct from PALISADE_API_KEY")
+	}
+	if len(secret) == len(adminKey) && subtle.ConstantTimeCompare(secret, []byte(adminKey)) == 1 {
+		return errors.New("PALISADE_HMAC_KEY must be distinct from PALISADE_ADMIN_KEY")
+	}
+	return nil
 }
 
 func validateAdminListen(address string) error {

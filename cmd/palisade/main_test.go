@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -306,6 +308,117 @@ func TestAdminSecretIsRequiredAndDistinct(t *testing.T) {
 	t.Setenv("PALISADE_ADMIN_KEY", "abcdef0123456789abcdef0123456789")
 	if _, err := adminSecret(false, shared); err != nil {
 		t.Fatalf("distinct production admin key was rejected: %v", err)
+	}
+}
+
+func TestDoctorValidatesProductionEnvironmentWithoutExposingSecrets(t *testing.T) {
+	hmacSecret := []byte("hmac-secret-0123456789abcdefghijkl")
+	apiKey := "api-secret-0123456789abcdefghijklm"
+	adminKey := "admin-secret-0123456789abcdefghij"
+	t.Setenv("PALISADE_HMAC_KEY", base64.RawURLEncoding.EncodeToString(hmacSecret))
+	t.Setenv("PALISADE_API_KEY", apiKey)
+	t.Setenv("PALISADE_ADMIN_KEY", adminKey)
+
+	var output bytes.Buffer
+	if err := doctor(nil, &output); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	for _, required := range []string{
+		"scope: production_environment_only", "production_secrets: valid", "secret_separation: valid",
+		"default_runtime_mode: shadow", "result: valid",
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("doctor output missing %q: %s", required, text)
+		}
+	}
+	for _, forbidden := range []string{string(hmacSecret), apiKey, adminKey, os.Getenv("PALISADE_HMAC_KEY")} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("doctor output exposed a secret: %s", text)
+		}
+	}
+}
+
+func TestDoctorRejectsInvalidOrReusedProductionSecrets(t *testing.T) {
+	validHMAC := base64.RawURLEncoding.EncodeToString([]byte("hmac-secret-0123456789abcdefghijkl"))
+	validAPI := "api-secret-0123456789abcdefghijklm"
+	validAdmin := "admin-secret-0123456789abcdefghij"
+	tests := []struct {
+		name  string
+		hmac  string
+		api   string
+		admin string
+		want  string
+	}{
+		{name: "missing", want: "required"},
+		{name: "invalid hmac", hmac: "not-base64!", api: validAPI, admin: validAdmin, want: "32-4096"},
+		{name: "short api", hmac: validHMAC, api: "short", admin: validAdmin, want: "32-4096"},
+		{name: "api control character", hmac: validHMAC, api: validAPI + "\n", admin: validAdmin, want: "32-4096"},
+		{name: "api whitespace", hmac: validHMAC, api: validAPI + " ", admin: validAdmin, want: "32-4096"},
+		{name: "placeholder api", hmac: validHMAC, api: "replace-with-long-random-api-key", admin: validAdmin, want: "32-4096"},
+		{name: "short admin", hmac: validHMAC, api: validAPI, admin: "short", want: "32-4096"},
+		{name: "admin tab", hmac: validHMAC, api: validAPI, admin: validAdmin + "\t", want: "32-4096"},
+		{name: "placeholder admin", hmac: validHMAC, api: validAPI, admin: "replace-with-a-distinct-long-random-admin-key", want: "32-4096"},
+		{name: "shared api admin", hmac: validHMAC, api: validAPI, admin: validAPI, want: "distinct"},
+		{name: "shared hmac api", hmac: base64.RawURLEncoding.EncodeToString([]byte(validAPI)), api: validAPI, admin: validAdmin, want: "distinct"},
+		{name: "shared hmac admin", hmac: base64.RawURLEncoding.EncodeToString([]byte(validAdmin)), api: validAPI, admin: validAdmin, want: "distinct"},
+		{name: "oversize admin", hmac: validHMAC, api: validAPI, admin: strings.Repeat("a", 4097), want: "32-4096"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv("PALISADE_HMAC_KEY", test.hmac)
+			t.Setenv("PALISADE_API_KEY", test.api)
+			t.Setenv("PALISADE_ADMIN_KEY", test.admin)
+			var output bytes.Buffer
+			err := doctor(nil, &output)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("doctor error = %v, want %q", err, test.want)
+			}
+			if output.Len() != 0 {
+				t.Fatalf("invalid doctor run emitted output: %q", output.String())
+			}
+		})
+	}
+}
+
+func TestDoctorRejectsArguments(t *testing.T) {
+	var output bytes.Buffer
+	if err := doctor([]string{"unexpected"}, &output); err == nil || !strings.Contains(err.Error(), "no arguments") {
+		t.Fatalf("doctor argument error = %v", err)
+	}
+	if output.Len() != 0 {
+		t.Fatalf("doctor emitted output for invalid arguments: %q", output.String())
+	}
+}
+
+func TestServeUsesTheSameProductionSecretPreflight(t *testing.T) {
+	validAPI := "api-secret-0123456789abcdefghijklm"
+	validAdmin := "admin-secret-0123456789abcdefghij"
+	tests := []struct {
+		name  string
+		hmac  string
+		api   string
+		admin string
+		want  string
+	}{
+		{
+			name: "weak API credential", hmac: base64.RawURLEncoding.EncodeToString([]byte("hmac-secret-0123456789abcdefghijkl")),
+			api: "short", admin: validAdmin, want: "PALISADE_API_KEY",
+		},
+		{
+			name: "reused HMAC and API credential", hmac: base64.RawURLEncoding.EncodeToString([]byte(validAPI)),
+			api: validAPI, admin: validAdmin, want: "distinct",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv("PALISADE_HMAC_KEY", test.hmac)
+			t.Setenv("PALISADE_API_KEY", test.api)
+			t.Setenv("PALISADE_ADMIN_KEY", test.admin)
+			if err := serve(nil); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("serve preflight error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 

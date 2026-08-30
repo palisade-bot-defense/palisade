@@ -8,10 +8,15 @@ loopback IP (`127.0.0.1` or `::1`) and defaults to `127.0.0.1:8081`.
 Outside development mode set three independent secrets:
 
 ```sh
-export PALISADE_HMAC_KEY='base64url-secret-without-padding'
-export PALISADE_API_KEY='backend-integration-secret'
-export PALISADE_ADMIN_KEY='distinct-operator-secret-at-least-32-bytes'
+export PALISADE_HMAC_KEY="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+export PALISADE_API_KEY="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+export PALISADE_ADMIN_KEY="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+palisade doctor
 ```
+
+Generate each value separately. The [production preflight](DOCTOR.md) rejects
+missing, malformed, placeholder, reused or weakly bounded credentials without
+printing their values.
 
 Open `http://127.0.0.1:8081`. The console asks for the admin key and holds it
 only in React process memory. It does not use cookies, local storage or session
