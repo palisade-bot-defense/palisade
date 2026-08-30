@@ -31,6 +31,16 @@ tag is published.
 | v1 compatibility freeze | `make compatibility-check` | exact public contracts, legacy readers, threat model and runbook hashes pass |
 | Artifact lifecycle and migrations | `make migration-check` | every frozen contract has one lifecycle class and every predecessor has one reviewed transition strategy |
 
+## Environment-specific real-browser gate
+
+Run `make browser-e2e` on a maintainer machine with the documented local
+Chrome/Chromium, Node and Go versions before publishing a challenge-affecting
+release candidate. It completes one-time redemption, fresh evaluation and
+fallback without external requests. The system browser is deliberately not
+downloaded by `make verify`, so the result must record its exact browser version
+separately from the hermetic release checks. `make check` still validates the
+dependency-free driver syntax, and `go test ./...` compiles its fixture.
+
 The latency tests are regression gates for the in-process decision paths, not
 claims about network, reverse-proxy or end-user latency. They report p50, p95
 and p99 for the production Shadow and signed adaptive Enforcement profiles;
@@ -170,10 +180,14 @@ not an independent review or evidence of production detection efficacy.
 
 ## Known gaps
 
-The current baseline does not yet include a real-browser end-to-end suite,
-reverse-proxy/TLS deployment tests, multi-replica challenge-state tests or a
-sustained end-to-end load environment. The in-process concurrency contract is
-not a proxy-capacity or production-throughput claim. Add those environments
-with the corresponding product feature; do not simulate unsupported production guarantees. False-positive,
-accessibility and challenge-abandonment rates require linked deployment
-outcomes and cannot be replaced by synthetic test coverage.
+The local [real-browser challenge suite](BROWSER_E2E.md) now covers the
+single-process reference adapter's rendered challenge, one-time redemption,
+fresh evaluation and alternative-method route in Chrome. The baseline still
+does not include reverse-proxy/TLS deployment tests, multi-replica
+challenge-state tests, assistive-technology automation or a sustained
+end-to-end load environment. The in-process concurrency and local browser
+contracts are not proxy-capacity, production-throughput or human-accessibility
+claims. Add those environments with the corresponding product feature; do not
+simulate unsupported production guarantees. False-positive, accessibility and
+challenge-abandonment rates require linked deployment outcomes and cannot be
+replaced by synthetic test coverage.
