@@ -33,13 +33,16 @@ go test -race ./...
 go vet ./...
 
 echo "verify-local: offline evaluator and synthetic protocol runners"
-python3 -m unittest scripts/test_evaluate_offline.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compatibility_freeze.py
+python3 -m unittest scripts/test_evaluate_offline.py scripts/test_operator_shadow_drill.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compatibility_freeze.py
 python3 scripts/benchmark_local.py --verify benchmarks/synthetic-baseline-afc23a3.json
-python3 scripts/red_team_findings.py --verify reports/red-team/synthetic-findings-65e5699.json
+python3 scripts/red_team_findings.py --verify reports/red-team/synthetic-findings-25aaba7.json
 python3 scripts/check_compatibility_freeze.py
 
 echo "verify-local: synthetic red-team baseline with module downloads disabled"
 python3 scripts/run_red_team.py
+
+echo "verify-local: production-configured synthetic operator shadow drill"
+./scripts/operator-shadow-drill.sh
 
 echo "verify-local: TypeScript tests, types and reproducible assets"
 pnpm test

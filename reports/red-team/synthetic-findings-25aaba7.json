@@ -156,7 +156,7 @@
   },
   "raw_deployment_records_used": false,
   "schema_version": "palisade.synthetic-red-team-findings.v1",
-  "source_commit": "65e569998f04306159a7200255c4e5799799a1fa",
+  "source_commit": "25aaba71094e59c76930d9062a69526659a6e38e",
   "suite_sha256": "2a8790ec99beb06bc98739e45e9b5e364b1d95deac5f40a97e1fb6258a0cf0ef",
   "suite_version": "palisade.red-team-suite.v1",
   "summary": {

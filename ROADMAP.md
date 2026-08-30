@@ -148,7 +148,9 @@ red-team baseline, versioned threat model and reproducible synthetic benchmark
 protocol are implemented. The first public aggregate benchmark and synthetic
 red-team findings record are published with exact source commits and limitations.
 The v1 contract, threat-model and operator-runbook freeze is machine checked.
-Independent specialist reviews remain open.
+A production-configured synthetic operator drill now covers the documented
+Shadow landing state and unsigned-enforcement rollback boundary. Independent
+specialist reviews and an independent new-operator rehearsal remain open.
 
 Deliverables:
 

@@ -32,6 +32,7 @@ SAFETY_MARKERS = {
     "docs/COMPATIBILITY.md": "palisade.compatibility-policy.v1",
     "docs/THREAT_MODEL.md": "palisade.threat-model.v1",
     "docs/CHALLENGE.md": "palisade.runbook.challenge.v1",
+    "docs/OPERATOR_SHADOW_DRILL.md": "palisade.runbook.operator-shadow-drill.v1",
     "docs/ORIGIN_ADAPTER.md": "palisade.runbook.origin-adapter.v1",
     "docs/RELEASING.md": "palisade.runbook.release.v1",
     "docs/REVERSE_PROXY_ADAPTER.md": "palisade.runbook.reverse-proxy-adapter.v1",

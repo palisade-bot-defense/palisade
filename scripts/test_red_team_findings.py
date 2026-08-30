@@ -15,7 +15,7 @@ class RedTeamFindingsTests(unittest.TestCase):
         cls.repository_root = Path(__file__).resolve().parent.parent
         cls.suite = run_red_team.load_suite(cls.repository_root / "examples/redteam/suite-v1.json")
         cls.public_report_path = (
-            cls.repository_root / "reports/red-team/synthetic-findings-65e5699.json"
+            cls.repository_root / "reports/red-team/synthetic-findings-25aaba7.json"
         )
 
     def valid_report(self):
