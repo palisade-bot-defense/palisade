@@ -145,16 +145,16 @@ artifact does not require data export to the project.
 
 Status: audit preparation in progress. A closed, module-download-disabled synthetic
 red-team baseline, versioned threat model and reproducible synthetic benchmark
-protocol are implemented, and the first public aggregate synthetic benchmark
-is published with its exact source commit and limitations. The v1 contract,
-threat-model and operator-runbook freeze is machine checked. Independent review
-and an executed public findings record remain open.
+protocol are implemented. The first public aggregate benchmark and synthetic
+red-team findings record are published with exact source commits and limitations.
+The v1 contract, threat-model and operator-runbook freeze is machine checked.
+Independent specialist reviews remain open.
 
 Deliverables:
 
 - [ ] commission independent application-security, privacy/data-protection and
   accessibility reviews and publish remediations;
-- [ ] run documented red-team exercises against evasion, poisoning, proof relay,
+- [x] run documented synthetic red-team exercises against evasion, poisoning, proof relay,
   session reset, resource exhaustion and rollout compromise;
 - [x] publish reproducible aggregate benchmarks with dataset limitations and no raw
   deployment records;

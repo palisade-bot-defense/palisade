@@ -64,6 +64,12 @@ and rejects changed limitations or a partial/failed result presented as a
 passing baseline. Operating-system network isolation remains an operator
 boundary and is deliberately not claimed by the JSON record.
 
+The first reviewed [public synthetic findings record](../reports/red-team/synthetic-findings-65e5699.json)
+binds 12 passed controls across all six categories to source commit `65e5699`.
+It was executed with Go 1.27.0 in a network-disabled Linux/arm64 container. The
+JSON deliberately attests only the module-download restriction because generic
+network isolation is supplied and verified by the operator, not the runner.
+
 ## Exercise record
 
 Copy [`red-team/EXERCISE_TEMPLATE.md`](red-team/EXERCISE_TEMPLATE.md) into the

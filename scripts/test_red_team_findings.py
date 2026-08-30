@@ -14,6 +14,9 @@ class RedTeamFindingsTests(unittest.TestCase):
     def setUpClass(cls):
         cls.repository_root = Path(__file__).resolve().parent.parent
         cls.suite = run_red_team.load_suite(cls.repository_root / "examples/redteam/suite-v1.json")
+        cls.public_report_path = (
+            cls.repository_root / "reports/red-team/synthetic-findings-65e5699.json"
+        )
 
     def valid_report(self):
         commit = subprocess.run(
@@ -53,6 +56,20 @@ class RedTeamFindingsTests(unittest.TestCase):
 
     def test_valid_closed_report_is_accepted(self):
         red_team_findings.validate_report(self.valid_report(), self.repository_root)
+
+    def test_public_findings_are_closed_and_source_commit_is_reachable(self):
+        report = red_team_findings.load_report(self.public_report_path)
+        red_team_findings.validate_report(report, self.repository_root)
+
+    def test_public_findings_schema_matches_runtime_versions(self):
+        schema = json.loads(
+            (self.repository_root / "schemas/synthetic-red-team-findings-v1.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(schema["properties"]["schema_version"]["const"], red_team_findings.SCHEMA_VERSION)
+        self.assertEqual(schema["properties"]["suite_version"]["const"], red_team_findings.SUITE_VERSION)
+        self.assertEqual(schema["properties"]["summary"]["properties"]["passed"]["const"], 12)
 
     def test_changed_scenario_result_is_rejected(self):
         report = self.valid_report()
