@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/release-reproduction-v1.schema.json",
+  "title": "PALISADE local release reproduction attestation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "version",
+    "source_tag",
+    "source_commit",
+    "source_date_epoch",
+    "go_version",
+    "candidates_compared",
+    "identical",
+    "manifest_sha256",
+    "artifacts",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "palisade.release-reproduction.v1" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$" },
+    "source_tag": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$" },
+    "source_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "source_date_epoch": { "type": "integer", "minimum": 1 },
+    "go_version": { "type": "string", "pattern": "^go1\\.27\\.[0-9]+$" },
+    "candidates_compared": { "const": 2 },
+    "identical": { "const": true },
+    "manifest_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifacts": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "sha256", "size_bytes"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "size_bytes": { "type": "integer", "minimum": 1, "maximum": 536870912 }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "prefixItems": [
+        { "const": "proves byte identity of two supplied candidates; does not prove independent people, hosts or custody" },
+        { "const": "signed-tag trust depends on the checkout's reviewed Git signature configuration" },
+        { "const": "covers the source archive and static binaries; excludes container images and deployment configuration" },
+        { "const": "uses no deployment, customer or production traffic records" },
+        { "const": "requires owner-controlled immutable candidate directories during comparison" }
+      ],
+      "items": false
+    }
+  }
+}

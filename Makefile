@@ -1,4 +1,4 @@
-.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check operator-shadow-drill red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
+.PHONY: build test check verify release-plan release release-compare release-reproduction-verify release-sign release-verify release-signing-check operator-shadow-drill red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -6,7 +6,7 @@ build:
 
 test:
 	go test -race ./...
-	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_operator_shadow_drill.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compatibility_freeze.py
+	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_operator_shadow_drill.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compare_release_reproduction.py scripts/test_compatibility_freeze.py
 	pnpm test
 
 check: coverage-check privacy-check license-check compatibility-check
@@ -23,6 +23,17 @@ release-plan:
 release:
 	@test -n "$(VERSION)" || (echo "VERSION is required" >&2; exit 2)
 	./scripts/release-local.sh "$(VERSION)"
+
+release-compare:
+	@test -n "$(VERSION)" || (echo "VERSION is required" >&2; exit 2)
+	@test -n "$(PREPARER)" || (echo "PREPARER is required" >&2; exit 2)
+	@test -n "$(REPRODUCER)" || (echo "REPRODUCER is required" >&2; exit 2)
+	@test -n "$(OUTPUT)" || (echo "OUTPUT is required" >&2; exit 2)
+	python3 scripts/compare_release_reproduction.py --version "$(VERSION)" --preparer "$(PREPARER)" --reproducer "$(REPRODUCER)" --output "$(OUTPUT)"
+
+release-reproduction-verify:
+	@test -n "$(REPORT)" || (echo "REPORT is required" >&2; exit 2)
+	python3 scripts/compare_release_reproduction.py --verify "$(REPORT)"
 
 release-sign:
 	@test -n "$(VERSION)" || (echo "VERSION is required" >&2; exit 2)
