@@ -181,6 +181,7 @@ func TestSovereigntyRepositorySchemasAreValidJSON(t *testing.T) {
 	root := repositoryRoot(t)
 	for _, path := range []string{
 		"schemas/adversarial-suite-v1.schema.json",
+		"schemas/compatibility-freeze-v1.schema.json",
 		"schemas/adversarial-holdout-suite-v1.schema.json",
 		"schemas/data-map-v1.schema.json",
 		"schemas/data-map-v2.schema.json",

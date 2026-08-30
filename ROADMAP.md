@@ -146,8 +146,9 @@ artifact does not require data export to the project.
 Status: audit preparation in progress. A closed, module-download-disabled synthetic
 red-team baseline, versioned threat model and reproducible synthetic benchmark
 protocol are implemented, and the first public aggregate synthetic benchmark
-is published with its exact source commit and limitations. Independent review,
-an executed public findings record and compatibility freeze remain open.
+is published with its exact source commit and limitations. The v1 contract,
+threat-model and operator-runbook freeze is machine checked. Independent review
+and an executed public findings record remain open.
 
 Deliverables:
 
@@ -157,7 +158,7 @@ Deliverables:
   session reset, resource exhaustion and rollout compromise;
 - [x] publish reproducible aggregate benchmarks with dataset limitations and no raw
   deployment records;
-- [ ] freeze v1 schemas, compatibility policy, threat model and operator runbooks;
+- [x] freeze v1 schemas, compatibility policy, threat model and operator runbooks;
 - [ ] prepare a defensive publication and trademark policy for the open protocols
   and PALISADE name after specialist legal review.
 

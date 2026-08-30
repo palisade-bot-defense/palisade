@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/compatibility-freeze-v1.schema.json",
+  "title": "PALISADE compatibility freeze v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scope", "stable_current", "legacy_read", "safety_documents"],
+  "properties": {
+    "schema_version": { "const": "palisade.compatibility-freeze.v1" },
+    "scope": { "const": "v1_public_contracts_and_operator_safety" },
+    "stable_current": { "$ref": "#/$defs/hashMap" },
+    "legacy_read": { "$ref": "#/$defs/hashMap" },
+    "safety_documents": { "$ref": "#/$defs/hashMap" }
+  },
+  "$defs": {
+    "hashMap": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^(api|docs|schemas)/[A-Za-z0-9_./-]+$",
+        "maxLength": 180
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    }
+  }
+}

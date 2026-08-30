@@ -1,5 +1,7 @@
 # EU privacy deployment checklist
 
+Runbook contract: `palisade.runbook.eu-privacy-deployment.v1`.
+
 This checklist helps a deployment operator review PALISADE. It is not legal
 advice, a certification or a statement that a particular deployment is lawful.
 The operator remains responsible for its purposes, configuration, notices,

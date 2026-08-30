@@ -1,10 +1,11 @@
 # Threat model
 
-Contract version: `palisade.threat-model.v1-draft`.
+Contract version: `palisade.threat-model.v1`.
 
-Status: versioned draft and synthetic baseline. This document has not yet received the
+Status: frozen v1 compatibility baseline. This document has not received the
 independent application-security, privacy or accessibility review required by
-the v0.9 roadmap and is not frozen as the v1.0 compatibility boundary.
+the v0.9 roadmap. Freezing prevents silent semantic drift; it does not turn the
+project's own threat model into independent assurance.
 
 ## Security objective
 

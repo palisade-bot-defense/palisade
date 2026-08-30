@@ -1,5 +1,7 @@
 # Signed rollout and origin enforcement
 
+Runbook contract: `palisade.runbook.rollout.v1`.
+
 PALISADE never converts an analysis report directly into live blocking. The
 local analyzer may nominate a reversible canary, but an operator must review
 that aggregate report and sign an expiring rollout plan. The server accepts

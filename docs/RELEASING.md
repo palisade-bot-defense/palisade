@@ -1,5 +1,7 @@
 # Local release process
 
+Runbook contract: `palisade.runbook.release.v1`.
+
 PALISADE does not use GitHub Actions. Release verification and artifact creation
 run on a maintainer-controlled machine from a clean checkout. Nothing in the
 scripts uploads code, telemetry, artifacts or test results.

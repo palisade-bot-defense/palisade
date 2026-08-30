@@ -1,5 +1,7 @@
 # Local encrypted shadow log
 
+Runbook contract: `palisade.runbook.shadow-log.v1`.
+
 The shadow sink is an optional, local-only measurement channel. It records PALISADE decisions and normalized delayed outcomes without placing raw requests, browser events or direct session identifiers on disk. It is disabled unless both `--shadow-log-dir` and `--shadow-log-key-file` are supplied.
 
 ## Closing the sensor-only measurement loop
