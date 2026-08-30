@@ -51,6 +51,13 @@ throughput for diagnosis without turning noisy allocation changes into an
 automatic release. The closed [synthetic benchmark protocol](BENCHMARKS.md)
 runs seven fixed samples, binds the aggregate report to a clean commit and
 records its limitations without using deployment data.
+The separate [local HTTP load diagnostic](LOCAL_LOAD_TEST.md) runs bounded
+synthetic concurrency through the production-configured session, one-time
+proof and origin-check HTTP path. It reports only aggregate error classes,
+throughput and nearest-rank p50/p95/p99/max latency. It is deliberately not a
+release threshold: local scheduler and hardware variance must not be confused
+with a stable performance regression gate, and the runner does not model a
+proxy, TLS, multiple replicas or production traffic.
 The runtime-egress regression test parses Go source and scans production
 TypeScript callsites. A new outbound primitive fails until its destination,
 activation, data classes and privacy boundary are added to the reviewed
@@ -187,10 +194,13 @@ fresh evaluation and alternative-method route in Chrome. The separate
 [local TLS deployment suite](TLS_DEPLOYMENT_TESTS.md) now covers both reference
 adapters on real loopback TCP/TLS/HTTP/2 hops, including the trusted immediate
 proxy boundary, direct forwarding-header spoof rejection and raw-request
-isolation from PALISADE. The baseline still does not include a specific
-external proxy implementation, public-PKI and certificate-rotation exercises,
+isolation from PALISADE. The bounded
+[local HTTP load diagnostic](LOCAL_LOAD_TEST.md) now covers sustained
+single-process loopback HTTP/1.1 session, proof and origin-decision traffic. The
+baseline still does not include a specific external proxy implementation,
+public-PKI and certificate-rotation exercises, sustained proxy/TLS load,
 HTTP/3, multi-replica challenge state, assistive-technology automation or a
-sustained end-to-end load environment. These local contracts are not
+representative production capacity environment. These local contracts are not
 proxy-capacity, production-throughput or human-accessibility claims. Add those
 environments with the corresponding product feature; do not simulate
 unsupported production guarantees. False-positive, accessibility and
