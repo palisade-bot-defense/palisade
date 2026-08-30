@@ -1,4 +1,4 @@
-.PHONY: build test check verify browser-e2e browser-e2e-check release-plan release release-compare release-reproduction-verify release-sign release-verify release-signing-check operator-shadow-drill red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check migration-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
+.PHONY: build test check verify browser-e2e browser-e2e-check deployment-tls-test release-plan release release-compare release-reproduction-verify release-sign release-verify release-signing-check operator-shadow-drill red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check migration-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -21,6 +21,9 @@ browser-e2e:
 
 browser-e2e-check:
 	node --check scripts/browser-e2e.mjs
+
+deployment-tls-test:
+	go test -race ./pkg/palisadehttp ./pkg/palisadeproxy -run 'Test.*TLS.*Deployment' -count=1
 
 release-plan:
 	@test -n "$(VERSION)" || (echo "VERSION is required" >&2; exit 2)
