@@ -36,3 +36,8 @@ These fixtures verify failure behavior and product invariants. They are not a
 traffic dataset, a false-positive-rate estimate or evidence of detection
 efficacy. Real efficacy and accessibility rates still require independently
 confirmed, delayed outcomes from a representative private shadow deployment.
+
+The broader [synthetic red-team baseline](RED_TEAM.md) is a separate v0.9 audit
+preparation contract. It executes evasion, poisoning, proof relay, session reset,
+resource exhaustion and rollout-compromise controls as one local exercise without
+changing this frozen v0.3 conformance suite.

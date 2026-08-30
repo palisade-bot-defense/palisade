@@ -23,6 +23,7 @@ tag is published.
 | Offline evaluation | `python3 -m unittest scripts/test_evaluate_offline.py` | synthetic evaluation cases pass |
 | Privacy/licensing | `make privacy-check` and `make license-check` | repository-index attack fixtures and license boundary pass |
 | Release authenticity | `make release-signing-check` | exact artifact manifest, pinned signer, private-key isolation and tamper rejection pass offline |
+| Synthetic red team | `make red-team` | all twelve scenarios pass across the six v0.9 attack categories with module downloads disabled |
 
 The latency test is a regression gate for the in-process decision path, not a
 claim about network, reverse-proxy or end-user latency. The benchmark
@@ -136,6 +137,12 @@ roadmap threat categories for replay, poisoning, missing signals, spoofed
 headers, accessibility and adapter failures to executable synthetic tests. A
 repository contract fails if a required scenario disappears, changes its
 closed expected result or points at a missing test function.
+
+The separate versioned [synthetic red-team baseline](RED_TEAM.md) exercises
+evasion, poisoning, proof relay, session reset, resource exhaustion and rollout
+compromise as one module-download-disabled run. Use an OS network sandbox for
+the exercise itself. It is a security-regression suite, not an
+independent review or evidence of production detection efficacy.
 
 ## Known gaps
 

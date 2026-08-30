@@ -136,6 +136,20 @@ func TestSignedSessionAffectsContinuityOnly(t *testing.T) {
 	}
 }
 
+func TestUnsignedSessionCannotCreateVerifiedContinuityEvidence(t *testing.T) {
+	evidence, err := (ProtocolConsistency{}).Evaluate(context.Background(), core.DetectorInput{
+		Request: core.DecisionRequest{Observations: core.Observations{UserAgentPresent: true}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range evidence {
+		if item.Code == "SERVER_SESSION_VERIFIED" || item.Direction == core.DirectionBenign {
+			t.Fatalf("unsigned or reset session created verified continuity: %+v", evidence)
+		}
+	}
+}
+
 func TestBrowserSequenceRequiresServerVerifiedEvents(t *testing.T) {
 	tests := []struct {
 		name         string
