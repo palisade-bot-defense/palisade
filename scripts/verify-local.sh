@@ -33,7 +33,10 @@ go test -race ./...
 go vet ./...
 
 echo "verify-local: offline evaluator"
-python3 -m unittest scripts/test_evaluate_offline.py
+python3 -m unittest scripts/test_evaluate_offline.py scripts/test_run_red_team.py
+
+echo "verify-local: synthetic red-team baseline with module downloads disabled"
+python3 scripts/run_red_team.py
 
 echo "verify-local: TypeScript tests, types and reproducible assets"
 pnpm test

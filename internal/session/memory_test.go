@@ -50,6 +50,26 @@ func TestStoreEvictsAtCapacity(t *testing.T) {
 	}
 }
 
+func TestSessionIdentifiersDoNotShareContinuityState(t *testing.T) {
+	store := NewMemoryStore(time.Minute, 10)
+	now := time.Date(2026, 8, 30, 12, 0, 0, 0, time.UTC)
+	store.Observe("session-original", 1, "public_content", now)
+	store.Observe("session-original", 2, "login", now.Add(time.Second))
+	store.RecordEnforcement("session-original", core.EnforcementDirective{
+		Handling: "throttle", RetryAfterSeconds: 5, ExpiresAt: now.Add(7 * time.Second),
+	}, now.Add(2*time.Second))
+
+	fresh := store.Observe("session-reset", 1, "public_content", now.Add(3*time.Second))
+	if fresh.RequestCount != 1 || fresh.DistinctEndpointClasses != 1 || fresh.EndpointTransitions != 0 ||
+		fresh.RecentEnforcements != 0 || fresh.PrematureRetries != 0 {
+		t.Fatalf("fresh session inherited continuity state: %+v", fresh)
+	}
+	original := store.Observe("session-original", 3, "login", now.Add(4*time.Second))
+	if original.RequestCount != 3 || original.RecentEnforcements != 1 {
+		t.Fatalf("original session state was not isolated: %+v", original)
+	}
+}
+
 func TestEnforcementHistoryIsBoundedToLiveSessionAndDetectsPrematureRetry(t *testing.T) {
 	store := NewMemoryStore(5*time.Minute, 100)
 	now := time.Unix(1_800_000_000, 0).UTC()

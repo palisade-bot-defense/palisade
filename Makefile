@@ -1,4 +1,4 @@
-.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
+.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check red-team red-team-plan coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -6,7 +6,7 @@ build:
 
 test:
 	go test -race ./...
-	python3 -m unittest scripts/test_evaluate_offline.py
+	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_run_red_team.py
 	pnpm test
 
 check: coverage-check privacy-check license-check
@@ -36,6 +36,12 @@ release-verify:
 
 release-signing-check:
 	./scripts/release-signing_test.sh
+
+red-team:
+	python3 scripts/run_red_team.py
+
+red-team-plan:
+	python3 scripts/run_red_team.py --list
 
 coverage-check:
 	./scripts/check-go-coverage.sh
