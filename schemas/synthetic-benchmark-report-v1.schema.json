@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/synthetic-benchmark-report-v1.schema.json",
+  "title": "PALISADE synthetic benchmark report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "suite_version",
+    "source_commit",
+    "synthetic_only",
+    "raw_deployment_records_used",
+    "protocol",
+    "environment",
+    "latency_profiles",
+    "microbenchmarks",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "palisade.synthetic-benchmark-report.v1" },
+    "suite_version": { "const": "palisade.synthetic-benchmark-suite.v1" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "synthetic_only": { "const": true },
+    "raw_deployment_records_used": { "const": false },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logical_cpus",
+        "latency_samples_per_profile",
+        "microbenchmark_samples",
+        "microbenchmark_benchtime",
+        "module_downloads_disabled",
+        "race_detector_enabled"
+      ],
+      "properties": {
+        "logical_cpus": { "const": 1 },
+        "latency_samples_per_profile": { "const": 1000 },
+        "microbenchmark_samples": { "const": 7 },
+        "microbenchmark_benchtime": { "const": "250ms" },
+        "module_downloads_disabled": { "const": true },
+        "race_detector_enabled": { "const": false }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["go_version", "goos", "goarch", "cgo_enabled", "gomaxprocs"],
+      "properties": {
+        "go_version": { "type": "string", "pattern": "^go1\\.27(?:\\.[0-9]+)?$" },
+        "goos": { "type": "string", "pattern": "^[a-z0-9]+$", "maxLength": 24 },
+        "goarch": { "type": "string", "pattern": "^[a-z0-9]+$", "maxLength": 24 },
+        "cgo_enabled": { "type": "boolean" },
+        "gomaxprocs": { "const": 1 }
+      }
+    },
+    "latency_profiles": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/latencyProfile" },
+            {
+              "type": "object",
+              "required": ["profile"],
+              "properties": { "profile": { "const": "production_shadow_decision" } }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/latencyProfile" },
+            {
+              "type": "object",
+              "required": ["profile"],
+              "properties": { "profile": { "const": "signed_adaptive_enforcement_decision" } }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "microbenchmarks": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/microbenchmark" },
+            {
+              "type": "object",
+              "required": ["profile", "package", "benchmark"],
+              "properties": {
+                "profile": { "const": "production_shadow_decision" },
+                "package": { "const": "./internal/engine" },
+                "benchmark": { "const": "BenchmarkProductionDecisionPath" }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/microbenchmark" },
+            {
+              "type": "object",
+              "required": ["profile", "package", "benchmark"],
+              "properties": {
+                "profile": { "const": "signed_adaptive_enforcement_decision" },
+                "package": { "const": "./internal/engine" },
+                "benchmark": { "const": "BenchmarkSignedAdaptiveDecisionPath" }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/microbenchmark" },
+            {
+              "type": "object",
+              "required": ["profile", "package", "benchmark"],
+              "properties": {
+                "profile": { "const": "progression_controller" },
+                "package": { "const": "./internal/rollout" },
+                "benchmark": { "const": "BenchmarkProgressionController" }
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 180 }
+    }
+  },
+  "$defs": {
+    "nonNegativeNumber": { "type": "number", "minimum": 0 },
+    "positiveInteger": { "type": "integer", "minimum": 1 },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["median", "minimum", "maximum"],
+      "properties": {
+        "median": { "$ref": "#/$defs/nonNegativeNumber" },
+        "minimum": { "$ref": "#/$defs/nonNegativeNumber" },
+        "maximum": { "$ref": "#/$defs/nonNegativeNumber" }
+      }
+    },
+    "latencyProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "samples", "p50_ns", "p95_ns", "p99_ns", "p95_budget_ns"],
+      "properties": {
+        "profile": {
+          "enum": ["production_shadow_decision", "signed_adaptive_enforcement_decision"]
+        },
+        "samples": { "const": 1000 },
+        "p50_ns": { "type": "integer", "minimum": 0 },
+        "p95_ns": { "type": "integer", "minimum": 0 },
+        "p99_ns": { "type": "integer", "minimum": 0 },
+        "p95_budget_ns": { "const": 10000000 }
+      }
+    },
+    "benchmarkSample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["iterations", "ns_per_op", "bytes_per_op", "allocations_per_op"],
+      "properties": {
+        "iterations": { "$ref": "#/$defs/positiveInteger" },
+        "ns_per_op": { "type": "number", "exclusiveMinimum": 0 },
+        "bytes_per_op": { "$ref": "#/$defs/nonNegativeNumber" },
+        "allocations_per_op": { "$ref": "#/$defs/nonNegativeNumber" }
+      }
+    },
+    "microbenchmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "package",
+        "benchmark",
+        "runs",
+        "iterations_total",
+        "ns_per_op",
+        "bytes_per_op",
+        "allocations_per_op",
+        "samples"
+      ],
+      "properties": {
+        "profile": {
+          "enum": ["production_shadow_decision", "signed_adaptive_enforcement_decision", "progression_controller"]
+        },
+        "package": { "enum": ["./internal/engine", "./internal/rollout"] },
+        "benchmark": {
+          "enum": [
+            "BenchmarkProductionDecisionPath",
+            "BenchmarkSignedAdaptiveDecisionPath",
+            "BenchmarkProgressionController"
+          ]
+        },
+        "runs": { "const": 7 },
+        "iterations_total": { "$ref": "#/$defs/positiveInteger" },
+        "ns_per_op": { "$ref": "#/$defs/summary" },
+        "bytes_per_op": { "$ref": "#/$defs/summary" },
+        "allocations_per_op": { "$ref": "#/$defs/summary" },
+        "samples": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": { "$ref": "#/$defs/benchmarkSample" }
+        }
+      }
+    }
+  }
+}

@@ -144,8 +144,10 @@ artifact does not require data export to the project.
 ## v0.9 — independent evidence
 
 Status: audit preparation in progress. A closed, module-download-disabled synthetic
-red-team baseline and versioned threat model are implemented; independent
-review, an executed public findings record and compatibility freeze remain open.
+red-team baseline, versioned threat model and reproducible synthetic benchmark
+protocol are implemented. The first reviewed aggregate benchmark publication,
+independent review, an executed public findings record and compatibility freeze
+remain open.
 
 Deliverables:
 
