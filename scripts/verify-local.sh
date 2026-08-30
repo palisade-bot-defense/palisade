@@ -32,8 +32,8 @@ go test -race ./...
 ./scripts/check-go-coverage.sh
 go vet ./...
 
-echo "verify-local: offline evaluator"
-python3 -m unittest scripts/test_evaluate_offline.py scripts/test_run_red_team.py
+echo "verify-local: offline evaluator and synthetic protocol runners"
+python3 -m unittest scripts/test_evaluate_offline.py scripts/test_run_red_team.py scripts/test_benchmark_local.py
 
 echo "verify-local: synthetic red-team baseline with module downloads disabled"
 python3 scripts/run_red_team.py

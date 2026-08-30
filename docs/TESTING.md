@@ -25,10 +25,15 @@ tag is published.
 | Release authenticity | `make release-signing-check` | exact artifact manifest, pinned signer, private-key isolation and tamper rejection pass offline |
 | Synthetic red team | `make red-team` | all twelve scenarios pass across the six v0.9 attack categories with module downloads disabled |
 
-The latency test is a regression gate for the in-process decision path, not a
-claim about network, reverse-proxy or end-user latency. The benchmark
-`BenchmarkProductionDecisionPath` reports allocations and throughput for
-diagnosis without turning noisy allocation changes into an automatic release.
+The latency tests are regression gates for the in-process decision paths, not
+claims about network, reverse-proxy or end-user latency. They report p50, p95
+and p99 for the production Shadow and signed adaptive Enforcement profiles;
+only p95 below 10 ms is a hard timing gate. The production, signed Enforcement
+and isolated rollout-controller microbenchmarks report allocations and
+throughput for diagnosis without turning noisy allocation changes into an
+automatic release. The closed [synthetic benchmark protocol](BENCHMARKS.md)
+runs seven fixed samples, binds the aggregate report to a clean commit and
+records its limitations without using deployment data.
 The runtime-egress regression test parses Go source and scans production
 TypeScript callsites. A new outbound primitive fails until its destination,
 activation, data classes and privacy boundary are added to the reviewed

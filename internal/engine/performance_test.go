@@ -27,10 +27,19 @@ func TestInProcessDecisionP95MeetsPilotBudget(t *testing.T) {
 
 func TestSignedAdaptiveRolloutP95MeetsPilotBudget(t *testing.T) {
 	current := newProductionPathTestEngine(t)
+	configureSignedAdaptiveRollout(t, current)
+	request := performanceRequest()
+	request.Observations.HoneypotHits = 1
+	request.Observations.PolicyAlert = true
+	assertDecisionP95(t, current, request)
+}
+
+func configureSignedAdaptiveRollout(testingContext testing.TB, current *Engine) {
+	testingContext.Helper()
 	now := time.Unix(1_800_000_000, 0).UTC()
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		t.Fatal(err)
+		testingContext.Fatal(err)
 	}
 	plan := rollout.Plan{
 		SchemaVersion: rollout.SchemaVersion, RolloutID: "adaptive-performance", ApprovalID: "review-performance", PredecessorRolloutID: "canary-performance",
@@ -44,17 +53,13 @@ func TestSignedAdaptiveRolloutP95MeetsPilotBudget(t *testing.T) {
 	}
 	signed, err := rollout.Sign(plan, privateKey)
 	if err != nil {
-		t.Fatal(err)
+		testingContext.Fatal(err)
 	}
 	controller, err := rollout.NewController(signed, publicKey, []byte("0123456789abcdef0123456789abcdef"), policy.DefaultVersion, ModelVersion, now)
 	if err != nil {
-		t.Fatal(err)
+		testingContext.Fatal(err)
 	}
 	current.rollout = controller
-	request := performanceRequest()
-	request.Observations.HoneypotHits = 1
-	request.Observations.PolicyAlert = true
-	assertDecisionP95(t, current, request)
 }
 
 func assertDecisionP95(t *testing.T, current *Engine, request core.DecisionRequest) {
@@ -77,8 +82,13 @@ func assertDecisionP95(t *testing.T, current *Engine, request core.DecisionReque
 		durations = append(durations, time.Since(started))
 	}
 	sort.Slice(durations, func(left, right int) bool { return durations[left] < durations[right] })
+	p50 := durations[(samples*50+99)/100-1]
 	p95 := durations[(samples*95+99)/100-1]
-	t.Logf("in-process decision p95=%s budget=%s samples=%d", p95, pilotDecisionP95Budget, samples)
+	p99 := durations[(samples*99+99)/100-1]
+	t.Logf(
+		"PALISADE_BENCHMARK_LATENCY p50_ns=%d p95_ns=%d p99_ns=%d budget_ns=%d samples=%d",
+		p50.Nanoseconds(), p95.Nanoseconds(), p99.Nanoseconds(), pilotDecisionP95Budget.Nanoseconds(), samples,
+	)
 	if p95 >= pilotDecisionP95Budget {
 		t.Fatalf("in-process decision p95 %s exceeds pilot budget %s", p95, pilotDecisionP95Budget)
 	}
@@ -87,6 +97,22 @@ func assertDecisionP95(t *testing.T, current *Engine, request core.DecisionReque
 func BenchmarkProductionDecisionPath(b *testing.B) {
 	current := newProductionPathTestEngine(b)
 	request := performanceRequest()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for index := 0; index < b.N; index++ {
+		request.Sequence++
+		if _, err := current.Decide(context.Background(), request); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSignedAdaptiveDecisionPath(b *testing.B) {
+	current := newProductionPathTestEngine(b)
+	configureSignedAdaptiveRollout(b, current)
+	request := performanceRequest()
+	request.Observations.HoneypotHits = 1
+	request.Observations.PolicyAlert = true
 	b.ReportAllocs()
 	b.ResetTimer()
 	for index := 0; index < b.N; index++ {

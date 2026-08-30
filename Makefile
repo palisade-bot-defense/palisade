@@ -1,4 +1,4 @@
-.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check red-team red-team-plan coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
+.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check red-team red-team-plan benchmark-plan benchmark-local coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -6,7 +6,7 @@ build:
 
 test:
 	go test -race ./...
-	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_run_red_team.py
+	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_run_red_team.py scripts/test_benchmark_local.py
 	pnpm test
 
 check: coverage-check privacy-check license-check
@@ -42,6 +42,13 @@ red-team:
 
 red-team-plan:
 	python3 scripts/run_red_team.py --list
+
+benchmark-plan:
+	python3 scripts/benchmark_local.py --plan
+
+benchmark-local:
+	@test -n "$(OUTPUT)" || (echo "OUTPUT is required" >&2; exit 2)
+	python3 scripts/benchmark_local.py --output "$(OUTPUT)"
 
 coverage-check:
 	./scripts/check-go-coverage.sh
