@@ -269,6 +269,8 @@ The supported normalized signal classes are browser event counts, server/session
 
 The required test pyramid, coverage and in-process latency gates are documented in [the testing strategy](docs/TESTING.md). The [synthetic benchmark protocol](docs/BENCHMARKS.md) records p50/p95/p99 and repeated allocation aggregates for exact clean commits with explicit non-production limitations. All committed fixtures are synthetic; deployment logs and private analysis reports are excluded from tests and CI.
 
+The first [published synthetic baseline](benchmarks/synthetic-baseline-afc23a3.json), measured with Go 1.27.0 in a network-disabled Linux/arm64 container, records p95 of **5.958 µs** for the production Shadow decision path and **7.250 µs** for signed adaptive Enforcement against the 10 ms in-process gate. These figures exclude proxy/network/TLS/browser latency, concurrent capacity, production detection efficacy and false-positive rates; they are reproducible engineering evidence, not production performance guarantees.
+
 The first deployment should ingest normalized challenge, external-risk and policy-alert verdicts in **shadow mode**, then tune thresholds on labeled replay data before any automatic blocking. Every replay record must carry an RFC 3339 `observed_at` timestamp that drives session TTLs and decision expiry; records must be globally chronological with equal timestamps allowed. Fixtures can assert `expected_action` and `expected_computed_action` independently.
 
 Authorized historical exports can be normalized locally in two ways. The

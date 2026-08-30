@@ -53,6 +53,35 @@ The report includes only Go version, GOOS, GOARCH, CGO state and the fixed CPU
 count. It deliberately excludes hostname, usernames, local paths, source
 records and request identifiers.
 
+## Published baseline
+
+The first published synthetic baseline is
+[`synthetic-baseline-afc23a3.json`](../benchmarks/synthetic-baseline-afc23a3.json).
+It was produced from clean commit
+`afc23a3a8c6f61c7e8ff3a1661c0031e4886b3e2` with Go 1.27.0 in a
+network-disabled Linux/arm64 container. Validate the exact source relation,
+seven per-run aggregate benchmark samples, recalculated summaries and mandatory
+limitations with:
+
+```sh
+make benchmark-verify REPORT=benchmarks/synthetic-baseline-afc23a3.json
+```
+
+| In-process profile | p50 | p95 | p99 | p95 gate |
+|---|---:|---:|---:|---:|
+| Production Shadow decision | 3.125 µs | 5.958 µs | 30.042 µs | 10 ms |
+| Signed adaptive Enforcement decision | 3.625 µs | 7.250 µs | 45.542 µs | 10 ms |
+
+| Microbenchmark | Median ns/op | Median B/op | Median allocs/op |
+|---|---:|---:|---:|
+| Production Shadow decision | 3,952.0 | 2,335 | 31 |
+| Signed adaptive Enforcement decision | 4,530.0 | 3,639 | 25 |
+| Isolated progression controller | 123.7 | 31 | 0 |
+
+These are the recorded values of one reproducible synthetic run, not stable
+product guarantees. The complete seven-sample spread and all exclusions remain
+authoritative in the machine-readable report.
+
 ## Interpretation and publication boundary
 
 A result supports only a narrow statement: on the reported environment and
