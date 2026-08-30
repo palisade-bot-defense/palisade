@@ -10,7 +10,7 @@ class CompatibilityFreezeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.root = Path(__file__).resolve().parent.parent
-        cls.manifest_path = cls.root / "manifests/compatibility-freeze-v1.json"
+        cls.manifest_path = cls.root / "manifests/compatibility-freeze-v2.json"
 
     def test_repository_freeze_is_complete_and_hash_exact(self):
         document = check_compatibility_freeze.load_manifest(self.manifest_path)
@@ -47,6 +47,12 @@ class CompatibilityFreezeTests(unittest.TestCase):
             path.write_text('{"schema_version":"one","schema_version":"two"}', encoding="utf-8")
             with self.assertRaisesRegex(check_compatibility_freeze.FreezeError, "duplicate JSON key"):
                 check_compatibility_freeze.load_manifest(path)
+
+    def test_pre_stable_withdrawals_are_exact(self):
+        document = copy.deepcopy(check_compatibility_freeze.load_manifest(self.manifest_path))
+        document["withdrawn_pre_stable"].pop("palisade.offline-event.v1")
+        with self.assertRaisesRegex(check_compatibility_freeze.FreezeError, "withdrawals"):
+            check_compatibility_freeze.validate_manifest(document, self.root)
 
 
 if __name__ == "__main__":

@@ -1,15 +1,20 @@
 # Compatibility policy
 
-Contract version: `palisade.compatibility-policy.v1`.
+Contract version: `palisade.compatibility-policy.v2`.
 
 PALISADE freezes only the public surfaces listed in
-[`compatibility-freeze-v1.json`](../manifests/compatibility-freeze-v1.json).
+[`compatibility-freeze-v2.json`](../manifests/compatibility-freeze-v2.json).
 A separate closed [artifact lifecycle and migration matrix](MIGRATIONS.md)
 classifies every frozen contract and every historical schema retained in the
 repository.
 A filename containing `v1` is not, by itself, a support promise. Historical,
 draft and internal files that are absent from the manifest remain outside the
-v1 compatibility boundary.
+v2 compatibility boundary.
+
+Two source-specific local-import draft identifiers were removed before a
+stable release and are recorded under `withdrawn_pre_stable` in the freeze.
+They have no compatibility reader or support window. Operators must use the
+vendor-neutral local-evidence input, event and manifest contracts instead.
 
 ## Stability classes
 

@@ -143,20 +143,6 @@ func TestNoindexCompareComputesStepUpButRemainsShadowObserve(t *testing.T) {
 	}
 }
 
-func TestOfflineImportRejectsFutureProvenance(t *testing.T) {
-	err := runOfflineImport([]string{
-		"--input-dir", "synthetic-input",
-		"--output-dir", "synthetic-output",
-		"--pseudonym-key-file", "synthetic-key",
-		"--dataset-id", "synthetic-dataset",
-		"--pilot-id", "synthetic-pilot",
-		"--provenance", "deployment_local",
-	})
-	if err == nil || !strings.Contains(err.Error(), "only offline_export") {
-		t.Fatalf("future provenance was not rejected: %v", err)
-	}
-}
-
 func TestLocalEventImportRejectsUnapprovedProvenanceBeforeOpeningFiles(t *testing.T) {
 	err := runLocalEventImport([]string{
 		"--input-file", "synthetic-input",

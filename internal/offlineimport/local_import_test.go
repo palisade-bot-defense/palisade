@@ -142,6 +142,30 @@ func TestRunLocalImportPublishesPrivateDeterministicContract(t *testing.T) {
 	if complete, err := os.ReadFile(filepath.Join(output, "LOCAL_COMPLETE")); err != nil || string(complete) != LocalManifestSchemaVersion+"\n" {
 		t.Fatalf("completion marker = %q, %v", complete, err)
 	}
+	assertPrivateMode(t, output, 0o700)
+	assertPrivateMode(t, result.ManifestPath, 0o600)
+	assertPrivateMode(t, filepath.Join(output, "LOCAL_COMPLETE"), 0o600)
+	assertPrivateMode(t, filepath.Join(output, manifest.Shards[0].Filename), 0o600)
+
+	secondOutput := filepath.Join(root, "normalized-again")
+	secondResult, err := RunLocal(LocalConfig{
+		InputFile: input, OutputDir: secondOutput, PseudonymKeyFile: key,
+		DatasetID: "synthetic-dataset", PilotID: "synthetic-pilot",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondManifest, err := os.ReadFile(secondResult.ManifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondShard, err := os.ReadFile(filepath.Join(secondOutput, manifest.Shards[0].Filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(manifestBytes, secondManifest) || !bytes.Equal(shard, secondShard) {
+		t.Fatal("identical local input and configuration did not produce deterministic artifacts")
+	}
 }
 
 func TestRunLocalImportRejectsDecreasingTimeWithoutPublishing(t *testing.T) {
@@ -199,6 +223,17 @@ func mustJSON(t *testing.T, value any) []byte {
 		t.Fatal(err)
 	}
 	return encoded
+}
+
+func assertPrivateMode(t *testing.T, path string, want os.FileMode) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != want {
+		t.Fatalf("%s mode = %o, want %o", filepath.Base(path), got, want)
+	}
 }
 
 func TestLocalTimestampCanonicalization(t *testing.T) {

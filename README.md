@@ -201,7 +201,7 @@ See the [Operator Console guide](docs/OPERATOR_CONSOLE.md).
 The signed cookie prevents clients from inventing a trusted session identifier, but does not prove that a person, account or unique device is present; starting fresh sessions remains possible. A valid cookie contributes only continuity evidence. The browser sensor never sends keystrokes, form values, DOM text or exact pointer coordinates. See [privacy boundaries](docs/privacy/DATA_BOUNDARIES.md).
 The HTTP contract is documented in [OpenAPI](api/openapi.yaml); protobuf contracts live under [`api/proto`](api/proto). Their closed classes are frozen together by the language-neutral [normalized signal contract](docs/NORMALIZED_SIGNAL_CONTRACT.md) and executable drift tests. The [signal-source guide](docs/SIGNAL_SOURCES.md) contains trust boundaries, request examples and the checked detector extension procedure. The [native decoy guide](docs/DECOYS.md) specifies the backend lifecycle and evidence semantics. The [native challenge guide](docs/CHALLENGE.md) documents the origin handshake, accessibility contract, exact one-time binding and single-instance limit; the [local real-browser suite](docs/BROWSER_E2E.md) exercises that adapter-owned browser lifecycle without external traffic.
 
-The [v1 compatibility policy](docs/COMPATIBILITY.md) distinguishes current stable contracts from legacy read-only artifacts and unlisted historical drafts. A machine-readable [freeze manifest](manifests/compatibility-freeze-v1.json) pins public APIs, current schemas, the threat model and operator runbooks; `make compatibility-check` rejects silent drift. The closed [artifact lifecycle and migration matrix](docs/MIGRATIONS.md) classifies every frozen contract and assigns every predecessor an explicit regeneration, reissue, legacy-read or no-safe-rewrite path; `make migration-check` rejects incomplete coverage. These are compatibility controls, not independent security or legal assurance.
+The [v2 compatibility policy](docs/COMPATIBILITY.md) distinguishes current stable contracts from legacy read-only artifacts and withdrawn pre-stable drafts. A machine-readable [freeze manifest](manifests/compatibility-freeze-v2.json) pins public APIs, current schemas, the threat model and operator runbooks; `make compatibility-check` rejects silent drift. The closed [artifact lifecycle and migration matrix](docs/MIGRATIONS.md) classifies every frozen contract and assigns every predecessor an explicit regeneration, reissue, legacy-read or no-safe-rewrite path; `make migration-check` rejects incomplete coverage. These are compatibility controls, not independent security or legal assurance.
 
 Applications built with Go `net/http` can use the included [`pkg/palisadehttp`](pkg/palisadehttp) reference middleware. It creates signed continuity sessions, submits only normalized signals, applies pass/delay/throttle/challenge/block results, renders the same-origin accessible challenge and grants exactly one retry for the original method and request target. It also provides a backend-only route-classified sensor-proof helper and, after a validated pass, an opaque request-scoped outcome handle for linking a closed result to the exact decision without handling a raw PALISADE session ID. Its availability policy is an explicit deployment choice. See the [origin-adapter guide](docs/ORIGIN_ADAPTER.md) and the fully synthetic [portable conformance suite](docs/ADAPTER_CONFORMANCE.md).
 
@@ -296,14 +296,12 @@ The first [public synthetic red-team findings record](reports/red-team/synthetic
 
 The first deployment should ingest normalized challenge, external-risk and policy-alert verdicts in **shadow mode**, then tune thresholds on labeled replay data before any automatic blocking. Every replay record must carry an RFC 3339 `observed_at` timestamp that drives session TTLs and decision expiry; records must be globally chronological with equal timestamps allowed. Fixtures can assert `expected_action` and `expected_computed_action` independently.
 
-Authorized historical exports can be normalized locally in two ways. The
-source-specific `palisade import-offline` command understands the documented
-five-file Shield bundle. The vendor-neutral `palisade import-local-events`
-command accepts an operator-created, chronological closed JSONL contract and
-immediately pseudonymizes its direct local references. Neither command uploads,
-fetches or emits raw rows. Inputs, keys and normalized outputs must stay outside
-every Git worktree. See the [generic local import contract](docs/LOCAL_IMPORT.md)
-and [source-specific offline import](docs/OFFLINE_IMPORT.md). The follow-on
+Authorized historical exports are normalized through the vendor-neutral
+`palisade import-local-events` boundary. It accepts an operator-created,
+chronological closed JSONL contract and immediately pseudonymizes direct local
+references. It does not upload, fetch or emit raw rows. Inputs, keys and
+normalized outputs must stay outside every Git worktree. See the
+[generic local import contract](docs/LOCAL_IMPORT.md). The follow-on
 `palisade analyze-local-events` command verifies the completed local shards and
 emits only bounded aggregate sequence features under a versioned contract; see
 [local sequence analysis](docs/LOCAL_SEQUENCE_ANALYSIS.md). A separate

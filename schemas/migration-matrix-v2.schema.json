@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/migration-matrix-v2.schema.json",
+  "title": "PALISADE artifact lifecycle and migration matrix v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scope", "invariants", "classifications", "transitions", "withdrawals"],
+  "properties": {
+    "schema_version": { "const": "palisade.migration-matrix.v2" },
+    "scope": { "const": "all_frozen_and_historical_versioned_contracts" },
+    "invariants": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "prefixItems": [
+        { "const": "writers_emit_current_only" },
+        { "const": "unknown_versions_are_rejected" },
+        { "const": "migration_is_local_bounded_and_create_only" },
+        { "const": "migration_never_overwrites_input" },
+        { "const": "migration_has_no_network_or_raw_export" },
+        { "const": "missing_linkage_is_never_synthesized" }
+      ],
+      "items": false
+    },
+    "classifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_exchange", "local_persistence", "maintainer_evidence", "repository_control"],
+      "properties": {
+        "runtime_exchange": { "$ref": "#/$defs/paths" },
+        "local_persistence": { "$ref": "#/$defs/paths" },
+        "maintainer_evidence": { "$ref": "#/$defs/paths" },
+        "repository_control": { "$ref": "#/$defs/paths" }
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": { "$ref": "#/$defs/transition" }
+    },
+    "withdrawals": { "$ref": "#/$defs/withdrawals" }
+  },
+  "$defs": {
+    "paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(api|schemas)/[A-Za-z0-9_./-]+$",
+        "maxLength": 180
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "current_schema", "previous_schemas", "previous_support", "strategy", "operator_command", "loss_boundary"],
+      "properties": {
+        "family": {
+          "enum": ["compatibility_freeze", "data_map", "migration_matrix", "rollout_plan", "rollout_review", "shadow_analysis", "shadow_record"]
+        },
+        "current_schema": { "type": "string", "pattern": "^schemas/[A-Za-z0-9_-]+\\.schema\\.json$" },
+        "previous_schemas": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^schemas/[A-Za-z0-9_-]+\\.schema\\.json$" }
+        },
+        "previous_support": { "enum": ["legacy_read", "unsupported_historical"] },
+        "strategy": { "enum": ["repository_replacement", "reissue_from_current_review", "regenerate_from_authenticated_source", "legacy_read_no_rewrite"] },
+        "operator_command": { "enum": ["none", "palisade prepare-rollout", "palisade prepare-review", "palisade analyze-shadow-log", "palisade verify-shadow-log"] },
+        "loss_boundary": { "enum": ["repository_control_not_runtime_input", "old_signed_authority_is_not_reused", "historical_review_is_not_activation_authority", "historical_report_is_not_rollout_authority", "v1_outcome_has_no_decision_id"] }
+      }
+    },
+    "withdrawals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["palisade.offline-event.v1", "palisade.offline-manifest.v1"],
+      "properties": {
+        "palisade.offline-event.v1": { "const": "palisade.local-evidence-event.v1" },
+        "palisade.offline-manifest.v1": { "const": "palisade.local-evidence-manifest.v1" }
+      }
+    }
+  }
+}

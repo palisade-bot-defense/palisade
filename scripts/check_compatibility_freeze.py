@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify PALISADE's closed v1 compatibility freeze without network access."""
+"""Verify PALISADE's closed v2 compatibility freeze without network access."""
 
 from __future__ import annotations
 
@@ -16,11 +16,11 @@ API_PATHS = {
     *{f"api/proto/palisade/v1/{name}.proto" for name in ("challenge", "common", "coverage", "decision", "decoy", "event")},
 }
 CURRENT_SCHEMA_NAMES = {
-    "adversarial-holdout-suite-v1", "adversarial-suite-v1", "compatibility-freeze-v1", "crawler-registry-v1", "data-map-v6",
+    "adversarial-holdout-suite-v1", "adversarial-suite-v1", "compatibility-freeze-v2", "crawler-registry-v1", "data-map-v6",
     "detector-bundle-v1", "edge-signal-envelope-v1", "local-artifact-v1", "local-evidence-event-v1",
     "local-evidence-input-v1", "local-evidence-manifest-v1", "local-family-annotation-v1",
-    "local-holdout-report-v1", "local-release-v1", "local-sequence-report-v1", "migration-matrix-v1",
-    "normalized-signal-contract-v1", "offline-event-v1", "offline-manifest-v1",
+    "local-holdout-report-v1", "local-release-v1", "local-sequence-report-v1", "migration-matrix-v2",
+    "normalized-signal-contract-v1",
     "origin-adapter-conformance-v1", "policy-bundle-v1", "red-team-suite-v1", "release-reproduction-v1", "rollout-plan-v2",
     "rollout-review-v4", "runtime-egress-v1", "shadow-analysis-report-v4", "shadow-holdout-report-v1",
     "shadow-record-v3", "sovereignty-report-v1", "synthetic-benchmark-report-v1",
@@ -29,8 +29,8 @@ CURRENT_SCHEMA_NAMES = {
 STABLE_CURRENT = API_PATHS | {f"schemas/{name}.schema.json" for name in CURRENT_SCHEMA_NAMES}
 LEGACY_READ = {"schemas/shadow-record-v1.schema.json", "schemas/shadow-record-v2.schema.json"}
 SAFETY_MARKERS = {
-    "docs/COMPATIBILITY.md": "palisade.compatibility-policy.v1",
-    "docs/MIGRATIONS.md": "palisade.runbook.migrations.v1",
+    "docs/COMPATIBILITY.md": "palisade.compatibility-policy.v2",
+    "docs/MIGRATIONS.md": "palisade.runbook.migrations.v2",
     "docs/THREAT_MODEL.md": "palisade.threat-model.v1",
     "docs/CHALLENGE.md": "palisade.runbook.challenge.v1",
     "docs/OPERATOR_SHADOW_DRILL.md": "palisade.runbook.operator-shadow-drill.v1",
@@ -41,7 +41,11 @@ SAFETY_MARKERS = {
     "docs/SHADOW_LOG.md": "palisade.runbook.shadow-log.v1",
     "docs/privacy/DEPLOYMENT_CHECKLIST.md": "palisade.runbook.eu-privacy-deployment.v1",
 }
-TOP_LEVEL = {"schema_version", "scope", "stable_current", "legacy_read", "safety_documents"}
+WITHDRAWN_PRE_STABLE = {
+    "palisade.offline-event.v1": "palisade.local-evidence-event.v1",
+    "palisade.offline-manifest.v1": "palisade.local-evidence-manifest.v1",
+}
+TOP_LEVEL = {"schema_version", "scope", "stable_current", "legacy_read", "safety_documents", "withdrawn_pre_stable"}
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -90,11 +94,13 @@ def _verify_group(root: Path, name: str, actual: object, expected: set[str]) -> 
 def validate_manifest(document: dict[str, object], root: Path) -> None:
     if set(document) != TOP_LEVEL:
         raise FreezeError("freeze manifest top-level fields are not closed")
-    if document["schema_version"] != "palisade.compatibility-freeze.v1" or document["scope"] != "v1_public_contracts_and_operator_safety":
+    if document["schema_version"] != "palisade.compatibility-freeze.v2" or document["scope"] != "v2_public_contracts_and_operator_safety":
         raise FreezeError("unsupported freeze header")
     _verify_group(root, "stable_current", document["stable_current"], STABLE_CURRENT)
     _verify_group(root, "legacy_read", document["legacy_read"], LEGACY_READ)
     _verify_group(root, "safety_documents", document["safety_documents"], set(SAFETY_MARKERS))
+    if document["withdrawn_pre_stable"] != WITHDRAWN_PRE_STABLE:
+        raise FreezeError("pre-stable withdrawals changed without a compatibility decision")
     if STABLE_CURRENT & LEGACY_READ or (STABLE_CURRENT | LEGACY_READ) & set(SAFETY_MARKERS):
         raise FreezeError("freeze categories overlap")
     for relative, marker in SAFETY_MARKERS.items():
@@ -109,7 +115,7 @@ def validate_manifest(document: dict[str, object], root: Path) -> None:
 def main() -> int:
     root = Path(__file__).resolve().parent.parent
     try:
-        validate_manifest(load_manifest(root / "manifests/compatibility-freeze-v1.json"), root)
+        validate_manifest(load_manifest(root / "manifests/compatibility-freeze-v2.json"), root)
     except FreezeError as error:
         print(f"compatibility-check: failed: {error}", file=sys.stderr)
         return 1

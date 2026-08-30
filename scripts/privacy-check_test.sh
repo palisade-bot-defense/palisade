@@ -22,14 +22,14 @@ git -C "$clean" add source.txt
 source_fixture="$test_root/source-fixture"
 new_repo "$source_fixture"
 mkdir -p "$source_fixture/internal/offlineimport"
-printf '%s\n' 'package offlineimport' 'var syntheticFixture = `{"schema_version":"palisade.offline-event.v1","scenario":"synthetic/example"}`' >"$source_fixture/internal/offlineimport/importer_test.go"
+printf '%s\n' 'package offlineimport' 'var syntheticFixture = `{"schema_version":"palisade.local-evidence-event.v1","subject_id":"synthetic"}`' >"$source_fixture/internal/offlineimport/importer_test.go"
 git -C "$source_fixture" add internal/offlineimport/importer_test.go
 (cd "$source_fixture" && "$guard") >/dev/null
 
 exact_path_bypass="$test_root/exact-path-bypass"
 new_repo "$exact_path_bypass"
 mkdir -p "$exact_path_bypass/internal/offlineimport"
-printf '%s\n' '{"schema_version":"palisade.offline-event.v1","scenario":"synthetic/example"}' >"$exact_path_bypass/internal/offlineimport/importer_test.go"
+printf '%s\n' '{"schema_version":"palisade.local-evidence-event.v1","subject_id":"synthetic"}' >"$exact_path_bypass/internal/offlineimport/importer_test.go"
 git -C "$exact_path_bypass" add internal/offlineimport/importer_test.go
 if (cd "$exact_path_bypass" && "$guard") >/dev/null 2>&1; then
 	echo "privacy-check test: data artifact bypassed checks at an exact fixture-source path" >&2
@@ -54,11 +54,11 @@ if (cd "$raw_json" && "$guard") >/dev/null 2>&1; then
 	exit 1
 fi
 
-renamed_anubis="$test_root/renamed-anubis"
-new_repo "$renamed_anubis"
-printf '%s\n' '{"observed_at":"2026-01-12T01:01:00Z","request":{"remote_addr":"192.0.2.10","path":"/synthetic","user_agent":"SyntheticFixture/1.0"}}' >"$renamed_anubis/renamed.txt"
-git -C "$renamed_anubis" add renamed.txt
-if (cd "$renamed_anubis" && "$guard") >/dev/null 2>&1; then
+renamed_direct_peer="$test_root/renamed-direct-peer"
+new_repo "$renamed_direct_peer"
+printf '%s\n' '{"observed_at":"2026-01-12T01:01:00Z","request":{"remote_addr":"192.0.2.10","path":"/synthetic","user_agent":"SyntheticFixture/1.0"}}' >"$renamed_direct_peer/renamed.txt"
+git -C "$renamed_direct_peer" add renamed.txt
+if (cd "$renamed_direct_peer" && "$guard") >/dev/null 2>&1; then
 	echo "privacy-check test: renamed direct-peer JSON data was accepted" >&2
 	exit 1
 fi
@@ -105,15 +105,6 @@ printf 'PLSHDW1\nsynthetic' >"$renamed_shadow/renamed.bin"
 git -C "$renamed_shadow" add renamed.bin
 if (cd "$renamed_shadow" && "$guard") >/dev/null 2>&1; then
 	echo "privacy-check test: renamed shadow log content was accepted" >&2
-	exit 1
-fi
-
-normalized="$test_root/normalized"
-new_repo "$normalized"
-printf '%s\n' '{"schema_version":"palisade.offline-manifest.v1"}' >"$normalized/innocent.txt"
-git -C "$normalized" add innocent.txt
-if (cd "$normalized" && "$guard") >/dev/null 2>&1; then
-	echo "privacy-check test: renamed normalized data was accepted" >&2
 	exit 1
 fi
 

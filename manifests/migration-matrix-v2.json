@@ -1,5 +1,5 @@
 {
-  "schema_version": "palisade.migration-matrix.v1",
+  "schema_version": "palisade.migration-matrix.v2",
   "scope": "all_frozen_and_historical_versioned_contracts",
   "invariants": [
     "writers_emit_current_only",
@@ -34,8 +34,6 @@
       "schemas/local-family-annotation-v1.schema.json",
       "schemas/local-holdout-report-v1.schema.json",
       "schemas/local-sequence-report-v1.schema.json",
-      "schemas/offline-event-v1.schema.json",
-      "schemas/offline-manifest-v1.schema.json",
       "schemas/rollout-review-v4.schema.json",
       "schemas/shadow-analysis-report-v4.schema.json",
       "schemas/shadow-holdout-report-v1.schema.json",
@@ -53,15 +51,24 @@
     "repository_control": [
       "schemas/adversarial-holdout-suite-v1.schema.json",
       "schemas/adversarial-suite-v1.schema.json",
-      "schemas/compatibility-freeze-v1.schema.json",
+      "schemas/compatibility-freeze-v2.schema.json",
       "schemas/data-map-v6.schema.json",
-      "schemas/migration-matrix-v1.schema.json",
+      "schemas/migration-matrix-v2.schema.json",
       "schemas/origin-adapter-conformance-v1.schema.json",
       "schemas/red-team-suite-v1.schema.json",
       "schemas/runtime-egress-v1.schema.json"
     ]
   },
   "transitions": [
+    {
+      "family": "compatibility_freeze",
+      "current_schema": "schemas/compatibility-freeze-v2.schema.json",
+      "previous_schemas": ["schemas/compatibility-freeze-v1.schema.json"],
+      "previous_support": "unsupported_historical",
+      "strategy": "repository_replacement",
+      "operator_command": "none",
+      "loss_boundary": "repository_control_not_runtime_input"
+    },
     {
       "family": "data_map",
       "current_schema": "schemas/data-map-v6.schema.json",
@@ -72,6 +79,15 @@
         "schemas/data-map-v4.schema.json",
         "schemas/data-map-v5.schema.json"
       ],
+      "previous_support": "unsupported_historical",
+      "strategy": "repository_replacement",
+      "operator_command": "none",
+      "loss_boundary": "repository_control_not_runtime_input"
+    },
+    {
+      "family": "migration_matrix",
+      "current_schema": "schemas/migration-matrix-v2.schema.json",
+      "previous_schemas": ["schemas/migration-matrix-v1.schema.json"],
       "previous_support": "unsupported_historical",
       "strategy": "repository_replacement",
       "operator_command": "none",
@@ -124,5 +140,9 @@
       "operator_command": "palisade verify-shadow-log",
       "loss_boundary": "v1_outcome_has_no_decision_id"
     }
-  ]
+  ],
+  "withdrawals": {
+    "palisade.offline-event.v1": "palisade.local-evidence-event.v1",
+    "palisade.offline-manifest.v1": "palisade.local-evidence-manifest.v1"
+  }
 }

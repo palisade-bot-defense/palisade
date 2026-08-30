@@ -12,7 +12,7 @@ class MigrationMatrixTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.root = Path(__file__).resolve().parent.parent
-        cls.matrix_path = cls.root / "manifests/migration-matrix-v1.json"
+        cls.matrix_path = cls.root / "manifests/migration-matrix-v2.json"
 
     def matrix(self):
         return copy.deepcopy(check_migration_matrix.load_matrix(self.matrix_path))
@@ -90,7 +90,7 @@ class MigrationMatrixTests(unittest.TestCase):
 
     def test_schema_matches_runtime_header_and_closed_fields(self):
         schema = json.loads(
-            (self.root / "schemas/migration-matrix-v1.schema.json").read_text(encoding="utf-8")
+            (self.root / "schemas/migration-matrix-v2.schema.json").read_text(encoding="utf-8")
         )
         self.assertEqual(schema["properties"]["schema_version"]["const"], check_migration_matrix.SCHEMA_VERSION)
         self.assertEqual(set(schema["required"]), check_migration_matrix.TOP_LEVEL_FIELDS)

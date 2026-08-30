@@ -40,7 +40,7 @@ while IFS="$tab" read -r metadata path; do
 
 	base=${path##*/}
 	case "$base" in
-		access.log.gz|anubis-strain.jsonl.gz|crowdsec-alerts.json|crowdsec-decisions.json|error.log.gz)
+		access.log.gz|error.log.gz)
 			echo "privacy-check: forbidden raw bundle filename: $path" >&2
 			failed=1
 			;;
@@ -100,10 +100,6 @@ while IFS="$tab" read -r metadata path; do
 		failed=1
 	fi
 
-	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.offline-(event|manifest)\.v1"' "$blob_file"; then
-		echo "privacy-check: normalized offline data content: $path" >&2
-		failed=1
-	fi
 	if [ "$is_json_document" -eq 1 ] && grep -I -q -E -- '"schema_version"[[:space:]]*:[[:space:]]*"palisade\.local-evidence-(input|event|manifest)\.v1"' "$blob_file"; then
 		echo "privacy-check: local evidence data content: $path" >&2
 		failed=1
@@ -153,13 +149,13 @@ while IFS="$tab" read -r metadata path; do
 		failed=1
 	fi
 	if [ "$is_json_document" -eq 1 ]; then
-		crowdsec_nested=0
+		nested_ip_policy=0
 		if grep -I -q -E -- '"decision"[[:space:]]*:[[:space:]]*\{' "$blob_file" && grep -I -q -E -- '"type"[[:space:]]*:[[:space:]]*"ip"' "$blob_file" && grep -I -q -E -- '"value"[[:space:]]*:' "$blob_file" && grep -I -q -E -- '"(start_at|created_at|observed_at)"[[:space:]]*:' "$blob_file"; then
-			crowdsec_nested=1
+			nested_ip_policy=1
 		elif grep -I -q -E -- '"alert"[[:space:]]*:[[:space:]]*\{' "$blob_file" && grep -I -q -E -- '"(start_at|created_at|observed_at)"[[:space:]]*:' "$blob_file" && grep -I -q -E -- '"source"[[:space:]]*:[[:space:]]*\{' "$blob_file" && grep -I -q -E -- '"ip"[[:space:]]*:' "$blob_file"; then
-			crowdsec_nested=1
+			nested_ip_policy=1
 		fi
-		if [ "$crowdsec_nested" -eq 1 ]; then
+		if [ "$nested_ip_policy" -eq 1 ]; then
 			echo "privacy-check: renamed nested policy JSON data content: $path" >&2
 			failed=1
 		fi

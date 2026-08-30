@@ -7,10 +7,10 @@ dataset-and-pilot-separated HMAC-SHA256 pseudonyms, and publishes only closed
 evidence fields into owner-controlled local shards. It makes no network request
 and has no integration with a PALISADE maintainer's private systems.
 
-This command complements the source-specific `import-offline` adapter. It does
-not attempt to recognize arbitrary log formats. Operators transform their own
-export into the closed input schema locally, which keeps vendor payloads, URLs,
-request bodies and parser-specific trust decisions outside PALISADE.
+The command does not attempt to recognize arbitrary log formats. Operators
+transform their own export into the closed input schema locally, which keeps
+vendor payloads, URLs, request bodies and parser-specific trust decisions
+outside PALISADE. This is the only supported raw-to-normalized import boundary.
 
 ## Private input boundary
 
@@ -63,9 +63,9 @@ the master key across pilots does not make their pseudonyms equal. Pseudonyms
 rotate at the UTC day boundary.
 
 Input lines default to a 1 MiB limit. Total input, record, event, shard and
-output budgets fail closed and are configurable with `--max-*` flags. Unlike
-the source-specific importer, the generic contract requires chronological
-input and therefore needs no temporary external sort. Empty lines, duplicate
+output budgets fail closed and are configurable with `--max-*` flags. The
+contract requires chronological input and therefore needs no temporary
+external sort. Empty lines, duplicate
 JSON keys, unknown fields, invalid enum combinations and decreasing timestamps
 abort the entire run.
 

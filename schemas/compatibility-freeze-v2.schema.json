@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/compatibility-freeze-v2.schema.json",
+  "title": "PALISADE compatibility freeze v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scope", "stable_current", "legacy_read", "safety_documents", "withdrawn_pre_stable"],
+  "properties": {
+    "schema_version": { "const": "palisade.compatibility-freeze.v2" },
+    "scope": { "const": "v2_public_contracts_and_operator_safety" },
+    "stable_current": { "$ref": "#/$defs/hashMap" },
+    "legacy_read": { "$ref": "#/$defs/hashMap" },
+    "safety_documents": { "$ref": "#/$defs/hashMap" },
+    "withdrawn_pre_stable": { "$ref": "#/$defs/withdrawals" }
+  },
+  "$defs": {
+    "hashMap": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^(api|docs|schemas)/[A-Za-z0-9_./-]+$",
+        "maxLength": 180
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "withdrawals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["palisade.offline-event.v1", "palisade.offline-manifest.v1"],
+      "properties": {
+        "palisade.offline-event.v1": { "const": "palisade.local-evidence-event.v1" },
+        "palisade.offline-manifest.v1": { "const": "palisade.local-evidence-manifest.v1" }
+      }
+    }
+  }
+}
