@@ -1,4 +1,4 @@
-.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check red-team red-team-plan benchmark-plan benchmark-local benchmark-verify compatibility-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
+.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -6,7 +6,7 @@ build:
 
 test:
 	go test -race ./...
-	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_run_red_team.py scripts/test_benchmark_local.py scripts/test_compatibility_freeze.py
+	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compatibility_freeze.py
 	pnpm test
 
 check: coverage-check privacy-check license-check compatibility-check
@@ -42,6 +42,14 @@ red-team:
 
 red-team-plan:
 	python3 scripts/run_red_team.py --list
+
+red-team-report:
+	@test -n "$(OUTPUT)" || (echo "OUTPUT is required" >&2; exit 2)
+	python3 scripts/red_team_findings.py --output "$(OUTPUT)"
+
+red-team-verify:
+	@test -n "$(REPORT)" || (echo "REPORT is required" >&2; exit 2)
+	python3 scripts/red_team_findings.py --verify "$(REPORT)"
 
 benchmark-plan:
 	python3 scripts/benchmark_local.py --plan

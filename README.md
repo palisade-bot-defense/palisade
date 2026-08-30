@@ -273,6 +273,8 @@ The required test pyramid, coverage and in-process latency gates are documented 
 
 The first [published synthetic baseline](benchmarks/synthetic-baseline-afc23a3.json), measured with Go 1.27.0 in a network-disabled Linux/arm64 container, records p95 of **5.958 µs** for the production Shadow decision path and **7.250 µs** for signed adaptive Enforcement against the 10 ms in-process gate. These figures exclude proxy/network/TLS/browser latency, concurrent capacity, production detection efficacy and false-positive rates; they are reproducible engineering evidence, not production performance guarantees.
 
+The first [public synthetic red-team findings record](reports/red-team/synthetic-findings-65e5699.json) binds all **12 passed controls** across evasion, poisoning, proof relay, session reset, resource exhaustion and rollout compromise to exact source commit `65e5699` and the hashed closed suite. It contains no deployment records and is regression evidence only—not an independent audit or a claim that unknown vulnerabilities, production detection efficacy or false-positive rates have been resolved.
+
 The first deployment should ingest normalized challenge, external-risk and policy-alert verdicts in **shadow mode**, then tune thresholds on labeled replay data before any automatic blocking. Every replay record must carry an RFC 3339 `observed_at` timestamp that drives session TTLs and decision expiry; records must be globally chronological with equal timestamps allowed. Fixtures can assert `expected_action` and `expected_computed_action` independently.
 
 Authorized historical exports can be normalized locally in two ways. The

@@ -24,6 +24,7 @@ tag is published.
 | Privacy/licensing | `make privacy-check` and `make license-check` | repository-index attack fixtures and license boundary pass |
 | Release authenticity | `make release-signing-check` | exact artifact manifest, pinned signer, private-key isolation and tamper rejection pass offline |
 | Synthetic red team | `make red-team` | all twelve scenarios pass across the six v0.9 attack categories with module downloads disabled |
+| Synthetic findings contract | `python3 -m unittest scripts/test_red_team_findings.py` | report closure, suite binding, provenance, create-only output and limitation tamper cases pass |
 | Published synthetic benchmark | `make benchmark-verify REPORT=benchmarks/synthetic-baseline-afc23a3.json` | exact profiles, samples, recomputed summaries, source commit and limitations pass |
 | v1 compatibility freeze | `make compatibility-check` | exact public contracts, legacy readers, threat model and runbook hashes pass |
 
@@ -148,8 +149,9 @@ closed expected result or points at a missing test function.
 The separate versioned [synthetic red-team baseline](RED_TEAM.md) exercises
 evasion, poisoning, proof relay, session reset, resource exhaustion and rollout
 compromise as one module-download-disabled run. Use an OS network sandbox for
-the exercise itself. It is a security-regression suite, not an
-independent review or evidence of production detection efficacy.
+the exercise itself. A clean-commit run can produce a closed, aggregate findings
+record only after every named control passes. It is a security-regression suite,
+not an independent review or evidence of production detection efficacy.
 
 ## Known gaps
 

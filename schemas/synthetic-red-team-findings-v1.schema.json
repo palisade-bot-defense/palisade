@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/synthetic-red-team-findings-v1.schema.json",
+  "title": "PALISADE synthetic red-team findings v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "suite_version",
+    "source_commit",
+    "suite_sha256",
+    "synthetic_only",
+    "raw_deployment_records_used",
+    "protocol",
+    "environment",
+    "summary",
+    "findings",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "palisade.synthetic-red-team-findings.v1" },
+    "suite_version": { "const": "palisade.red-team-suite.v1" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "suite_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "synthetic_only": { "const": true },
+    "raw_deployment_records_used": { "const": false },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category_count",
+        "go_test_count",
+        "module_downloads_disabled",
+        "publication_requires_all_passed",
+        "scenario_count"
+      ],
+      "properties": {
+        "category_count": { "const": 6 },
+        "go_test_count": { "const": 1 },
+        "module_downloads_disabled": { "const": true },
+        "publication_requires_all_passed": { "const": true },
+        "scenario_count": { "const": 12 }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["go_version", "goos", "goarch"],
+      "properties": {
+        "go_version": { "type": "string", "pattern": "^go1\\.27(?:\\.[0-9]+)?$" },
+        "goos": { "type": "string", "pattern": "^[a-z0-9]+$" },
+        "goarch": { "type": "string", "pattern": "^[a-z0-9]+$" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "failed", "remediations_open"],
+      "properties": {
+        "passed": { "const": 12 },
+        "failed": { "const": 0 },
+        "remediations_open": { "const": 0 }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category", "asset", "expected", "status", "remediation_status", "test_refs"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_]+$", "maxLength": 80 },
+          "category": {
+            "enum": ["evasion", "poisoning", "proof_relay", "session_reset", "resource_exhaustion", "rollout_compromise"]
+          },
+          "asset": {
+            "enum": ["decision_integrity", "trusted_signal_boundary", "challenge_capability", "session_continuity", "bounded_availability", "rollout_authority"]
+          },
+          "expected": { "type": "string", "pattern": "^[a-z0-9_]+$", "maxLength": 100 },
+          "status": { "const": "passed" },
+          "remediation_status": { "const": "not_required" },
+          "test_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_./-]+_test\\.go#Test[A-Za-z0-9_]+$",
+              "maxLength": 180
+            }
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": { "type": "string", "minLength": 1, "maxLength": 180 }
+    }
+  }
+}

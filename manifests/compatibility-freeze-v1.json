@@ -38,7 +38,8 @@
     "schemas/shadow-holdout-report-v1.schema.json": "de20b71d54012c84f5ee987f0f6c03541ee2c4d46a6f7ec88713d881b43ddc7d",
     "schemas/shadow-record-v3.schema.json": "f755c70d73a139ee2a435abff5ee4ed358189744c317872d7c95902cd7519065",
     "schemas/sovereignty-report-v1.schema.json": "ebbb70c457a1a74d9cc5b1f171b848420511a9388f9b4900b45bed6f3065bb74",
-    "schemas/synthetic-benchmark-report-v1.schema.json": "909af816e6b66946ce6eb9bd128e3aad7594f31fb85107cc4202c2ed269236a5"
+    "schemas/synthetic-benchmark-report-v1.schema.json": "909af816e6b66946ce6eb9bd128e3aad7594f31fb85107cc4202c2ed269236a5",
+    "schemas/synthetic-red-team-findings-v1.schema.json": "c7a509f9a49f5a1f845d08b3d75551e57c14c72e6b8908b274c3d5bf5fa6252a"
   },
   "legacy_read": {
     "schemas/shadow-record-v1.schema.json": "39683055bd51614ec822ae900166a0b1dad67679e4ccb4d99851b53ba9d138e2",
