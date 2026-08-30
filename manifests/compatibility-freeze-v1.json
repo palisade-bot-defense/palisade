@@ -48,6 +48,7 @@
   "safety_documents": {
     "docs/CHALLENGE.md": "0af602dd5de0c10b405803086aa6a6aeecdb1021bce056fef07cf573351cf17d",
     "docs/COMPATIBILITY.md": "de81296f0271fb3f0232f806e7789cb6e8202d9fea6319dd4f00ad671e438ef1",
+    "docs/OPERATOR_SHADOW_DRILL.md": "d42acc89fab165005759614f3fbe068502f594385ca3a9e3faf52e5013d0abff",
     "docs/ORIGIN_ADAPTER.md": "ce49fa1bfb971f4fdb8738465852fad6b926c163024d67fcaac190a7f9e84b31",
     "docs/RELEASING.md": "0c0caad2ceba0e70c549835e39b65efe50c3feb80ffc4b3988d494090827d699",
     "docs/REVERSE_PROXY_ADAPTER.md": "cf9e4ab46f6a47bb5ea6b2df55ea2560ce0c6488aea6d026d1d30e419402cc31",

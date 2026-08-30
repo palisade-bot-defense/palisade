@@ -1,4 +1,4 @@
-.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
+.PHONY: build test check verify release-plan release release-sign release-verify release-signing-check operator-shadow-drill red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract offline-eval-test replay dev demo docker
 
 build:
 	pnpm build
@@ -6,7 +6,7 @@ build:
 
 test:
 	go test -race ./...
-	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compatibility_freeze.py
+	python3 -m unittest scripts/test_evaluate_offline.py scripts/test_operator_shadow_drill.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compatibility_freeze.py
 	pnpm test
 
 check: coverage-check privacy-check license-check compatibility-check
@@ -36,6 +36,9 @@ release-verify:
 
 release-signing-check:
 	./scripts/release-signing_test.sh
+
+operator-shadow-drill:
+	./scripts/operator-shadow-drill.sh
 
 red-team:
 	python3 scripts/run_red_team.py
