@@ -1,4 +1,4 @@
-.PHONY: build test check verify browser-e2e browser-e2e-check deployment-tls-test proxy-tls-load-plan proxy-tls-load-local release-plan release release-compare release-reproduction-verify release-sign release-verify release-signing-check operator-shadow-drill load-test-plan load-test-local red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check migration-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract replay dev demo docker
+.PHONY: build test check verify browser-e2e browser-e2e-check deployment-tls-test nginx-deployment-plan nginx-deployment-test proxy-tls-load-plan proxy-tls-load-local release-plan release release-compare release-reproduction-verify release-sign release-verify release-signing-check operator-shadow-drill load-test-plan load-test-local red-team red-team-plan red-team-report red-team-verify benchmark-plan benchmark-local benchmark-verify compatibility-check migration-check coverage-check privacy-check license-check adapter-conformance normalized-contract artifact-contract replay dev demo docker
 
 build:
 	pnpm build
@@ -6,7 +6,7 @@ build:
 
 test:
 	go test -race ./...
-	python3 -m unittest scripts/test_operator_shadow_drill.py scripts/test_load_test_local.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compare_release_reproduction.py scripts/test_compatibility_freeze.py scripts/test_migration_matrix.py
+	python3 -m unittest scripts/test_operator_shadow_drill.py scripts/test_load_test_local.py scripts/test_run_red_team.py scripts/test_red_team_findings.py scripts/test_benchmark_local.py scripts/test_compare_release_reproduction.py scripts/test_compatibility_freeze.py scripts/test_migration_matrix.py scripts/test_nginx_deployment.py
 	pnpm test
 
 check: coverage-check privacy-check license-check compatibility-check migration-check browser-e2e-check
@@ -25,6 +25,12 @@ browser-e2e-check:
 deployment-tls-test:
 	go test -race ./pkg/palisadehttp ./pkg/palisadeproxy -run 'Test.*TLS.*Deployment' -count=1
 	go test -race ./internal/proxytlsdiag -run '^TestReferenceAdaptersOverLoopbackHTTP2TLS$$' -count=1
+
+nginx-deployment-plan:
+	./scripts/nginx-deployment-test.sh --plan
+
+nginx-deployment-test:
+	./scripts/nginx-deployment-test.sh
 
 proxy-tls-load-plan:
 	PALISADE_PROXY_TLS_DURATION_SECONDS="$(DURATION_SECONDS)" PALISADE_PROXY_TLS_CONCURRENCY="$(CONCURRENCY)" PALISADE_PROXY_TLS_MAX_OPERATIONS="$(MAX_OPERATIONS)" go test ./internal/proxytlsdiag -run '^TestProxyTLSLoadPlan$$' -count=1 -v

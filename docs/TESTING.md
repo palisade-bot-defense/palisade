@@ -205,8 +205,12 @@ isolation from PALISADE. The bounded
 single-process loopback HTTP/1.1 session, proof and origin-decision traffic. The
 bounded [local proxy/TLS load diagnostic](PROXY_TLS_LOAD_TEST.md) now repeats
 the same protected workflow through both Go reference adapters over loopback
-HTTP/2/TLS. The baseline still does not include a specific external proxy
-implementation, public-PKI and certificate-rotation exercises,
+HTTP/2/TLS. The opt-in [pinned nginx contract](NGINX_DEPLOYMENT_TEST.md)
+adds one concrete external proxy implementation: an exact nginx digest with an
+internal Docker topology, real
+HTTP/2/TLS termination and direct forwarding-header spoof rejection. It does
+not cover other nginx builds, CDNs or cloud proxies. The baseline also does not
+include public-PKI and certificate-rotation exercises,
 HTTP/3, multi-replica challenge state, assistive-technology automation or a
 representative production capacity environment. These local contracts are not
 proxy-capacity, production-throughput or human-accessibility claims. Add those
