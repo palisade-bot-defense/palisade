@@ -1,5 +1,7 @@
 # Native challenge lifecycle
 
+Runbook contract: `palisade.runbook.challenge.v1`.
+
 PALISADE includes a bounded native challenge capability for an origin adapter.
 It is a short-lived anti-replay step-up, not a CAPTCHA and not evidence that a
 person is present. Browser automation can complete it. The purpose is to add a

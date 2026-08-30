@@ -1,5 +1,7 @@
 # Standalone reverse-proxy adapter
 
+Runbook contract: `palisade.runbook.reverse-proxy-adapter.v1`.
+
 `pkg/palisadeproxy` is the second, independently implemented reference consumer
 of `palisade.origin-adapter.v1`. It is a standard `http.Handler`: place it in
 front of an `httputil.ReverseProxy` or another upstream handler. It does not

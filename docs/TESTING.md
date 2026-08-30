@@ -25,6 +25,7 @@ tag is published.
 | Release authenticity | `make release-signing-check` | exact artifact manifest, pinned signer, private-key isolation and tamper rejection pass offline |
 | Synthetic red team | `make red-team` | all twelve scenarios pass across the six v0.9 attack categories with module downloads disabled |
 | Published synthetic benchmark | `make benchmark-verify REPORT=benchmarks/synthetic-baseline-afc23a3.json` | exact profiles, samples, recomputed summaries, source commit and limitations pass |
+| v1 compatibility freeze | `make compatibility-check` | exact public contracts, legacy readers, threat model and runbook hashes pass |
 
 The latency tests are regression gates for the in-process decision paths, not
 claims about network, reverse-proxy or end-user latency. They report p50, p95

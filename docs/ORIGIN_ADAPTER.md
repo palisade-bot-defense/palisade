@@ -1,5 +1,7 @@
 # Go reference origin adapter
 
+Runbook contract: `palisade.runbook.origin-adapter.v1`.
+
 `pkg/palisadehttp` is the deployable reference integration for Go `net/http`
 applications. It owns the browser-facing session, calls PALISADE exactly once
 per protected request, validates the bounded origin result and applies pass,
