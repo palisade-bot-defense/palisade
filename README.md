@@ -143,6 +143,13 @@ session, proof and origin-check HTTP path. It emits only aggregate counters and
 latency percentiles and is not a production-throughput or detection-efficacy
 claim. See the [local HTTP load diagnostic](docs/LOCAL_LOAD_TEST.md).
 
+Use `make proxy-tls-load-plan` and then `make proxy-tls-load-local` for the
+complementary opt-in diagnostic that repeats complete protected requests
+through both Go reference adapters over ephemeral loopback HTTP/2/TLS. It adds
+no runtime client to the product binary and reports only closed aggregates; it
+is not evidence of production proxy capacity. See the
+[local proxy/TLS load diagnostic](docs/PROXY_TLS_LOAD_TEST.md).
+
 For local source development, requirements are Go 1.27, Node.js 24 and pnpm
 11.24:
 
