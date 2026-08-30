@@ -98,9 +98,11 @@ latency. No automatic blocking is enabled.
 
 ## v0.4 — make response adaptive and humane
 
-Status: implementation complete; the signed canary, chronological holdout and
-measured accessibility/latency/abandonment exit gate remain empirical work for
-an operator-controlled deployment.
+Status: implementation complete, including a loopback-only real-browser
+exercise of the reference adapter's challenge, one-time redemption and
+alternative-method path. The signed canary, chronological holdout and measured
+accessibility/latency/abandonment exit gate remain empirical work for an
+operator-controlled deployment.
 
 Deliverables:
 
