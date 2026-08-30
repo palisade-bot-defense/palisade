@@ -43,8 +43,10 @@ as general efficacy.
 
 ## v0.2 — prove data sovereignty
 
-Status: implementation complete; the clean macOS/Linux release verification
-and first independently reproduced signed artifact set remain the exit gate.
+Status: implementation complete; deterministic candidates and a closed local
+two-candidate comparison gate are implemented. The clean macOS/Linux release
+verification and first genuinely independent reproduced signed artifact set
+remain the exit gate.
 
 Deliverables:
 
@@ -119,9 +121,10 @@ abandonment budget; rollback is exercised and timed.
 
 ## v0.5 — build the open deployment ecosystem
 
-Status: implementation complete; enrolling independent public release and
-security responders, publishing a reviewed release key and independently
-reproducing the first signed artifact set remain the operational exit gate.
+Status: implementation complete; the reproduction comparison protocol is now
+executable locally. Enrolling independent public release and security
+responders, publishing a reviewed release key and independently reproducing the
+first signed artifact set remain the operational exit gate.
 
 Deliverables:
 
@@ -149,7 +152,9 @@ protocol are implemented. The first public aggregate benchmark and synthetic
 red-team findings record are published with exact source commits and limitations.
 The v1 contract, threat-model and operator-runbook freeze is machine checked.
 A production-configured synthetic operator drill now covers the documented
-Shadow landing state and unsigned-enforcement rollback boundary. Independent
+Shadow landing state and unsigned-enforcement rollback boundary. A closed local
+attestation now fails on any difference between two unsigned candidates from a
+signed reachable source tag. Actual second-maintainer reproduction, independent
 specialist reviews and an independent new-operator rehearsal remain open.
 
 Deliverables:

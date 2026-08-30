@@ -23,6 +23,7 @@ tag is published.
 | Offline evaluation | `python3 -m unittest scripts/test_evaluate_offline.py` | synthetic evaluation cases pass |
 | Privacy/licensing | `make privacy-check` and `make license-check` | repository-index attack fixtures and license boundary pass |
 | Release authenticity | `make release-signing-check` | exact artifact manifest, pinned signer, private-key isolation and tamper rejection pass offline |
+| Release reproducibility | `python3 -m unittest scripts/test_compare_release_reproduction.py` | exact two-candidate byte comparison, signed-tag provenance, closed attestation, unsafe archive and publication-race cases pass offline |
 | Synthetic red team | `make red-team` | all twelve scenarios pass across the six v0.9 attack categories with module downloads disabled |
 | Synthetic findings contract | `python3 -m unittest scripts/test_red_team_findings.py` | report closure, suite binding, provenance, create-only output and limitation tamper cases pass |
 | Operator Shadow drill | `make operator-shadow-drill` | production secrets, session/proof flow, encrypted records, aggregate analysis, unsigned-enforcement rejection and Shadow restart pass on loopback |
@@ -89,6 +90,11 @@ manifest. See the [runtime egress inventory](RUNTIME_EGRESS.md).
 - Release-signing self-tests use temporary synthetic keys and artifacts outside
   the repository. They reject permissive or worktree-resident private keys,
   modified artifacts and an unpinned signer without publishing a tag or release.
+- Release-reproduction self-tests construct two bounded synthetic candidates,
+  require exact artifact and manifest identity, reject unsafe or duplicate tar
+  members, validate signed-tag reachability, and keep the create-only
+  attestation outside Git. They test the comparison protocol; they do not claim
+  that a second maintainer or independent build host participated.
 
 The generic local import suite additionally rejects unknown and duplicate JSON
 fields, ambiguous label provenance, direct-reference leakage, decreasing event

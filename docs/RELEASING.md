@@ -106,23 +106,51 @@ candidate binaries.
 
 ## Independent reproduction
 
-At least one second maintainer must check out the same signed tag, use the
-same Go patch release, run `make release VERSION=...` and compare the unsigned
-`SHA256SUMS` with the preparer's manifest before the preparer signs it. The
-verifier then runs `make release-verify VERSION=...` against the signed candidate.
-Investigate every mismatch before publication. The uncompressed
-source archive and Go binaries are the reproducibility boundary; container image identity can
-also depend on the builder and base-image digest and is not covered by this
-claim.
+At least one second maintainer must check out the same signed tag on a separate
+maintainer-controlled host, use the same Go patch release and run `make release
+VERSION=...`. Keep both complete unsigned candidate directories until the
+comparison finishes. The release preparer then runs:
 
-Only after both records agree should a maintainer push the signed tag and manually publish
-the verified files. Uploading is intentionally outside the script so local
-verification never implies authority to change GitHub release state.
+```sh
+install -d -m 700 /private/local/palisade-release-review
+make release-compare \
+  VERSION=0.2.0 \
+  PREPARER=/private/local/preparer/0.2.0 \
+  REPRODUCER=/private/local/reproducer/0.2.0 \
+  OUTPUT=/private/local/palisade-release-review/reproduction-0.2.0.json
+make release-reproduction-verify \
+  REPORT=/private/local/palisade-release-review/reproduction-0.2.0.json
+```
+
+The comparison requires the exact seven unsigned artifacts and canonical
+`SHA256SUMS` in each directory, recomputes every digest, validates the closed
+metadata and safe source archive, requires byte identity, and verifies that the
+annotated signed source tag points to a commit reachable from the checkout. The
+attestation is create-only `0600` in an owner-only directory outside every Git
+worktree. Review it locally before deciding whether it is suitable for release
+notes. It contains artifact names, hashes, sizes and fixed limitations, but no
+host identity, key material, logs, deployment configuration or traffic data.
+
+The tool proves equality of the two directories supplied to it. It does not
+prove that different people or hosts produced them, that build caches were
+independent, or that custody was separate. Record those facts through maintainer
+review. Candidate directories must be owner-controlled and immutable for the
+duration of comparison; the tool binds every read to the original regular file
+identity and rejects concurrent changes. Container image identity and deployment
+configuration remain outside the reproducibility boundary. Never accept a
+mismatch: investigate it and make a new release candidate.
+
+Only after an independently reviewed comparison agrees may the preparer sign
+the checksum manifest. The reproducer then runs `make release-verify
+VERSION=...` against that signed candidate. Only after both records agree should
+a maintainer push the signed tag and manually publish the verified files.
+Uploading remains intentionally outside every script so local verification
+never implies authority to change GitHub release state.
 
 Record the two maintainers, clean-host platforms, exact Go patch version,
-`SHA256SUMS` digest, verification time and any accepted mismatch in the release
-notes. Never attach build caches, private keys, operator configuration, logs or
-evaluation datasets.
+attestation digest, verification time and the absence of mismatches in the
+release notes. Never attach build caches, private keys, operator configuration,
+logs or evaluation datasets.
 
 ## Signing-key incident and release rollback
 
