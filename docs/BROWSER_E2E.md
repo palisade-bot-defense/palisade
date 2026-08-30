@@ -47,7 +47,7 @@ by themselves. Temporary browser profiles are deleted after success or failure.
 
 This is a single-process adapter and browser contract. It does not establish:
 
-- reverse-proxy header trust or production TLS termination behavior;
+- a deployment-specific external reverse proxy or production TLS terminator;
 - state sharing, failover or one-time redemption across multiple replicas;
 - capacity under sustained browser load;
 - assistive-technology compatibility beyond the checked semantic DOM contract;
@@ -55,6 +55,10 @@ This is a single-process adapter and browser contract. It does not establish:
 - production detection efficacy or safety to enable automatic blocking.
 
 Those claims require their own deployment environments and linked outcomes.
+The separate [local TLS deployment suite](TLS_DEPLOYMENT_TESTS.md) covers the
+repository's two reference adapters over real loopback TCP/TLS/HTTP/2 hops,
+including the immediate-peer forwarding-header trust boundary. It does not
+turn this browser exercise into a production proxy or PKI claim.
 The synthetic fixture intentionally exposes only aggregate call counts. It
 does not persist or expose a browser URL, address, cookie, token or request
 body; fixed synthetic capabilities exist only in process for the exercised

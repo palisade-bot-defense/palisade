@@ -27,6 +27,7 @@ tag is published.
 | Synthetic red team | `make red-team` | all twelve scenarios pass across the six v0.9 attack categories with module downloads disabled |
 | Synthetic findings contract | `python3 -m unittest scripts/test_red_team_findings.py` | report closure, suite binding, provenance, create-only output and limitation tamper cases pass |
 | Operator Shadow drill | `make operator-shadow-drill` | production secrets, session/proof flow, encrypted records, aggregate analysis, unsigned-enforcement rejection and Shadow restart pass on loopback |
+| TLS/proxy deployment boundary | `make deployment-tls-test` | both reference adapters pass real local TCP/TLS/HTTP/2 trust and privacy checks under the race detector |
 | Published synthetic benchmark | `make benchmark-verify REPORT=benchmarks/synthetic-baseline-afc23a3.json` | exact profiles, samples, recomputed summaries, source commit and limitations pass |
 | v1 compatibility freeze | `make compatibility-check` | exact public contracts, legacy readers, threat model and runbook hashes pass |
 | Artifact lifecycle and migrations | `make migration-check` | every frozen contract has one lifecycle class and every predecessor has one reviewed transition strategy |
@@ -182,12 +183,16 @@ not an independent review or evidence of production detection efficacy.
 
 The local [real-browser challenge suite](BROWSER_E2E.md) now covers the
 single-process reference adapter's rendered challenge, one-time redemption,
-fresh evaluation and alternative-method route in Chrome. The baseline still
-does not include reverse-proxy/TLS deployment tests, multi-replica
-challenge-state tests, assistive-technology automation or a sustained
-end-to-end load environment. The in-process concurrency and local browser
-contracts are not proxy-capacity, production-throughput or human-accessibility
-claims. Add those environments with the corresponding product feature; do not
-simulate unsupported production guarantees. False-positive, accessibility and
+fresh evaluation and alternative-method route in Chrome. The separate
+[local TLS deployment suite](TLS_DEPLOYMENT_TESTS.md) now covers both reference
+adapters on real loopback TCP/TLS/HTTP/2 hops, including the trusted immediate
+proxy boundary, direct forwarding-header spoof rejection and raw-request
+isolation from PALISADE. The baseline still does not include a specific
+external proxy implementation, public-PKI and certificate-rotation exercises,
+HTTP/3, multi-replica challenge state, assistive-technology automation or a
+sustained end-to-end load environment. These local contracts are not
+proxy-capacity, production-throughput or human-accessibility claims. Add those
+environments with the corresponding product feature; do not simulate
+unsupported production guarantees. False-positive, accessibility and
 challenge-abandonment rates require linked deployment outcomes and cannot be
 replaced by synthetic test coverage.
