@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"math/bits"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/palisade-human-trust/palisade/internal/core"
@@ -25,24 +26,38 @@ const (
 const challengeTerminalMask = outcomeChallengePassed | outcomeChallengeFailed | outcomeChallengeAbandoned | outcomeFallbackUsed
 
 type linkedDecision struct {
-	decisionSeen     bool
-	duplicate        bool
-	endpoint         string
-	cohort           core.EvaluationCohort
-	recordedAt       time.Time
-	predictedRisky   bool
-	challenged       bool
-	mode             core.RuntimeMode
-	rolloutID        string
-	outcomeEndpoint  string
-	endpointConflict bool
-	outcomeEvents    uint64
-	outcomeMask      uint16
+	decisionSeen      bool
+	assurance         string
+	assuranceWithheld bool
+	duplicate         bool
+	endpoint          string
+	cohort            core.EvaluationCohort
+	recordedAt        time.Time
+	predictedRisky    bool
+	challenged        bool
+	mode              core.RuntimeMode
+	rolloutID         string
+	outcomeEndpoint   string
+	endpointConflict  bool
+	outcomeEvents     uint64
+	outcomeMask       uint16
 }
 
 type evaluationSliceKey struct {
 	endpoint string
 	cohort   core.EvaluationCohort
+}
+
+// assuranceSliceKey groups linked decisions by the human assurance level they
+// backed. Records written before the level existed, and records from the risk
+// surface, are counted under AssuranceLevelUnknown rather than under level 0:
+// an unevaluated decision is not a measured absence of human presence, and
+// merging the two would corrupt the interval that decides whether the ceiling
+// may be raised.
+type assuranceSliceKey struct {
+	endpoint string
+	level    string
+	withheld bool
 }
 
 type linkedAccumulator struct {
@@ -71,6 +86,11 @@ func (a *analyzer) observeLinkedDecision(entry *shadowlog.DecisionEntry, recorde
 		return ErrInvalidReport
 	}
 	link.decisionSeen = true
+	link.assurance = AssuranceLevelUnknown
+	if entry.AssuranceLevel != nil {
+		link.assurance = strconv.Itoa(*entry.AssuranceLevel)
+	}
+	link.assuranceWithheld = entry.AssuranceWithheld
 	link.endpoint = entry.EndpointClass
 	link.cohort = cohort
 	link.recordedAt = parsedAt
@@ -122,6 +142,7 @@ func (a *analyzer) finishLinkage(source shadowlog.Verification) {
 	lastAt, _ := time.Parse(time.RFC3339, source.LastAt)
 	matureBefore := lastAt.Add(-ChallengeOutcomeMaturity)
 	slices := make(map[evaluationSliceKey]*linkedAccumulator)
+	assuranceSlices := make(map[assuranceSliceKey]*linkedAccumulator)
 	endpoints := make(map[string]*linkedAccumulator)
 	canaryBudgets := make(map[canaryEndpointKey]*linkedAccumulator)
 	for _, link := range a.links {
@@ -140,6 +161,14 @@ func (a *analyzer) finishLinkage(source shadowlog.Verification) {
 		}
 		if link.duplicate {
 			continue
+		}
+		assuranceKey := assuranceSliceKey{
+			endpoint: link.endpoint, level: link.assurance, withheld: link.assuranceWithheld,
+		}
+		assured := assuranceSlices[assuranceKey]
+		if assured == nil {
+			assured = &linkedAccumulator{}
+			assuranceSlices[assuranceKey] = assured
 		}
 		sliceKey := evaluationSliceKey{endpoint: link.endpoint, cohort: link.cohort}
 		slice := slices[sliceKey]
@@ -175,6 +204,7 @@ func (a *analyzer) finishLinkage(source shadowlog.Verification) {
 	}
 	a.report.Linkage.ConfirmedLabelCoverage = Proportion(a.report.Linkage.ConfirmedDecisionLabels, source.Decisions)
 	a.report.EvaluationSlices = sortedEvaluationSlices(slices)
+	a.report.AssuranceSlices = sortedAssuranceSlices(assuranceSlices)
 	a.report.CanaryChallengeBudgets = a.sortedCanaryChallengeBudgets(canaryBudgets)
 }
 
@@ -239,6 +269,35 @@ func finalizeLinkedEvaluation(result LinkedEvaluation) LinkedEvaluation {
 	result.ChallengeFailureRate = Proportion(result.ChallengeFailed, result.MatureChallenges)
 	result.ChallengeAbandonmentRate = Proportion(result.ChallengeAbandoned, result.MatureChallenges)
 	result.FallbackRate = Proportion(result.FallbackUsed, result.MatureChallenges)
+	return result
+}
+
+func sortedAssuranceSlices(values map[assuranceSliceKey]*linkedAccumulator) []AssuranceSlice {
+	keys := make([]assuranceSliceKey, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(left, right int) bool {
+		if keys[left].endpoint != keys[right].endpoint {
+			return keys[left].endpoint < keys[right].endpoint
+		}
+		if keys[left].level != keys[right].level {
+			return keys[left].level < keys[right].level
+		}
+		return !keys[left].withheld && keys[right].withheld
+	})
+	result := make([]AssuranceSlice, 0, len(keys))
+	for _, key := range keys {
+		result = append(result, AssuranceSlice{
+			EndpointClass:  key.endpoint,
+			AssuranceLevel: key.level,
+			Withheld:       key.withheld,
+			Evaluation:     values[key].finish(),
+		})
+	}
+	if result == nil {
+		return []AssuranceSlice{}
+	}
 	return result
 }
 

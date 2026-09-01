@@ -245,8 +245,11 @@ Deliverables:
   artifact so H4 verification stays offline and fails closed on expiry;
 - [x] generalize verified-for-a-purpose crawler identity into agent provenance,
   keeping identity separate from authorization;
-- [ ] measure a confirmed-human false-positive and abandonment interval per
-  assurance level, by endpoint class, before any surface is gated above H1.
+- [x] record the assurance level with the decision and report the linked outcome
+  evaluation per level and endpoint class. Measuring an actual confirmed-human
+  false-positive and abandonment interval still needs a representative
+  deployment, and remains the gate before any surface is gated above H1 or the
+  ceiling is raised.
 
 The contract-versioning question that blocked every remaining deliverable is
 settled by [ADR 0005](docs/adr/0005-assurance-api-surface.md): assurance lives on

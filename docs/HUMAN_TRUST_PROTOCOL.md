@@ -377,7 +377,13 @@ credible until at least the following exist, and none of them do today:
 - an assurance assertion format with a JSON Schema, conformance fixtures and a
   deterministic offline verifier;
 - a measured false-positive and abandonment interval per assurance level on a
-  confirmed-human cohort, by endpoint class;
+  confirmed-human cohort, by endpoint class. The machinery exists: the level is
+  recorded with each decision in `shadow-record-v4`, and
+  `shadow-analysis-report-v5` reports the linked outcome evaluation per level
+  and endpoint class using the same Wilson intervals as the endpoint slices.
+  What is missing is a representative deployment to measure. Decisions never
+  evaluated for assurance are counted under `unknown` rather than level 0,
+  because an unevaluated decision is not a measured absence of human presence;
 - a red-team result for proof relay, credential replay, issuer-key compromise
   and stale-revocation windows at each level;
 - at least one independently implemented issuer adapter passing the same

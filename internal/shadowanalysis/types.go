@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	SchemaVersion              = "palisade.shadow-analysis.v4"
+	SchemaVersion              = "palisade.shadow-analysis.v5"
 	DefaultMinDecisions        = uint64(1000)
 	DefaultMinOutcomeCoverage  = 0.10
 	DefaultMinConfirmedHumans  = uint64(100)
@@ -60,6 +60,7 @@ type Report struct {
 	CanaryChallengeBudgets []CanaryChallengeBudget `json:"canary_challenge_budgets"`
 	Linkage                LinkageSummary          `json:"linkage"`
 	EvaluationSlices       []EvaluationSlice       `json:"evaluation_slices"`
+	AssuranceSlices        []AssuranceSlice        `json:"assurance_slices"`
 	Recommendations        []Recommendation        `json:"recommendations"`
 }
 
@@ -176,6 +177,26 @@ type LinkedEvaluation struct {
 	ChallengeFailureRate       ProportionEstimate `json:"challenge_failure_rate"`
 	ChallengeAbandonmentRate   ProportionEstimate `json:"challenge_abandonment_rate"`
 	FallbackRate               ProportionEstimate `json:"fallback_rate"`
+}
+
+// AssuranceLevelUnknown marks decisions that were never evaluated for
+// assurance: everything written before the level was recorded, and everything
+// from the risk surface. It is deliberately not level 0, because an unevaluated
+// decision is not a measured absence of human presence.
+const AssuranceLevelUnknown = "unknown"
+
+// AssuranceSlice reports the linked outcome evaluation for one endpoint class
+// at one assurance level. It is what the roadmap's per-level confirmed-human
+// false-positive and abandonment interval is read from.
+type AssuranceSlice struct {
+	EndpointClass string `json:"endpoint_class"`
+	// AssuranceLevel is a decimal level, or "unknown".
+	AssuranceLevel string `json:"assurance_level"`
+	// Withheld reports that the evidence supported a higher level than the
+	// build stated. Reading a withheld level as if it were the earned one would
+	// understate what the evidence supports.
+	Withheld   bool             `json:"withheld"`
+	Evaluation LinkedEvaluation `json:"evaluation"`
 }
 
 type EvaluationSlice struct {

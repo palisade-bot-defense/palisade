@@ -11,6 +11,7 @@ import (
 	"github.com/palisade-human-trust/palisade/internal/agentprovenance"
 	"github.com/palisade-human-trust/palisade/internal/assurance"
 	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/shadowlog"
 	"github.com/palisade-human-trust/palisade/pkg/palisadeassurance"
 )
 
@@ -105,9 +106,18 @@ func (s *Server) handleAssurance(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.recordDecision(request, decision)
+	// The derived level is recorded with the decision so the confirmed-human
+	// false-positive and abandonment interval can later be reported per level.
+	// Deriving it again here rather than inside mintAssertion keeps one source
+	// of truth for what was recorded and what was asserted.
+	live := s.verifiedLiveness(r, request.SessionID, request.Action, request.EndpointClass)
+	derived := assurance.Derive(decision, live)
+	s.recordDecisionWithAssurance(request, decision, &shadowlog.Assurance{
+		Level:    derived.Level,
+		Withheld: derived.Withheld(),
+	})
 
-	encoded, err := s.mintAssertion(r, request, decision, audience, time.Now().UTC())
+	encoded, err := s.mintAssertion(r, request, decision, derived, audience, time.Now().UTC())
 	if err != nil {
 		// A payload this deployment cannot describe means the request itself was
 		// not expressible in the closed vocabulary. Reporting that as a service
@@ -133,6 +143,7 @@ func (s *Server) mintAssertion(
 	r *http.Request,
 	request core.DecisionRequest,
 	decision core.Decision,
+	derived assurance.Result,
 	audience string,
 	now time.Time,
 ) ([]byte, error) {
@@ -144,8 +155,7 @@ func (s *Server) mintAssertion(
 		return nil, err
 	}
 	provenance := agentprovenance.Derive(request.Observations, request.EndpointClass)
-	live := s.verifiedLiveness(r, request.SessionID, request.Action, request.EndpointClass)
-	payload := assurance.Derive(decision, live).Payload(
+	payload := derived.Payload(
 		palisadeassurance.Binding{
 			SessionBinding: binding,
 			RequestAction:  request.Action,

@@ -35,6 +35,14 @@ type ShadowRecorder interface {
 	RecordOutcome(shadowlog.OutcomeRequest, time.Time) error
 }
 
+// AssuranceRecorder is an optional extension. A recorder that implements it
+// also stores the assurance level a decision backed, which is what lets the
+// confirmed-human false-positive and abandonment interval be reported per
+// level. A recorder that does not implement it keeps working unchanged.
+type AssuranceRecorder interface {
+	RecordAssuredDecision(core.DecisionRequest, core.Decision, shadowlog.Assurance, time.Time) error
+}
+
 type Server struct {
 	engine            DecisionEngine
 	tokens            *token.Service
@@ -619,13 +627,27 @@ func (s *Server) evaluateDecision(w http.ResponseWriter, r *http.Request) (core.
 }
 
 func (s *Server) recordDecision(request core.DecisionRequest, decision core.Decision) {
+	s.recordDecisionWithAssurance(request, decision, nil)
+}
+
+func (s *Server) recordDecisionWithAssurance(request core.DecisionRequest, decision core.Decision, assurance *shadowlog.Assurance) {
 	if s.shadowRecorder != nil {
-		if err := s.shadowRecorder.RecordDecision(request, decision, time.Now().UTC()); err != nil {
+		if err := s.writeDecisionRecord(request, decision, assurance); err != nil {
 			s.recordShadowDrop()
 			return
 		}
 		s.counters.recordedDecisions.Add(1)
 	}
+}
+
+func (s *Server) writeDecisionRecord(request core.DecisionRequest, decision core.Decision, assurance *shadowlog.Assurance) error {
+	now := time.Now().UTC()
+	if assurance != nil {
+		if recorder, ok := s.shadowRecorder.(AssuranceRecorder); ok {
+			return recorder.RecordAssuredDecision(request, decision, *assurance, now)
+		}
+	}
+	return s.shadowRecorder.RecordDecision(request, decision, now)
 }
 
 func originStatus(decision core.Decision, now time.Time) (int, bool) {

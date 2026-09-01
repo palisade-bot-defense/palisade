@@ -47,9 +47,11 @@ EXPECTED_CLASSIFICATIONS = {
         "schemas/local-evidence-event-v1.schema.json", "schemas/local-evidence-input-v1.schema.json",
         "schemas/local-evidence-manifest-v1.schema.json", "schemas/local-family-annotation-v1.schema.json",
         "schemas/local-holdout-report-v1.schema.json", "schemas/local-sequence-report-v1.schema.json",
-        "schemas/rollout-review-v4.schema.json", "schemas/shadow-analysis-report-v4.schema.json",
+        "schemas/shadow-record-v3.schema.json",
+        "schemas/shadow-record-v4.schema.json",
+        "schemas/rollout-review-v4.schema.json", "schemas/shadow-analysis-report-v5.schema.json",
         "schemas/shadow-holdout-report-v1.schema.json", "schemas/shadow-record-v1.schema.json",
-        "schemas/shadow-record-v2.schema.json", "schemas/shadow-record-v3.schema.json",
+        "schemas/shadow-record-v2.schema.json", "schemas/shadow-record-v4.schema.json",
         "schemas/sovereignty-report-v1.schema.json",
     },
     "maintainer_evidence": {
@@ -96,16 +98,17 @@ EXPECTED_TRANSITIONS = {
         "operator_command": "palisade prepare-review", "loss_boundary": "historical_review_is_not_activation_authority",
     },
     "shadow_analysis": {
-        "current_schema": "schemas/shadow-analysis-report-v4.schema.json",
-        "previous_schemas": [f"schemas/shadow-analysis-report-v{version}.schema.json" for version in range(1, 4)],
+        "current_schema": "schemas/shadow-analysis-report-v5.schema.json",
+        "previous_schemas": [f"schemas/shadow-analysis-report-v{version}.schema.json" for version in range(1, 5)],
         "previous_support": "unsupported_historical", "strategy": "regenerate_from_authenticated_source",
         "operator_command": "palisade analyze-shadow-log", "loss_boundary": "historical_report_is_not_rollout_authority",
     },
     "shadow_record": {
-        "current_schema": "schemas/shadow-record-v3.schema.json",
-        "previous_schemas": [f"schemas/shadow-record-v{version}.schema.json" for version in range(1, 3)],
+        "current_schema": "schemas/shadow-record-v4.schema.json",
+        "previous_schemas": [f"schemas/shadow-record-v{version}.schema.json" for version in range(1, 4)],
         "previous_support": "legacy_read", "strategy": "legacy_read_no_rewrite",
-        "operator_command": "palisade verify-shadow-log", "loss_boundary": "v1_outcome_has_no_decision_id",
+        "operator_command": "palisade verify-shadow-log",
+        "loss_boundary": "v1_outcome_has_no_decision_id_and_pre_v4_has_no_assurance_level",
     },
 }
 

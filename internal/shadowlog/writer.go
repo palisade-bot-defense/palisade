@@ -90,7 +90,28 @@ func New(config Config) (*Sink, error) {
 	return sink, nil
 }
 
+// Assurance is the derived human assurance view of one decision, recorded so
+// the false-positive and abandonment interval can later be reported per level.
+// It is optional: a decision from the risk surface was never evaluated for
+// assurance and records no level at all.
+type Assurance struct {
+	Level    int
+	Withheld bool
+}
+
+// RecordAssuredDecision records a decision together with the assurance level it
+// backed. It is separate from RecordDecision so an existing recorder keeps
+// working unchanged and a risk-surface decision cannot accidentally be written
+// as level 0.
+func (s *Sink) RecordAssuredDecision(request core.DecisionRequest, decision core.Decision, assurance Assurance, now time.Time) error {
+	return s.recordDecision(request, decision, &assurance, now)
+}
+
 func (s *Sink) RecordDecision(request core.DecisionRequest, decision core.Decision, now time.Time) error {
+	return s.recordDecision(request, decision, nil, now)
+}
+
+func (s *Sink) recordDecision(request core.DecisionRequest, decision core.Decision, assurance *Assurance, now time.Time) error {
 	if !validSessionID(request.SessionID) {
 		return errors.New("invalid shadow decision session")
 	}
@@ -120,6 +141,7 @@ func (s *Sink) RecordDecision(request core.DecisionRequest, decision core.Decisi
 			DecisionID: sanitizeStable(decision.DecisionID), RequestAction: normalizeRequestAction(request.Action), EndpointClass: normalizeEndpoint(request.EndpointClass), EvaluationCohort: evaluationCohort,
 			Action: decision.Action, ComputedAction: decision.ComputedAction, Mode: decision.Mode, RolloutID: sanitizeOptionalStable(decision.RolloutID), Scores: decision.Scores,
 			ReasonCodes: reasons, PolicyVersion: sanitizeStable(decision.PolicyVersion), ModelVersion: sanitizeStable(decision.ModelVersion),
+			AssuranceLevel: assuranceLevel(assurance), AssuranceWithheld: assurance != nil && assurance.Withheld,
 		},
 	}
 	return s.enqueue(record)
@@ -582,4 +604,14 @@ func isManagedLogName(name string) bool {
 	}
 	_, err := time.Parse("20060102T150405Z", name[7:23])
 	return err == nil
+}
+
+// assuranceLevel returns a pointer so an unevaluated decision records no level
+// rather than level 0.
+func assuranceLevel(assurance *Assurance) *int {
+	if assurance == nil {
+		return nil
+	}
+	level := assurance.Level
+	return &level
 }

@@ -42,6 +42,18 @@ const (
 	reasonNoVerifiedInteraction   = "no_verified_interaction_evidence"
 )
 
+// Withheld reports that the evidence supported a higher level than this build
+// states. A relying service and the local measurement both need the difference
+// between a level that was not earned and one that was earned and withheld.
+func (r Result) Withheld() bool {
+	for _, code := range r.ReasonCodes {
+		if code == reasonLevelPendingMeasurement {
+			return true
+		}
+	}
+	return false
+}
+
 // Result is the derived assurance view of one decision.
 type Result struct {
 	Level       int
