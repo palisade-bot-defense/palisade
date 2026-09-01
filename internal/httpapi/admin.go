@@ -9,10 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/adminui"
-	"github.com/palisade-bot-defense/palisade/internal/analysisfeed"
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
+	"github.com/palisade-human-trust/palisade/internal/adminui"
+	"github.com/palisade-human-trust/palisade/internal/analysisfeed"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/shadowanalysis"
 )
 
 // AdminConfig contains only immutable, non-secret runtime metadata and the

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/localartifact"
+	"github.com/palisade-human-trust/palisade/internal/localartifact"
 )
 
 func TestDefaultDetectorBundleExampleMatchesRuntime(t *testing.T) {

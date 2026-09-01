@@ -38,7 +38,7 @@ if ! meets_minimum "$overall" "$overall_min"; then
 	exit 1
 fi
 
-module=github.com/palisade-bot-defense/palisade
+module=github.com/palisade-human-trust/palisade
 critical_packages='
 internal/analysisfeed
 internal/challenge

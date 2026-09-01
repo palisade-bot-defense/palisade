@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/events"
-	"github.com/palisade-bot-defense/palisade/internal/rollout"
-	"github.com/palisade-bot-defense/palisade/internal/token"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/events"
+	"github.com/palisade-human-trust/palisade/internal/rollout"
+	"github.com/palisade-human-trust/palisade/internal/token"
 )
 
 var ErrInvalidEventShadowProfile = errors.New("invalid event shadow evaluation profile")

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/offlineimport"
+	"github.com/palisade-human-trust/palisade/internal/offlineimport"
 )
 
 func TestHoldoutEvaluationKeepsChronologyLabelsAndUnseenFamiliesSeparate(t *testing.T) {

@@ -13,13 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/challenge"
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/decoy"
-	"github.com/palisade-bot-defense/palisade/internal/events"
-	"github.com/palisade-bot-defense/palisade/internal/sessioncookie"
-	"github.com/palisade-bot-defense/palisade/internal/shadowlog"
-	"github.com/palisade-bot-defense/palisade/internal/token"
+	"github.com/palisade-human-trust/palisade/internal/challenge"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/decoy"
+	"github.com/palisade-human-trust/palisade/internal/events"
+	"github.com/palisade-human-trust/palisade/internal/sessioncookie"
+	"github.com/palisade-human-trust/palisade/internal/shadowlog"
+	"github.com/palisade-human-trust/palisade/internal/token"
 )
 
 type fakeEngine struct{}

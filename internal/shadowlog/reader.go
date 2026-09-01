@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/core"
 )
 
 func VerifyDirectory(directory, keyFile string) (Verification, error) {

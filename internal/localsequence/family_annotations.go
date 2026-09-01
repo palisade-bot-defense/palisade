@@ -14,7 +14,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/palisade-bot-defense/palisade/internal/offlineimport"
+	"github.com/palisade-human-trust/palisade/internal/offlineimport"
 )
 
 type familyIndex struct {

@@ -1,5 +1,5 @@
 {
-  "name": "@palisade-bot-defense/sensor",
+  "name": "@palisade-human-trust/sensor",
   "version": "0.2.0",
   "description": "Privacy-limited browser behavior sensor for PALISADE",
   "type": "module",

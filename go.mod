@@ -1,4 +1,4 @@
-module github.com/palisade-bot-defense/palisade
+module github.com/palisade-human-trust/palisade
 
 go 1.27.0
 

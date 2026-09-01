@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/pkg/palisadehttp"
+	"github.com/palisade-human-trust/palisade/pkg/palisadehttp"
 )
 
 const (

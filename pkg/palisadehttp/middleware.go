@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/pkg/palisadecontract"
-	"github.com/palisade-bot-defense/palisade/pkg/palisadeedge"
+	"github.com/palisade-human-trust/palisade/pkg/palisadecontract"
+	"github.com/palisade-human-trust/palisade/pkg/palisadeedge"
 )
 
 func (m *Middleware) Handler(next http.Handler) http.Handler {

@@ -6,8 +6,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/shadowlog"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/shadowlog"
 )
 
 const (

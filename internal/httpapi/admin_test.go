@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/token"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/token"
 )
 
 func TestAdminSurfaceIsSeparateAuthenticatedAndAggregateOnly(t *testing.T) {

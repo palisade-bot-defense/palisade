@@ -10,9 +10,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/detector"
-	"github.com/palisade-bot-defense/palisade/internal/localartifact"
-	"github.com/palisade-bot-defense/palisade/internal/policy"
+	"github.com/palisade-human-trust/palisade/internal/detector"
+	"github.com/palisade-human-trust/palisade/internal/localartifact"
+	"github.com/palisade-human-trust/palisade/internal/policy"
 )
 
 func artifactKeygen(args []string) error {

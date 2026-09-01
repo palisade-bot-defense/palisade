@@ -2,7 +2,7 @@ services:
   palisade:
     build:
       context: ../..
-    image: ghcr.io/palisade-bot-defense/palisade:dev
+    image: ghcr.io/palisade-human-trust/palisade:dev
     restart: unless-stopped
     read_only: true
     tmpfs:

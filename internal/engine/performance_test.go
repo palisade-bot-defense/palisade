@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/detector"
-	"github.com/palisade-bot-defense/palisade/internal/policy"
-	"github.com/palisade-bot-defense/palisade/internal/rollout"
-	"github.com/palisade-bot-defense/palisade/internal/session"
-	"github.com/palisade-bot-defense/palisade/internal/token"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/detector"
+	"github.com/palisade-human-trust/palisade/internal/policy"
+	"github.com/palisade-human-trust/palisade/internal/rollout"
+	"github.com/palisade-human-trust/palisade/internal/session"
+	"github.com/palisade-human-trust/palisade/internal/token"
 )
 
 const pilotDecisionP95Budget = 10 * time.Millisecond

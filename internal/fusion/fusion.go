@@ -3,7 +3,7 @@ package fusion
 import (
 	"math"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/core"
 )
 
 func Calculate(evidence []core.Evidence) core.Scores {

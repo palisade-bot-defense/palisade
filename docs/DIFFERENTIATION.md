@@ -1,15 +1,20 @@
 # Product differentiation
 
-Status: 2026-08-29. This is a product strategy, not a claim that competitors
+Status: 2026-09-01. This is a product strategy, not a claim that competitors
 lack privacy controls or that PALISADE already matches their detection efficacy.
 Vendor capabilities and packaging can change; links point to first-party
 material used for this review.
 
 ## Position in one sentence
 
-**PALISADE is open-source bot defense that can show where evidence stayed, why
-it acted and how enforcement was promoted—without requiring traffic telemetry
-to be sent to a vendor cloud.**
+**PALISADE is an open protocol for verifying human presence, continuity,
+uniqueness and agent provenance—verifying proofs issued elsewhere, on
+operator-controlled infrastructure, with no PALISADE-operated trust network and
+no PALISADE-issued identity.**
+
+This is a claim about the protocol boundary, not about detection efficacy, and
+not a claim that the ladder is built: only H0–H2 exist today. See
+[Human Trust Protocol](HUMAN_TRUST_PROTOCOL.md).
 
 The differentiation is the combination of three verifiable contracts:
 
@@ -41,6 +46,15 @@ The first adopter is an operator willing to run shadow measurement and own
 policy, not a team seeking a turnkey managed service with an efficacy guarantee.
 
 ## What established products do especially well
+
+The table below compares the **evidence substrate**—bot and abuse detection—not
+the product. Since PALISADE is positioned as a proof-of-human protocol, its real
+comparison set is identity wallets, personhood credentials, device attestation
+and platform verification badges. Those are complements rather than competitors
+under ADR 0004: PALISADE verifies what they issue, and the products below remain
+possible upstream signal sources at H1. A proper comparison against the issuer
+ecosystem is outstanding work and should be written once an assertion format
+exists to compare against.
 
 | Product/category | Distinct strength described by its publisher | Boundary relevant to PALISADE |
 |---|---|---|

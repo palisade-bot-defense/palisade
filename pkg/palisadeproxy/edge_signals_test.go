@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/pkg/palisadeedge"
+	"github.com/palisade-human-trust/palisade/pkg/palisadeedge"
 )
 
 var edgeTestKey = []byte("0123456789abcdef0123456789abcdef")

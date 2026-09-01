@@ -19,8 +19,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/pkg/palisadecontract"
-	"github.com/palisade-bot-defense/palisade/pkg/palisadeedge"
+	"github.com/palisade-human-trust/palisade/pkg/palisadecontract"
+	"github.com/palisade-human-trust/palisade/pkg/palisadeedge"
 )
 
 const maxServiceBody = 64 << 10

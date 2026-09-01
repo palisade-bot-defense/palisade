@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package palisade.v1;
 
-option go_package = "github.com/palisade-bot-defense/palisade/gen/palisade/v1;palisadev1";
+option go_package = "github.com/palisade-human-trust/palisade/gen/palisade/v1;palisadev1";
 
 // BrowserEvent intentionally excludes DOM text, form values and precise pointers.
 message BrowserEvent {
