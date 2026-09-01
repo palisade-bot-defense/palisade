@@ -22,6 +22,7 @@
       "schemas/crawler-registry-v1.schema.json",
       "schemas/detector-bundle-v1.schema.json",
       "schemas/edge-signal-envelope-v1.schema.json",
+      "schemas/human-assurance-assertion-v1.schema.json",
       "schemas/local-artifact-v1.schema.json",
       "schemas/normalized-signal-contract-v1.schema.json",
       "schemas/policy-bundle-v1.schema.json",

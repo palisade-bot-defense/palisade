@@ -7,7 +7,7 @@
 </p>
 
 > [!IMPORTANT]
-> PALISADE is an early prototype of a proof-of-human protocol. Only the mechanisms underneath the lowest assurance levels (H0–H2) exist in this repository, and no assurance assertion is yet produced or consumed; device attestation, issuer-signed credentials and uniqueness (H3–H5) are specified and unimplemented. The only integration surface that exists is HTTP and the web: origin adapter, reverse proxy and browser sensor. Calls and messaging are target surfaces with no adapter. PALISADE never issues an identity, never captures biometrics and makes no claim of global proof of personhood. Any deployment must begin in shadow mode: the false-positive rate is not yet calibrated on a representative confirmed-human cohort, and no challenge, credential or behavior model can guarantee 100% separation against an adaptive attacker.
+> PALISADE is an early prototype of a proof-of-human protocol. The assurance assertion contract exists, but its supported ceiling is H1: the reference verifier refuses to sign or accept anything higher, and nothing yet emits an assertion in the decision path; device attestation, issuer-signed credentials and uniqueness (H3–H5) are specified and unimplemented. The only integration surface that exists is HTTP and the web: origin adapter, reverse proxy and browser sensor. Calls and messaging are target surfaces with no adapter. PALISADE never issues an identity, never captures biometrics and makes no claim of global proof of personhood. Any deployment must begin in shadow mode: the false-positive rate is not yet calibrated on a representative confirmed-human cohort, and no challenge, credential or behavior model can guarantee 100% separation against an adaptive attacker.
 
 ## Project focus
 
@@ -100,16 +100,25 @@ map](docs/DATA_MAP.md) records accepted classes, destinations and persistence.
 
 ## What exists today
 
-What exists are the **mechanisms underneath H0–H2**, not the assurance levels
-themselves: verified bounded interaction evidence, and a one-time,
-session/action/endpoint-bound challenge hardened against replay and relay.
-PALISADE produces and consumes no assurance assertion today—there is no
-assertion format, no schema and no verifier. The current challenge remains a
-cost and outcome signal, not liveness evidence: browser automation may complete
-it routinely. Device attestation (H3), issuer-signed credentials (H4) and scope
-uniqueness (H5) are specified in the
-[Human Trust Protocol](docs/HUMAN_TRUST_PROTOCOL.md) and have no implementation
-and no measured false-positive interval.
+The assurance assertion is a real, frozen contract:
+[`human-assurance-assertion-v1`](schemas/human-assurance-assertion-v1.schema.json)
+with a deterministic offline verifier in
+[`pkg/palisadeassurance`](pkg/palisadeassurance) and a
+[conformance suite](examples/conformance/human-assurance-assertion-v1.json).
+An assertion is short-lived, Ed25519-signed, bound to one audience, session,
+action and endpoint class, and carries no subject identity, biometric material,
+device identifier or cross-site identifier. Its session commitment is derived
+per audience, so two relying services cannot link the same visitor.
+
+Its **supported ceiling is H1**—verified bounded interaction evidence. The
+verifier refuses to sign or accept a higher level, and a test enforces that the
+ceiling cannot be raised without a mechanism behind it. H2 needs an interactive
+liveness challenge that does not exist here: the current challenge is a cost and
+outcome signal that browser automation may complete routinely. Device
+attestation (H3), issuer-signed credentials (H4) and scope uniqueness (H5) are
+specified in the [Human Trust Protocol](docs/HUMAN_TRUST_PROTOCOL.md) and have
+no implementation and no measured false-positive interval. Nothing emits an
+assertion in the decision path yet.
 
 The first vertical slice is runnable: a Go decision service, short-lived replay-protected proof tokens, an optional server-issued signed continuity cookie, bounded in-memory sessions, detector evidence, three-dimensional score fusion, CEL policy evaluation, deterministic JSONL replay, a privacy-limited browser sensor, an embedded control-room dashboard, encrypted local analysis, signed reversible rollout plans and a session/action/endpoint-bound native challenge lifecycle.
 

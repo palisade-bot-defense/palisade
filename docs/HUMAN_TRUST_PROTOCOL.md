@@ -6,10 +6,13 @@ PALISADE is no longer a bot-defense product; its detector, decoy, sensor and
 challenge machinery is retained as the evidence substrate of the lowest
 assurance levels.
 
-Specification status is separate from implementation status: nothing in the
-H3–H5 range is implemented, and no part of this document changes a frozen v1
-contract. A reader should assume that everything above H2 is design, not
-capability.
+Specification status is separate from implementation status. The assertion
+contract itself is implemented and frozen as
+[`human-assurance-assertion-v1`](../schemas/human-assurance-assertion-v1.schema.json),
+but its **supported ceiling is H1**: the reference verifier refuses to sign or
+accept any higher level, because no mechanism in this repository verifies
+interactive liveness, device attestation, issuer credentials or uniqueness. A
+reader should assume that everything above H1 is design, not capability.
 
 ## Position
 
@@ -111,11 +114,19 @@ explainable.
 | Level | Evidence required | Typical use | Status |
 |---|---|---|---|
 | H0 | none; unattributed traffic | anonymous reads | available |
-| H1 | verified bounded interaction evidence and low automation risk | commenting, low-value writes | available today as evidence, not as an assertion |
-| H2 | H1 plus a completed session/action/endpoint-bound interactive challenge | account creation, rate-limited signup | mechanism exists; assertion format not implemented |
+| H1 | verified bounded interaction evidence and low automation risk | commenting, low-value writes | implemented: the assertion contract exists and this is its ceiling |
+| H2 | H1 plus a completed session/action/endpoint-bound **interactive** challenge | account creation, rate-limited signup | not implemented: one-time binding and replay resistance exist, interactive liveness does not |
 | H3 | H2 plus a device-attested key bound to the session | marketplace actions, messaging identity | not implemented |
 | H4 | H3 plus an issuer assertion of verified liveness at enrolment | high-value transactions, bank-detail changes | not implemented; requires an external issuer |
 | H5 | H4 plus an issuer assertion of scope uniqueness | governance, one-person-one-vote surfaces | not implemented; requires an external issuer with a dedupe guarantee |
+
+The H2 distinction is easy to misread and matters. The existing challenge
+lifecycle already provides one-time, session/action/endpoint-bound redemption
+hardened against replay and relay — that is the *binding* mechanism. What it
+does not provide is *liveness*: the current challenge is proof of work, and
+browser automation may complete it routinely. H2 therefore needs a new
+interactive challenge type, not a new assertion field, and the reference
+implementation refuses to sign or accept any level above H1 until one exists.
 
 Two claims deliberately absent from that table:
 

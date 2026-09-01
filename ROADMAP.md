@@ -229,10 +229,13 @@ boundary decision is
 
 Deliverables:
 
-- [ ] specify a human-assurance assertion format with a JSON Schema, a
+- [x] specify a human-assurance assertion format with a JSON Schema, a
   deterministic offline verifier and conformance fixtures;
-- [ ] express verified interaction evidence and one-time challenge redemption as
-  H1/H2 assertions without adding a persisted class or a request-path callsite;
+- [ ] express verified interaction evidence as an H1 assertion in the decision
+  path without adding a persisted class or a request-path callsite;
+- [ ] add an interactive liveness challenge type before any H2 assertion is
+  possible; the existing proof-of-work challenge is a cost and outcome signal
+  that browser automation may complete routinely, so it cannot reach H2;
 - [ ] accept platform device attestation as H3 evidence bound to the existing
   short-lived proof token;
 - [ ] define the signed, expiring local issuer trust-list and revocation

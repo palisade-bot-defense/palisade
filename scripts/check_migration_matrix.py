@@ -36,6 +36,7 @@ EXPECTED_CLASSIFICATIONS = {
         "api/contracts/normalized-signal-v1.json", "api/openapi.yaml",
         *{f"api/proto/palisade/v1/{name}.proto" for name in ("challenge", "common", "coverage", "decision", "decoy", "event")},
         "schemas/crawler-registry-v1.schema.json", "schemas/detector-bundle-v1.schema.json",
+        "schemas/human-assurance-assertion-v1.schema.json",
         "schemas/edge-signal-envelope-v1.schema.json", "schemas/local-artifact-v1.schema.json",
         "schemas/normalized-signal-contract-v1.schema.json", "schemas/policy-bundle-v1.schema.json",
         "schemas/rollout-plan-v2.schema.json",
