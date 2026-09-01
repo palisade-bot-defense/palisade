@@ -203,6 +203,28 @@ signed, expiring local revocation artifact with a short validity window, so a
 stale artifact fails closed to a lower assurance level instead of silently
 accepting revoked credentials.
 
+That artifact is implemented as
+[`issuer-trust-list-v1`](../schemas/issuer-trust-list-v1.schema.json), verified
+by `internal/issuertrust`. One signed document names which issuers a deployment
+accepts, the assurance ceiling and uniqueness scope each is granted, the purpose
+each was assessed for, and which credential commitments are revoked. It is
+distributed as a file and verified offline: no issuer lookup, no revocation
+fetch and no network call happens while a request is handled.
+
+Four properties are worth stating because they are enforced rather than
+intended. The list expires within a day at most, and an expired list degrades
+every issuer to untrusted rather than staying in force. A list whose revision
+does not increase is refused as a rollback, and a refused update leaves the
+previous list installed. An issuer granted a ceiling above what this build can
+verify is clamped down to it, so a trust list may be written for a future
+release without silently granting assurance nothing checks. And an issuer
+permitted to assert uniqueness must also be granted a level that can carry it,
+so the two statements cannot contradict each other.
+
+The list holds no subject data: a revoked credential appears only as an opaque
+per-issuer commitment, which is not reversible to a person and is meaningless
+outside that issuer.
+
 ### 5. Uniqueness — H5
 
 Uniqueness is three different problems and the doc must not blur them:
@@ -306,7 +328,7 @@ legal conclusions, and none of them is discharged by self-hosting:
 | continuity across sessions | `internal/sessioncookie` |
 | one-time, action-bound liveness redemption | `internal/challenge` |
 | behavioural and decoy evidence | `internal/detector`, `internal/events`, `internal/decoy` |
-| issuer keys, trust lists, revocation, scope parameters | `internal/localartifact` signed expiring artifacts |
+| issuer keys, trust lists, revocation, scope parameters | `internal/issuertrust`, on the `internal/localartifact` signed-expiring pattern |
 | assurance-aware enforcement | `internal/policy` CEL |
 | verified-for-a-purpose agent identity | signed crawler registry pattern, `pkg/palisadehttp` |
 | deployment claims about issuers and scopes | `internal/sovereignty` |

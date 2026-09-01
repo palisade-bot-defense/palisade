@@ -238,7 +238,7 @@ Deliverables:
   that browser automation may complete routinely, so it cannot reach H2;
 - [ ] accept platform device attestation as H3 evidence bound to the existing
   short-lived proof token;
-- [ ] define the signed, expiring local issuer trust-list and revocation
+- [x] define the signed, expiring local issuer trust-list and revocation
   artifact so H4 verification stays offline and fails closed on expiry;
 - [ ] generalize verified-for-a-purpose crawler identity into agent provenance,
   keeping identity separate from authorization;

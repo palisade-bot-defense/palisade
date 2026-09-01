@@ -48,6 +48,7 @@ internal/engine
 internal/events
 internal/fusion
 internal/httpapi
+internal/issuertrust
 internal/localsequence
 internal/localartifact
 internal/offlineimport
