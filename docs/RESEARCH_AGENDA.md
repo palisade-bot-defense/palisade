@@ -6,10 +6,77 @@ grounded in a cited source, grounded in a tension this repository actually hit
 while implementing the assurance ladder, or explicitly marked as a proposal. It
 is not a survey and makes no claim to completeness.
 
-The problem, in one sentence: **how can a relying service know that a live,
-present person is on the other end of an interaction — without learning who
-they are, without excluding people who interact differently, and without
-building an identity system that concentrates power?**
+## 0. The central research question
+
+The goal of the software is to rebuild a trust layer for the internet: to know
+that a verified human is on the other end of a call, a message or a transaction.
+As a research question that sentence is too loose to answer, because "verified
+human on the other end" bundles three different claims and names three surfaces.
+Made precise:
+
+> **Under what conditions can a relying party obtain verifiable evidence that a
+> live, present person is on the other end of a call, a message or a
+> transaction — at a stated and measured level of confidence — without learning
+> who that person is, without excluding people who interact differently, and
+> without any party acquiring the power to decide who counts as a person?**
+
+Every clause is load-bearing.
+
+- **Verifiable evidence, not a verdict.** The answer is an assertion a relying
+  party can check, with reason codes, not a boolean somebody else decided.
+- **Live and present** is one claim (liveness, H2). **The same one as before**
+  is a second (continuity). **One, not many** is a third (uniqueness, H5). They
+  are answered by different mechanisms, fail differently, and must be measured
+  separately. Collapsing them is how "verified human" becomes a badge.
+- **A stated and measured level.** A level without a confirmed-human
+  false-positive and abandonment interval is a promise. This repository
+  computes H2 and H3 and withholds them until that interval exists.
+- **Without learning who.** No subject identity, no biometric material, no
+  device identifier, no cross-site identifier; commitments derived per
+  audience.
+- **Without excluding.** A control that excludes people does not remove them;
+  it routes them through the relay paths it was meant to close.
+- **Without concentrating power.** The verifier never issues. Whoever can say
+  who counts as a person can also say who does not.
+- **Call, message, transaction — all three.** The goal is all three surfaces,
+  and they are not three adapters for one problem. They differ in who the
+  relying party is, when verification happens relative to the interaction, what
+  the assertion binds to, and what freshness means. Section 0.1 sets that out.
+  Today only the transaction surface exists.
+
+The theses, questions and concepts below are decompositions of this question.
+Every one of them should be traceable back to a clause of it.
+
+### 0.1 Three surfaces, three problems
+
+| | Transaction | Message | Call |
+|---|---|---|---|
+| **Relying party** | a service | a recipient — usually a person's client | the other participant — a person's client |
+| **When verified** | before the action, one shot | at send; verified at read, possibly hours later | continuously, for the duration |
+| **What the assertion binds to** | session, action, endpoint class, audience | a content commitment and the recipient scope | a channel identifier and a time window, re-attested |
+| **Freshness** | a minute | validity and freshness diverge: verifiable for days, freshness is evidence age *at send* | continuous; presence must be re-established, not assumed |
+| **Primary threat** | scripted automation, relay | spam at scale, impersonation, forwarded assertions | voice and video cloning, relay of a real person |
+| **What PALISADE verifies** | interaction evidence, liveness, device | the same, minted at send, bound to content | device-bound continuity plus periodic liveness — never the media |
+| **Status** | HTTP surface exists | no adapter | no adapter |
+
+Three consequences follow.
+
+First, for messages and calls the relying party is a *person's client*, not a
+server. The verifier has to run there. `pkg/palisadeassurance` is Go; a
+verifier for the client side is a deliverable, not an afterthought.
+
+Second, messaging is increasingly end-to-end encrypted, so the verifier cannot
+see content. The sender must commit to the content and the assertion is minted
+over that commitment; PALISADE never sees plaintext. A forwarded assertion then
+fails, because the binding is to the message that was sent, not to the person
+who sent it — which is the point.
+
+Third, on a call, the threat is the media, and PALISADE verifies no media
+(T10). "Verified human on a call" therefore means "a present person holding a
+registered device stayed attached to this channel and re-attested throughout".
+It does not mean "this voice is real". That is a narrower claim than the slogan
+suggests and it must be stated as such, because a system that implies it can
+detect a cloned voice will be trusted for exactly the thing it cannot do.
 
 ## 1. What the sources establish
 
@@ -203,6 +270,30 @@ never drifted from its code.
   question as who authorized it? Does the protocol need an accountability chain
   distinct from the authorization chain?
 
+### Surfaces
+
+- **RQ19 (message).** How does an assertion travel with an end-to-end encrypted
+  message when the verifier cannot see content? The sender computes a content
+  commitment; the assertion is minted over that commitment and the recipient
+  scope; the recipient verifies. What commitment scheme keeps the assertion
+  unforgeable without leaking anything about the content to PALISADE?
+- **RQ20 (message).** What does freshness mean when verification happens hours
+  after minting? The assertion needs two clocks — validity, and evidence age at
+  the moment of sending — and a recipient needs to see both.
+- **RQ21 (call).** What is *continuous* presence? An initial liveness challenge
+  plus periodic re-attestation gives a cadence; what cadence is enough, and can
+  re-attestation be passive (device signature over channel and interval) so a
+  call is not interrupted every thirty seconds?
+- **RQ22 (call).** If the voice can be cloned but the device and liveness check
+  out, what has actually been verified? Precisely: that a present person holding
+  a registered device is attached to the channel. Is that claim useful to the
+  other participant, and how must the client phrase it so it is not read as
+  "this voice is real"?
+- **RQ23 (all three).** Is one assertion contract with three binding profiles
+  enough, or do the surfaces need three contracts? The `binding` object already
+  exists; the question is whether request-bound, content-bound and
+  channel-bound bindings are variants or different things.
+
 ### Governance
 
 - **RQ17.** Trusting an issuer is a bounded-blast-radius decision only if the
@@ -280,6 +371,30 @@ attribution rather than automation: the question is not "is this a bot" but
 endpoint, origin and device bindings are the defences; each should be mapped to
 the relay topology it defeats. Responds to RQ7.
 
+**C11 — Surface profiles of one assertion.** One contract, three binding
+profiles: request-bound (session, action, endpoint, audience — exists),
+content-bound (content commitment, recipient scope) and channel-bound (channel
+identifier, interval). The assertion, its verifier and its freeze stay single;
+the profile says what the signature covers. Responds to RQ23.
+
+**C12 — Sender-committed assertions for encrypted messaging.** The sender
+hashes the message, requests an assertion over the hash and the recipient
+scope, and attaches it. PALISADE never sees plaintext. A recipient verifies
+locally with a client-side verifier. Forwarding breaks the binding by design.
+Responds to RQ19 and RQ20.
+
+**C13 — Continuous presence for calls.** Open the call with the interactive
+liveness challenge, then re-attest with a low-cost device signature over the
+channel identifier and the current interval, on a cadence the other
+participant's client displays as "present · verified *n* seconds ago". No media
+is analysed, and the client copy says exactly what was verified and what was
+not. Responds to RQ21 and RQ22.
+
+**C14 — A client-side verifier.** Messages and calls make a person's client the
+relying party. A verifier that runs in a browser or a phone, with the same
+conformance fixtures as the Go one, is what turns the message and call surfaces
+from design into capability. Responds to the first consequence in 0.1.
+
 ## 5. What this repository can already test
 
 - T2, T8 and C4 are enforced by tests in `internal/assurance`.
@@ -294,3 +409,5 @@ the relay topology it defeats. Responds to RQ7.
   (`internal/issuertrust`); what is missing is the delegation credential.
 - Nothing here can supply RQ4, RQ6 or the production half of any interval.
   Those need people and a deployment.
+- Nothing here touches the message or call surface. C11 to C14 are the path
+  from one surface to three, and C14 is the prerequisite for the other two.
