@@ -107,7 +107,7 @@ func (s *Server) handleAssurance(w http.ResponseWriter, r *http.Request) {
 	}
 	s.recordDecision(request, decision)
 
-	encoded, err := s.mintAssertion(request, decision, audience, time.Now().UTC())
+	encoded, err := s.mintAssertion(r, request, decision, audience, time.Now().UTC())
 	if err != nil {
 		// A payload this deployment cannot describe means the request itself was
 		// not expressible in the closed vocabulary. Reporting that as a service
@@ -130,6 +130,7 @@ func (s *Server) handleAssurance(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) mintAssertion(
+	r *http.Request,
 	request core.DecisionRequest,
 	decision core.Decision,
 	audience string,
@@ -143,7 +144,8 @@ func (s *Server) mintAssertion(
 		return nil, err
 	}
 	provenance := agentprovenance.Derive(request.Observations, request.EndpointClass)
-	payload := assurance.Derive(decision, false).Payload(
+	live := s.verifiedLiveness(r, request.SessionID, request.Action, request.EndpointClass)
+	payload := assurance.Derive(decision, live).Payload(
 		palisadeassurance.Binding{
 			SessionBinding: binding,
 			RequestAction:  request.Action,

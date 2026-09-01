@@ -135,6 +135,14 @@ attacker-cost and throughput argument, not a proof, and the response floor is
 set generously because excluding a fast assistive-technology user is a worse
 failure than admitting a fast script.
 
+The mechanism is reachable: `POST /v1/assurance/liveness` opens an attempt and
+`/answer` walks its rounds, both on the assurance contract rather than the
+frozen challenge contract. A completed attempt yields an attestation the client
+presents to `/v1/assurance`, where it is checked against that request's session,
+action and endpoint class. Any failed round reports only that the attempt ended:
+distinguishing a wrong answer from one that was too fast or too late would tell
+an attacker which constraint to tune.
+
 The level it supports is therefore computed but not granted. `Derive` reaches
 H2 and the ceiling clamps it back to H1, adding the reason code
 `level_withheld_pending_measurement` and dropping the evidence class the

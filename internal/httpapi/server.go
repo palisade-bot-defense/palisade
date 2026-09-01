@@ -18,6 +18,7 @@ import (
 	"github.com/palisade-human-trust/palisade/internal/decoy"
 	decisionengine "github.com/palisade-human-trust/palisade/internal/engine"
 	"github.com/palisade-human-trust/palisade/internal/events"
+	"github.com/palisade-human-trust/palisade/internal/liveness"
 	"github.com/palisade-human-trust/palisade/internal/sessioncookie"
 	"github.com/palisade-human-trust/palisade/internal/shadowlog"
 	"github.com/palisade-human-trust/palisade/internal/token"
@@ -51,6 +52,7 @@ type Server struct {
 	eventShadowDrops  atomic.Uint64
 	originCoverage    *originCoverageStore
 	assurance         *AssuranceConfig
+	liveness          *liveness.Service
 	admin             AdminConfig
 	counters          runtimeCounters
 }
@@ -111,6 +113,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/events", s.handleEvents)
 	mux.HandleFunc("POST /v1/decision", s.handleDecision)
 	mux.HandleFunc("POST /v1/assurance", s.handleAssurance)
+	mux.HandleFunc("POST /v1/assurance/liveness", s.handleLivenessBegin)
+	mux.HandleFunc("POST /v1/assurance/liveness/answer", s.handleLivenessAnswer)
 	mux.HandleFunc("POST /v1/origin-check", s.handleOriginCheck)
 	mux.HandleFunc("POST /v1/origin-coverage", s.handleOriginCoverage)
 	mux.HandleFunc("POST /v1/outcome", s.handleOutcome)

@@ -47,6 +47,8 @@ type runtimeCounters struct {
 	decisions           atomic.Uint64
 	originChecks        atomic.Uint64
 	assuranceAssertions atomic.Uint64
+	livenessCompleted   atomic.Uint64
+	livenessFailed      atomic.Uint64
 	recordedDecisions   atomic.Uint64
 	recordedOutcomes    atomic.Uint64
 	contextProofs       atomic.Uint64

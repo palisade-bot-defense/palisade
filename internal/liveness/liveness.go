@@ -374,3 +374,17 @@ func decodeUint64(raw []byte) uint64 {
 	}
 	return value
 }
+
+// PromptForTest returns a revealed round including its target. It exists so the
+// transport layer's tests can answer a challenge the transport deliberately
+// never discloses the answer to. Nothing in the request path calls it, and a
+// client can never reach it.
+func (s *Service) PromptForTest(id string, round int) (Prompt, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry, ok := s.entries[id]
+	if !ok || round < 0 || round >= len(entry.rounds) {
+		return Prompt{}, false
+	}
+	return entry.rounds[round], true
+}
