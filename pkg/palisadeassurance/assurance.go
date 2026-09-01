@@ -188,6 +188,11 @@ func Sign(payload Payload, ttl time.Duration, now time.Time, privateKey ed25519.
 		return nil, ErrInvalid
 	}
 	issuedAt := now.UTC().Truncate(time.Second)
+	// An absent evidence class is an empty list, never JSON null: the published
+	// contract requires an array, and a reader must not have to treat the two
+	// encodings as equivalent.
+	payload.AssuranceSources = emptyIfNil(payload.AssuranceSources)
+	payload.ReasonCodes = emptyIfNil(payload.ReasonCodes)
 	payload.SchemaVersion = SchemaVersion
 	payload.IssuedAt = issuedAt.Format(time.RFC3339)
 	payload.ExpiresAt = issuedAt.Add(ttl).Format(time.RFC3339)
@@ -250,6 +255,9 @@ func (v *Verifier) Verify(encoded []byte, now time.Time) (Verified, error) {
 	if len(encoded) == 0 || len(encoded) > MaximumDocumentBytes {
 		return Verified{}, ErrInvalid
 	}
+	if err := requireCompleteDocument(encoded); err != nil {
+		return Verified{}, err
+	}
 	var document Assertion
 	decoder := json.NewDecoder(bytes.NewReader(encoded))
 	decoder.DisallowUnknownFields()
@@ -282,6 +290,14 @@ func (v *Verifier) Verify(encoded []byte, now time.Time) (Verified, error) {
 
 // Satisfies reports whether an accepted assertion meets a relying service's
 // minimum. Insufficient assurance is an ordinary policy input, not an error.
+//
+// Both arguments are already expressible even though neither is reachable
+// today: Verify refuses any level above MaximumSupportedLevel, and a non-empty
+// uniqueness scope requires the device or issuer evidence class, which in turn
+// requires a level this implementation refuses. The parameters exist so a
+// relying service can state its requirement now and have it enforced the moment
+// a mechanism backs it.
+
 func (v Verified) Satisfies(minimumLevel int, requireUnique bool) bool {
 	if v.Payload.AssuranceLevel < minimumLevel {
 		return false
@@ -415,6 +431,54 @@ func newNonce() (string, error) {
 		return "", ErrInvalid
 	}
 	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+// requireCompleteDocument rejects a document whose fields are absent or null.
+// Go decodes both into a zero value, so without this check an assertion could
+// omit its evidence list and still verify.
+func requireCompleteDocument(encoded []byte) error {
+	var document map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &document); err != nil {
+		return ErrInvalid
+	}
+	if err := requireFields(document, "payload", "key_id", "signature"); err != nil {
+		return err
+	}
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(document["payload"], &payload); err != nil {
+		return ErrInvalid
+	}
+	if err := requireFields(payload,
+		"schema_version", "assurance_level", "assurance_sources", "reason_codes",
+		"uniqueness_scope", "agent_provenance", "binding", "policy_version",
+		"model_version", "issued_at", "expires_at", "nonce"); err != nil {
+		return err
+	}
+	var binding map[string]json.RawMessage
+	if err := json.Unmarshal(payload["binding"], &binding); err != nil {
+		return ErrInvalid
+	}
+	return requireFields(binding, "session_binding", "request_action", "endpoint_class", "audience")
+}
+
+func requireFields(object map[string]json.RawMessage, names ...string) error {
+	if len(object) != len(names) {
+		return ErrInvalid
+	}
+	for _, name := range names {
+		value, present := object[name]
+		if !present || len(value) == 0 || string(value) == "null" {
+			return ErrInvalid
+		}
+	}
+	return nil
+}
+
+func emptyIfNil(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
 }
 
 func isBase64URL(value string) bool {
