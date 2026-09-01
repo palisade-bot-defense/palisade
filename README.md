@@ -110,6 +110,14 @@ action and endpoint class, and carries no subject identity, biometric material,
 device identifier or cross-site identifier. Its session commitment is derived
 per audience, so two relying services cannot link the same visitor.
 
+A deployment can emit one today. `POST /v1/assurance` lives behind its own
+versioned contract, [`api/openapi-assurance-v1.yaml`](api/openapi-assurance-v1.yaml),
+so `/v1/decision`, its protobuf contract and every existing adapter stay
+byte-identical and a deployment that wants no assurance carries no new data
+class. The surface stays disabled unless a signing key, a binding secret and an
+explicit audience allow list are all configured, and an unlisted audience is
+refused rather than minted.
+
 Its **supported ceiling is H1**—verified bounded interaction evidence. The
 verifier refuses to sign or accept a higher level, and a test enforces that the
 ceiling cannot be raised without a mechanism behind it. H2 needs an interactive

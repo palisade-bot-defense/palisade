@@ -1,6 +1,6 @@
 # ADR 0005: Carry assurance on a separate versioned surface
 
-Status: proposed
+Status: accepted
 
 Every remaining proof-of-human roadmap item needs the same thing: a way for an assurance assertion, an interactive liveness challenge or a device attestation to cross the HTTP boundary. All of them are blocked by one rule and one fact.
 
@@ -28,8 +28,12 @@ Consequences:
 - the data map gains a flow and the runtime egress inventory gains a data class **in the same change that adds the emission**, never before it, so the map never records a flow that does not exist;
 - `/v1/decision`, its protobuf contract and every existing adapter remain byte-identical.
 
-This ADR does not authorize the work. It records that the blocker is a contract-versioning decision rather than an implementation detail, and which option this repository's own policy points to.
+## Implemented
 
-## What stays blocked until this is decided
+`POST /v1/assurance` is live behind `api/openapi-assurance-v1.yaml`. It evaluates the same normalized request the risk surface would and returns only the assertion; scores, evidence, enforcement actions and the decision identifier are not reflected. The surface is disabled unless a signing key, a binding secret and at least one allowed audience are all configured, and an unlisted audience is refused rather than minted.
 
-The H1 assertion in the decision path, the interactive liveness challenge type that H2 requires, device attestation for H3, and the per-level false-positive and abandonment measurement that gates any surface above H1. The offline work each of them depends on — the assertion contract, the derivation, the issuer trust list and agent provenance — is implemented and needs no contract change.
+Data map v7 records the flow and the runtime egress inventory records the class, in the same change that added the emission.
+
+## What is still blocked, and on what
+
+Not on this decision. The interactive liveness challenge that H2 requires is a missing mechanism, not a missing contract: the existing challenge is proof of work. Device attestation for H3 and issuer credentials for H4 now have a surface to arrive on and a trust root to be checked against, but no verifier. The per-level false-positive and abandonment measurement needs deployments emitting assertions first.

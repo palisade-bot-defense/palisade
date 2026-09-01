@@ -34,6 +34,7 @@ SAFE_PATH = re.compile(r"^(api|schemas)/[A-Za-z0-9_./-]+$")
 EXPECTED_CLASSIFICATIONS = {
     "runtime_exchange": {
         "api/contracts/normalized-signal-v1.json", "api/openapi.yaml",
+        "api/openapi-assurance-v1.yaml",
         *{f"api/proto/palisade/v1/{name}.proto" for name in ("challenge", "common", "coverage", "decision", "decoy", "event")},
         "schemas/crawler-registry-v1.schema.json", "schemas/detector-bundle-v1.schema.json",
         "schemas/human-assurance-assertion-v1.schema.json",
@@ -57,7 +58,7 @@ EXPECTED_CLASSIFICATIONS = {
     },
     "repository_control": {
         "schemas/adversarial-holdout-suite-v1.schema.json", "schemas/adversarial-suite-v1.schema.json",
-        "schemas/compatibility-freeze-v2.schema.json", "schemas/data-map-v6.schema.json",
+        "schemas/compatibility-freeze-v2.schema.json", "schemas/data-map-v7.schema.json",
         "schemas/migration-matrix-v2.schema.json", "schemas/origin-adapter-conformance-v1.schema.json",
         "schemas/red-team-suite-v1.schema.json", "schemas/runtime-egress-v1.schema.json",
     },
@@ -71,8 +72,8 @@ EXPECTED_TRANSITIONS = {
         "operator_command": "none", "loss_boundary": "repository_control_not_runtime_input",
     },
     "data_map": {
-        "current_schema": "schemas/data-map-v6.schema.json",
-        "previous_schemas": [f"schemas/data-map-v{version}.schema.json" for version in range(1, 6)],
+        "current_schema": "schemas/data-map-v7.schema.json",
+        "previous_schemas": [f"schemas/data-map-v{version}.schema.json" for version in range(1, 7)],
         "previous_support": "unsupported_historical", "strategy": "repository_replacement",
         "operator_command": "none", "loss_boundary": "repository_control_not_runtime_input",
     },

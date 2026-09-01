@@ -231,8 +231,9 @@ Deliverables:
 
 - [x] specify a human-assurance assertion format with a JSON Schema, a
   deterministic offline verifier and conformance fixtures;
-- [ ] express verified interaction evidence as an H1 assertion in the decision
-  path without adding a persisted class or a request-path callsite;
+- [x] express verified interaction evidence as an H1 assertion on a separate
+  versioned surface, without adding a persisted class, a request-path callsite
+  or any change to the frozen decision contract;
 - [ ] add an interactive liveness challenge type before any H2 assertion is
   possible; the existing proof-of-work challenge is a cost and outcome signal
   that browser automation may complete routinely, so it cannot reach H2;
@@ -245,14 +246,13 @@ Deliverables:
 - [ ] measure a confirmed-human false-positive and abandonment interval per
   assurance level, by endpoint class, before any surface is gated above H1.
 
-Every remaining deliverable above needs an assurance assertion, a liveness
-challenge or an attestation to cross the HTTP boundary, and all of them are
-blocked by the same rule: `docs/COMPATIBILITY.md` requires a new contract
-version for any added field, enum value or endpoint, and `api/openapi.yaml`
-defines no extension mechanism. That is a contract-versioning decision, not an
-implementation detail; the options and this repository's own preferred answer
-are in [ADR 0005](docs/adr/0005-assurance-api-surface.md). The offline work each
-deliverable depends on is implemented and needed no contract change.
+The contract-versioning question that blocked every remaining deliverable is
+settled by [ADR 0005](docs/adr/0005-assurance-api-surface.md): assurance lives on
+its own versioned surface, so `/v1/decision`, its protobuf contract and every
+existing adapter stay byte-identical. What remains is missing mechanism rather
+than missing contract. H2 needs an interactive liveness challenge; H3 and H4 now
+have a surface to arrive on and a trust root to be checked against, but no
+verifier.
 
 Exit gate: an independently implemented issuer adapter passes the same privacy,
 failure-policy and decision-contract suite as a transport adapter; every gated

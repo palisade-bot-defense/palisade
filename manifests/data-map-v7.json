@@ -1,0 +1,272 @@
+{
+  "schema_version": "palisade.data-map.v7",
+  "scope": "reference_product_data_flows",
+  "default_rules": {
+    "external_export": false,
+    "raw_network_identifiers": "excluded_from_runtime_and_persisted_output",
+    "content_collection": "excluded",
+    "missing_browser_sensor": "neutral"
+  },
+  "transient_local_input_classes": [
+    "daily_rotating_pseudonym_for_sequence_linkage",
+    "operator_attack_family_reference",
+    "operator_session_reference_may_be_personal_data",
+    "operator_subject_reference_may_include_network_identifier"
+  ],
+  "flows": [
+    {
+      "id": "aggregate_analysis",
+      "source": "operator_local_encrypted_sink",
+      "destination": "owner_only_aggregate_report",
+      "purpose": "local_calibration_and_rollout_review",
+      "data_classes": [
+        "aggregate_analysis_report",
+        "aggregate_confidence_intervals",
+        "closed_rollout_recommendation"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "local_filesystem_only",
+      "persistence": "operator_controlled_owner_only_artifact",
+      "external_export": false
+    },
+    {
+      "id": "assurance_assertion",
+      "source": "trusted_origin_adapter",
+      "destination": "relying_service",
+      "purpose": "proof_of_human_presence",
+      "data_classes": [
+        "closed_decision_request",
+        "closed_route_context",
+        "opaque_per_audience_session_commitment",
+        "signed_human_assurance_assertion"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "operator_configured_internal_endpoint",
+      "persistence": "none_beyond_decision_window",
+      "external_export": false
+    },
+    {
+      "id": "browser_event_ingest",
+      "source": "first_party_browser_sensor",
+      "destination": "bounded_event_store",
+      "purpose": "automation_and_continuity_evidence",
+      "data_classes": [
+        "bounded_browser_event_counts",
+        "one_time_event_proof",
+        "opaque_session_handle",
+        "sensor_version"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "same_origin_only",
+      "persistence": "bounded_memory_five_minutes",
+      "external_export": false
+    },
+    {
+      "id": "continuity_cookie",
+      "source": "session_service",
+      "destination": "first_party_browser",
+      "purpose": "authenticated_session_continuity",
+      "data_classes": [
+        "opaque_session_handle",
+        "signed_continuity_cookie"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "same_origin_only",
+      "persistence": "browser_cookie_twenty_four_hours",
+      "external_export": false
+    },
+    {
+      "id": "decision_request",
+      "source": "trusted_origin_adapter",
+      "destination": "decision_engine",
+      "purpose": "explainable_risk_decision",
+      "data_classes": [
+        "bounded_response_history",
+        "closed_decision_request",
+        "closed_route_context",
+        "closed_signal_classes",
+        "opaque_session_handle"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "operator_configured_internal_endpoint",
+      "persistence": "bounded_memory_five_minutes",
+      "external_export": false
+    },
+    {
+      "id": "delayed_outcome",
+      "source": "trusted_backend",
+      "destination": "operator_local_encrypted_sink",
+      "purpose": "decision_outcome_linkage",
+      "data_classes": [
+        "closed_outcome_label",
+        "opaque_decision_handle",
+        "provenance_and_confidence"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "operator_configured_internal_endpoint",
+      "persistence": "optional_encrypted_operator_bounded_default_seven_days",
+      "external_export": false
+    },
+    {
+      "id": "local_evidence_import",
+      "source": "operator_authorized_local_export",
+      "destination": "owner_only_normalized_shards",
+      "purpose": "generic_local_evidence_normalization",
+      "data_classes": [
+        "closed_evidence_lanes",
+        "daily_rotating_pseudonyms",
+        "input_content_fingerprint",
+        "provenance_and_confidence"
+      ],
+      "transient_data_classes": [
+        "operator_session_reference_may_be_personal_data",
+        "operator_subject_reference_may_include_network_identifier"
+      ],
+      "network_scope": "local_filesystem_only",
+      "persistence": "operator_controlled_owner_only_artifact",
+      "external_export": false
+    },
+    {
+      "id": "local_holdout_evaluation",
+      "source": "owner_only_normalized_shards_and_optional_family_annotations",
+      "destination": "owner_only_aggregate_holdout_report",
+      "purpose": "chronological_and_unseen_family_evaluation",
+      "data_classes": [
+        "aggregate_confidence_intervals",
+        "aggregate_holdout_slices",
+        "annotation_content_fingerprint",
+        "closed_evaluation_readiness",
+        "closed_rule_definitions"
+      ],
+      "transient_data_classes": [
+        "daily_rotating_pseudonym_for_sequence_linkage",
+        "operator_attack_family_reference"
+      ],
+      "network_scope": "local_filesystem_only",
+      "persistence": "operator_controlled_owner_only_artifact",
+      "external_export": false
+    },
+    {
+      "id": "local_sequence_analysis",
+      "source": "owner_only_normalized_shards",
+      "destination": "owner_only_aggregate_sequence_report",
+      "purpose": "bounded_minute_scale_sequence_analysis",
+      "data_classes": [
+        "aggregate_sequence_features",
+        "closed_evidence_lane_counts",
+        "closed_feature_definitions",
+        "source_verification_counts"
+      ],
+      "transient_data_classes": [
+        "daily_rotating_pseudonym_for_sequence_linkage"
+      ],
+      "network_scope": "local_filesystem_only",
+      "persistence": "operator_controlled_owner_only_artifact",
+      "external_export": false
+    },
+    {
+      "id": "native_challenge_lifecycle",
+      "source": "first_party_challenge_page",
+      "destination": "origin_challenge_handler",
+      "purpose": "bounded_step_up_and_one_time_redemption",
+      "data_classes": [
+        "closed_challenge_metadata",
+        "one_time_redemption_capability",
+        "signed_continuity_cookie",
+        "verification_capability"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "same_origin_only",
+      "persistence": "bounded_memory_fifteen_minutes",
+      "external_export": false
+    },
+    {
+      "id": "native_decoy_lifecycle",
+      "source": "trusted_origin_decoy_handler",
+      "destination": "bounded_decoy_store",
+      "purpose": "server_generated_decoy_evidence",
+      "data_classes": [
+        "closed_decoy_capability",
+        "closed_decoy_interaction",
+        "closed_route_context",
+        "opaque_session_handle"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "operator_configured_internal_endpoint",
+      "persistence": "bounded_memory_fifteen_minutes",
+      "external_export": false
+    },
+    {
+      "id": "operator_console_summary",
+      "source": "decision_service",
+      "destination": "local_operator_browser",
+      "purpose": "aggregate_operations_visibility",
+      "data_classes": [
+        "aggregate_analysis_report",
+        "aggregate_runtime_counters",
+        "readiness_status"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "same_origin_loopback_only",
+      "persistence": "browser_memory_only",
+      "external_export": false
+    },
+    {
+      "id": "origin_challenge_binding",
+      "source": "trusted_origin_adapter",
+      "destination": "challenge_service",
+      "purpose": "bind_redemption_to_original_origin_flow",
+      "data_classes": [
+        "one_time_origin_flow_binding"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "operator_configured_internal_endpoint",
+      "persistence": "bounded_memory_fifteen_minutes",
+      "external_export": false
+    },
+    {
+      "id": "shadow_measurement",
+      "source": "decision_engine",
+      "destination": "operator_local_encrypted_sink",
+      "purpose": "shadow_evaluation",
+      "data_classes": [
+        "closed_decision_result",
+        "opaque_link_key",
+        "stable_reason_codes",
+        "versioned_policy_and_model"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "local_filesystem_only",
+      "persistence": "optional_encrypted_operator_bounded_default_seven_days",
+      "external_export": false
+    },
+    {
+      "id": "sovereignty_report",
+      "source": "local_cli",
+      "destination": "operator_selected_output",
+      "purpose": "product_and_deployment_inventory",
+      "data_classes": [
+        "closed_operator_attestation",
+        "product_invariants",
+        "product_version"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "no_network_required",
+      "persistence": "operator_controlled_artifact",
+      "external_export": false
+    }
+  ],
+  "raw_classes_excluded": [
+    "asn",
+    "dom_text",
+    "exact_pointer_path",
+    "form_content",
+    "ip_address",
+    "keystroke",
+    "request_body",
+    "request_url",
+    "tls_fingerprint",
+    "user_agent",
+    "vendor_payload"
+  ]
+}

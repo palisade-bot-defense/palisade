@@ -50,6 +50,7 @@ type Server struct {
 	eventShadow       *EventShadowProfile
 	eventShadowDrops  atomic.Uint64
 	originCoverage    *originCoverageStore
+	assurance         *AssuranceConfig
 	admin             AdminConfig
 	counters          runtimeCounters
 }
@@ -109,6 +110,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/session", s.handleSession)
 	mux.HandleFunc("POST /v1/events", s.handleEvents)
 	mux.HandleFunc("POST /v1/decision", s.handleDecision)
+	mux.HandleFunc("POST /v1/assurance", s.handleAssurance)
 	mux.HandleFunc("POST /v1/origin-check", s.handleOriginCheck)
 	mux.HandleFunc("POST /v1/origin-coverage", s.handleOriginCoverage)
 	mux.HandleFunc("POST /v1/outcome", s.handleOutcome)

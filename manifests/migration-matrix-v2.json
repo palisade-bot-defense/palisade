@@ -12,6 +12,7 @@
   "classifications": {
     "runtime_exchange": [
       "api/contracts/normalized-signal-v1.json",
+      "api/openapi-assurance-v1.yaml",
       "api/openapi.yaml",
       "api/proto/palisade/v1/challenge.proto",
       "api/proto/palisade/v1/common.proto",
@@ -54,7 +55,7 @@
       "schemas/adversarial-holdout-suite-v1.schema.json",
       "schemas/adversarial-suite-v1.schema.json",
       "schemas/compatibility-freeze-v2.schema.json",
-      "schemas/data-map-v6.schema.json",
+      "schemas/data-map-v7.schema.json",
       "schemas/migration-matrix-v2.schema.json",
       "schemas/origin-adapter-conformance-v1.schema.json",
       "schemas/red-team-suite-v1.schema.json",
@@ -73,13 +74,14 @@
     },
     {
       "family": "data_map",
-      "current_schema": "schemas/data-map-v6.schema.json",
+      "current_schema": "schemas/data-map-v7.schema.json",
       "previous_schemas": [
         "schemas/data-map-v1.schema.json",
         "schemas/data-map-v2.schema.json",
         "schemas/data-map-v3.schema.json",
         "schemas/data-map-v4.schema.json",
-        "schemas/data-map-v5.schema.json"
+        "schemas/data-map-v5.schema.json",
+        "schemas/data-map-v6.schema.json"
       ],
       "previous_support": "unsupported_historical",
       "strategy": "repository_replacement",

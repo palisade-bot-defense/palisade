@@ -3,6 +3,7 @@
   "scope": "v2_public_contracts_and_operator_safety",
   "stable_current": {
     "api/contracts/normalized-signal-v1.json": "5adab11677a632cc841a4768653bcbb32e6de802e71c5a6775dcb33863e4f6db",
+    "api/openapi-assurance-v1.yaml": "9307e8c34da8e86fb1b00cc61fe8050f8c1ccabd62accba97b40d3a28e8106a1",
     "api/openapi.yaml": "e1fc1f0df5bbd9c8a39870647d74caafcf7fae7df73bf9a876f2e00246d4ad17",
     "api/proto/palisade/v1/challenge.proto": "edb751f693412e15102e047aee009b9950554cf4acb668b39b6e75b15db18fd6",
     "api/proto/palisade/v1/common.proto": "3a9cf482305590b65f2de4682733ca0f438d23e7a7108e4422a66b09961b20d9",
@@ -14,7 +15,7 @@
     "schemas/adversarial-suite-v1.schema.json": "ff7433788e7636663607b74a154092f9b39ab2fb0d4820d5a2e68733e07ed21f",
     "schemas/compatibility-freeze-v2.schema.json": "cf47b9369d61cfcc9175ed23db2b0ca3045ffae1155e29e36b1d4d8f3ffcde27",
     "schemas/crawler-registry-v1.schema.json": "bab6c8185427abcd2882a8d2fc33c97947d903d1d1f254c1949ab97ada2b6708",
-    "schemas/data-map-v6.schema.json": "1f8a666b78e9376aeaf516a06e5bccf43b81ef2caf349c0cdd98170ba2ed30df",
+    "schemas/data-map-v7.schema.json": "ee6e919f60f168600e50da1b842521035363dd07e6d4a36f2e171fe5029b9514",
     "schemas/detector-bundle-v1.schema.json": "f5aa981fb1fac8ce5e2a1337b292e71f648aed415a39cdce1984fc51a639fcad",
     "schemas/edge-signal-envelope-v1.schema.json": "b02a57730f713505483fbaf61c8c01011d1f6ba2331c4b11ba56578bb0343b6a",
     "schemas/human-assurance-assertion-v1.schema.json": "865370e6c6efdf9f663d570fe1dcb91e497cd2e53c44341c99eddff8a30c2855",

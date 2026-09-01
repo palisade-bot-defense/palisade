@@ -12,11 +12,12 @@ import sys
 
 API_PATHS = {
     "api/openapi.yaml",
+    "api/openapi-assurance-v1.yaml",
     "api/contracts/normalized-signal-v1.json",
     *{f"api/proto/palisade/v1/{name}.proto" for name in ("challenge", "common", "coverage", "decision", "decoy", "event")},
 }
 CURRENT_SCHEMA_NAMES = {
-    "adversarial-holdout-suite-v1", "adversarial-suite-v1", "compatibility-freeze-v2", "crawler-registry-v1", "data-map-v6",
+    "adversarial-holdout-suite-v1", "adversarial-suite-v1", "compatibility-freeze-v2", "crawler-registry-v1", "data-map-v7",
     "detector-bundle-v1", "edge-signal-envelope-v1", "human-assurance-assertion-v1",
     "issuer-trust-list-v1",
     "local-artifact-v1", "local-evidence-event-v1",
