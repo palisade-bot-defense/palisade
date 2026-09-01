@@ -50,6 +50,7 @@ internal/events
 internal/fusion
 internal/httpapi
 internal/issuertrust
+internal/liveness
 internal/localsequence
 internal/localartifact
 internal/offlineimport

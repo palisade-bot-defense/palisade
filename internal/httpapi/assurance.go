@@ -143,7 +143,7 @@ func (s *Server) mintAssertion(
 		return nil, err
 	}
 	provenance := agentprovenance.Derive(request.Observations, request.EndpointClass)
-	payload := assurance.Derive(decision).Payload(
+	payload := assurance.Derive(decision, false).Payload(
 		palisadeassurance.Binding{
 			SessionBinding: binding,
 			RequestAction:  request.Action,

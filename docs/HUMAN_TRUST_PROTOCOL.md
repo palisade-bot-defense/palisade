@@ -115,10 +115,33 @@ explainable.
 |---|---|---|---|
 | H0 | none; unattributed traffic | anonymous reads | available |
 | H1 | verified bounded interaction evidence and low automation risk | commenting, low-value writes | implemented: the assertion contract exists and this is its ceiling |
-| H2 | H1 plus a completed session/action/endpoint-bound **interactive** challenge | account creation, rate-limited signup | not implemented: one-time binding and replay resistance exist, interactive liveness does not |
+| H2 | H1 plus a completed session/action/endpoint-bound **interactive** challenge | account creation, rate-limited signup | mechanism implemented; the level is computed but withheld until measured |
 | H3 | H2 plus a device-attested key bound to the session | marketplace actions, messaging identity | not implemented |
 | H4 | H3 plus an issuer assertion of verified liveness at enrolment | high-value transactions, bank-detail changes | not implemented; requires an external issuer |
 | H5 | H4 plus an issuer assertion of scope uniqueness | governance, one-person-one-vote surfaces | not implemented; requires an external issuer with a dedupe guarantee |
+
+`internal/liveness` implements the interactive challenge. Several rounds must
+be answered, each prompt is revealed only at its own moment, and each response
+must arrive inside a narrow window. That cannot be precomputed, batched or
+answered ahead of time, and a relay pays the round trip on every round rather
+than once. A wrong answer ends the attempt rather than costing one of several
+tries, so a client cannot search the option space. The attestation is bound to
+one session, action and endpoint class, expires in two minutes, and the attempt
+is consumed on completion.
+
+What that does **not** establish is that the client is human: browser
+automation can drive a real browser in real time. The mechanism is an
+attacker-cost and throughput argument, not a proof, and the response floor is
+set generously because excluding a fast assistive-technology user is a worse
+failure than admitting a fast script.
+
+The level it supports is therefore computed but not granted. `Derive` reaches
+H2 and the ceiling clamps it back to H1, adding the reason code
+`level_withheld_pending_measurement` and dropping the evidence class the
+withheld level would have cited. An assertion must not name evidence for a
+level it does not claim. Raising the ceiling is the measurement deliverable's
+gate, not a constant change: gating a surface on an unmeasured level would harm
+people before anyone knows how often it does.
 
 The H2 distinction is easy to misread and matters. The existing challenge
 lifecycle already provides one-time, session/action/endpoint-bound redemption

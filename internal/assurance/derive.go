@@ -35,6 +35,8 @@ const (
 	disqualifyingConfidence = 0.60
 
 	reasonVerifiedBrowserSequence = "verified_browser_sequence"
+	reasonInteractiveLiveness     = "interactive_liveness_completed"
+	reasonLevelPendingMeasurement = "level_withheld_pending_measurement"
 	reasonServerSessionVerified   = "server_session_verified"
 	reasonAutomationContradiction = "automation_evidence_contradicts_presence"
 	reasonNoVerifiedInteraction   = "no_verified_interaction_evidence"
@@ -47,11 +49,18 @@ type Result struct {
 	ReasonCodes []string
 }
 
-// Derive computes the assurance level backed by a decision's evidence. It
-// returns at most palisadeassurance.MaximumSupportedLevel, because no mechanism
-// in this repository verifies interactive liveness, device attestation, issuer
-// credentials or uniqueness.
-func Derive(decision core.Decision) Result {
+// Derive computes the assurance level backed by a decision's evidence and, when
+// livenessVerified is set, by a completed interactive liveness challenge whose
+// attestation the caller already checked against this session, action and
+// endpoint class.
+//
+// The result is clamped to palisadeassurance.MaximumSupportedLevel. Interactive
+// liveness is implemented, so the computed level can reach H2, but the ceiling
+// stays at H1 until a confirmed-human false-positive and abandonment interval
+// exists per level. Withholding a level that the evidence supports is the
+// deliberate choice: gating a surface on an unmeasured level would harm people
+// before anyone knows how often it does.
+func Derive(decision core.Decision, livenessVerified bool) Result {
 	verifiedSequence := false
 	verifiedSession := false
 	contradicted := false
@@ -78,6 +87,9 @@ func Derive(decision core.Decision) Result {
 	case contradicted:
 		reasons = append(reasons, reasonAutomationContradiction)
 		return finish(palisadeassurance.LevelUnattributed, nil, reasons)
+	case verifiedSequence && livenessVerified:
+		reasons = append(reasons, reasonVerifiedBrowserSequence, reasonInteractiveLiveness)
+		return finish(palisadeassurance.LevelInteractive, []string{"behavioral", "challenge"}, reasons)
 	case verifiedSequence:
 		reasons = append(reasons, reasonVerifiedBrowserSequence)
 		return finish(palisadeassurance.LevelBehavioral, []string{"behavioral"}, reasons)
@@ -132,7 +144,12 @@ func dedupe(values []string) []string {
 
 func finish(level int, sources, reasons []string) Result {
 	if level > palisadeassurance.MaximumSupportedLevel {
+		// The evidence supports more than this build will state. Say so in the
+		// assertion rather than silently reporting a lower level, so an operator
+		// can see that measurement, not evidence, is the binding constraint.
 		level = palisadeassurance.MaximumSupportedLevel
+		reasons = append(reasons, reasonLevelPendingMeasurement)
+		sources = sourcesUpTo(sources, level)
 	}
 	if sources == nil {
 		sources = []string{}
@@ -140,4 +157,20 @@ func finish(level int, sources, reasons []string) Result {
 	sort.Strings(sources)
 	sort.Strings(reasons)
 	return Result{Level: level, Sources: sources, ReasonCodes: reasons}
+}
+
+// sourcesUpTo drops evidence classes that belong to a level this build refuses
+// to state. An assertion must not name evidence for a level it does not claim.
+func sourcesUpTo(sources []string, level int) []string {
+	allowed := map[string]struct{}{}
+	for _, source := range palisadeassurance.RequiredSources(level) {
+		allowed[source] = struct{}{}
+	}
+	result := make([]string, 0, len(sources))
+	for _, source := range sources {
+		if _, permitted := allowed[source]; permitted {
+			result = append(result, source)
+		}
+	}
+	return result
 }

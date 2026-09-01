@@ -107,6 +107,13 @@ var (
 	}
 )
 
+// RequiredSources returns the evidence classes a level must name. A caller that
+// reduces a level must reduce the named evidence with it: an assertion must not
+// cite evidence for a level it does not claim.
+func RequiredSources(level int) []string {
+	return clone(requiredSources[level])
+}
+
 // AssuranceSources returns the closed evidence-class vocabulary.
 func AssuranceSources() []string { return clone(assuranceSources) }
 

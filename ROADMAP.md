@@ -234,9 +234,11 @@ Deliverables:
 - [x] express verified interaction evidence as an H1 assertion on a separate
   versioned surface, without adding a persisted class, a request-path callsite
   or any change to the frozen decision contract;
-- [ ] add an interactive liveness challenge type before any H2 assertion is
+- [x] add an interactive liveness challenge type before any H2 assertion is
   possible; the existing proof-of-work challenge is a cost and outcome signal
-  that browser automation may complete routinely, so it cannot reach H2;
+  that browser automation may complete routinely, so it cannot reach H2. The
+  level it supports is computed and then withheld: raising the ceiling is the
+  measurement deliverable below, not a constant change;
 - [ ] accept platform device attestation as H3 evidence bound to the existing
   short-lived proof token;
 - [x] define the signed, expiring local issuer trust-list and revocation

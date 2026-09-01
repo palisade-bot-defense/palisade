@@ -31,7 +31,7 @@ func decisionWith(evidence ...core.Evidence) core.Decision {
 }
 
 func TestVerifiedBrowserSequenceReachesBehavioralAssurance(t *testing.T) {
-	result := Derive(decisionWith(benign(EvidenceVerifiedBrowserSequence, core.DimensionContinuity, .64)))
+	result := Derive(decisionWith(benign(EvidenceVerifiedBrowserSequence, core.DimensionContinuity, .64)), false)
 	if result.Level != palisadeassurance.LevelBehavioral {
 		t.Fatalf("expected behavioral assurance, got %d", result.Level)
 	}
@@ -46,7 +46,7 @@ func TestVerifiedBrowserSequenceReachesBehavioralAssurance(t *testing.T) {
 func TestAbsenceOfAutomationEvidenceIsNeverHumanEvidence(t *testing.T) {
 	// An empty decision carries no positive evidence at all. A system that
 	// treated "nothing looked automated" as human presence would fail here.
-	result := Derive(decisionWith())
+	result := Derive(decisionWith(), false)
 	if result.Level != palisadeassurance.LevelUnattributed {
 		t.Fatalf("an evidence-free decision produced assurance %d", result.Level)
 	}
@@ -69,7 +69,7 @@ func TestSignalsThatMustNotRaiseAssurance(t *testing.T) {
 			benign("BROWSER_EVENTS_CLAIMED", core.DimensionContinuity, .5)),
 	}
 	for name, decision := range cases {
-		if result := Derive(decision); result.Level != palisadeassurance.LevelUnattributed {
+		if result := Derive(decision, false); result.Level != palisadeassurance.LevelUnattributed {
 			t.Fatalf("%s raised assurance to %d", name, result.Level)
 		}
 	}
@@ -79,7 +79,7 @@ func TestAutomationEvidenceContradictsPresence(t *testing.T) {
 	result := Derive(decisionWith(
 		benign(EvidenceVerifiedBrowserSequence, core.DimensionContinuity, .64),
 		suspicious("BROWSER_PROTOCOL_CONTRADICTION", core.DimensionAutomation, .9),
-	))
+	), false)
 	if result.Level != palisadeassurance.LevelUnattributed {
 		t.Fatalf("a contradicted decision produced assurance %d", result.Level)
 	}
@@ -91,7 +91,7 @@ func TestAutomationEvidenceContradictsPresence(t *testing.T) {
 	weak := Derive(decisionWith(
 		benign(EvidenceVerifiedBrowserSequence, core.DimensionContinuity, .64),
 		suspicious("NETWORK_HOSTING_CONTEXT", core.DimensionAutomation, .40),
-	))
+	), false)
 	if weak.Level != palisadeassurance.LevelBehavioral {
 		t.Fatalf("low-confidence automation evidence disqualified presence: %+v", weak)
 	}
@@ -100,7 +100,7 @@ func TestAutomationEvidenceContradictsPresence(t *testing.T) {
 	intent := Derive(decisionWith(
 		benign(EvidenceVerifiedBrowserSequence, core.DimensionContinuity, .64),
 		suspicious("SESSION_VOLUME_HIGH", core.DimensionIntent, .9),
-	))
+	), false)
 	if intent.Level != palisadeassurance.LevelBehavioral {
 		t.Fatalf("abuse-intent evidence was treated as an automation contradiction: %+v", intent)
 	}
@@ -123,7 +123,7 @@ func TestDerivationNeverExceedsTheSupportedCeiling(t *testing.T) {
 				benign(code, dimension, 1),
 				suspicious(code, dimension, 1),
 			} {
-				if level := Derive(decisionWith(evidence)).Level; level > palisadeassurance.MaximumSupportedLevel {
+				if level := Derive(decisionWith(evidence), false).Level; level > palisadeassurance.MaximumSupportedLevel {
 					t.Fatalf("%s in %v produced assurance %d", code, dimension, level)
 				}
 			}
@@ -146,7 +146,7 @@ func TestDerivedPayloadSignsAndVerifies(t *testing.T) {
 		t.Fatalf("derive session binding: %v", err)
 	}
 	decision := decisionWith(benign(EvidenceVerifiedBrowserSequence, core.DimensionContinuity, .64))
-	payload := Derive(decision).Payload(palisadeassurance.Binding{
+	payload := Derive(decision, false).Payload(palisadeassurance.Binding{
 		SessionBinding: binding,
 		RequestAction:  "login",
 		EndpointClass:  "login",
@@ -171,7 +171,7 @@ func TestDerivedPayloadSignsAndVerifies(t *testing.T) {
 
 	// The same derivation for an unattributed decision must also be signable:
 	// level 0 is a legitimate statement, not an error.
-	empty := Derive(decisionWith()).Payload(palisadeassurance.Binding{
+	empty := Derive(decisionWith(), false).Payload(palisadeassurance.Binding{
 		SessionBinding: binding,
 		RequestAction:  "read",
 		EndpointClass:  "public_content",
@@ -194,7 +194,7 @@ func TestAgentProvenanceIsCarriedButNeverRaisesAssurance(t *testing.T) {
 		t.Fatalf("the control case did not verify: %+v", verified)
 	}
 
-	payload := Derive(decisionWith()).Payload(palisadeassurance.Binding{
+	payload := Derive(decisionWith(), false).Payload(palisadeassurance.Binding{
 		SessionBinding: strings.Repeat("A", 43),
 		RequestAction:  "read",
 		EndpointClass:  "public_content",
@@ -211,7 +211,7 @@ func TestAgentProvenanceIsCarriedButNeverRaisesAssurance(t *testing.T) {
 		t.Fatalf("the provenance reason was dropped: %v", payload.ReasonCodes)
 	}
 	// An empty provenance must still produce a valid closed value.
-	fallback := Derive(decisionWith()).Payload(palisadeassurance.Binding{
+	fallback := Derive(decisionWith(), false).Payload(palisadeassurance.Binding{
 		SessionBinding: strings.Repeat("A", 43),
 		RequestAction:  "read",
 		EndpointClass:  "public_content",
@@ -229,4 +229,41 @@ func contains(values []string, value string) bool {
 		}
 	}
 	return false
+}
+
+func TestInteractiveLivenessIsComputedButWithheldPendingMeasurement(t *testing.T) {
+	decision := decisionWith(benign(EvidenceVerifiedBrowserSequence, core.DimensionContinuity, .64))
+	withLiveness := Derive(decision, true)
+
+	// The evidence supports H2. This build refuses to state it until a
+	// confirmed-human false-positive and abandonment interval exists per level.
+	if withLiveness.Level != palisadeassurance.MaximumSupportedLevel {
+		t.Fatalf("liveness produced level %d rather than the supported ceiling", withLiveness.Level)
+	}
+	if !contains(withLiveness.ReasonCodes, reasonLevelPendingMeasurement) {
+		t.Fatalf("the withheld level was not explained: %v", withLiveness.ReasonCodes)
+	}
+	if !contains(withLiveness.ReasonCodes, reasonInteractiveLiveness) {
+		t.Fatalf("the completed liveness challenge was not recorded: %v", withLiveness.ReasonCodes)
+	}
+	// An assertion must not cite evidence for a level it does not claim.
+	if contains(withLiveness.Sources, "challenge") {
+		t.Fatalf("a withheld level still named its evidence class: %v", withLiveness.Sources)
+	}
+	if !reflect.DeepEqual(withLiveness.Sources, []string{"behavioral"}) {
+		t.Fatalf("unexpected evidence classes: %v", withLiveness.Sources)
+	}
+
+	// Liveness alone, without verified interaction evidence, changes nothing.
+	if alone := Derive(decisionWith(), true); alone.Level != palisadeassurance.LevelUnattributed {
+		t.Fatalf("liveness alone produced level %d", alone.Level)
+	}
+	// Automation evidence still contradicts presence even with liveness.
+	contradicted := Derive(decisionWith(
+		benign(EvidenceVerifiedBrowserSequence, core.DimensionContinuity, .64),
+		suspicious("BROWSER_PROTOCOL_CONTRADICTION", core.DimensionAutomation, .9),
+	), true)
+	if contradicted.Level != palisadeassurance.LevelUnattributed {
+		t.Fatalf("liveness overrode an automation contradiction: %+v", contradicted)
+	}
 }
