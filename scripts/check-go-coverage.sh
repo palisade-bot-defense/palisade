@@ -41,6 +41,7 @@ fi
 module=github.com/palisade-human-trust/palisade
 critical_packages='
 internal/analysisfeed
+internal/assurance
 internal/challenge
 internal/detector
 internal/engine
