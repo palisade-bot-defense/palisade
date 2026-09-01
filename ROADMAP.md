@@ -1,11 +1,25 @@
 # Product roadmap
 
-PALISADE is building an open-source, EU-first bot-defense control loop that can
-show **where evidence stayed, why a decision was made and how enforcement was
-approved**. The objective is not a mythical challenge that every person can
-solve and no bot can solve. Adaptive attackers make that guarantee impossible.
-The objective is to combine bounded local evidence, attacker cost and measured
-outcomes while keeping harm to legitimate users within an explicit budget.
+PALISADE is building an open-source, EU-first **proof-of-human protocol**: a way
+for a relying service to know that a live, continuous and—where a surface
+requires it—unique person, or an agent authorized by one, is on the other end of
+a call, message or transaction, while showing **where evidence stayed, why a
+decision was made and how enforcement was approved**.
+
+The objective is not a mythical challenge that every person can solve and no bot
+can solve. Adaptive attackers make that guarantee impossible. The objective is
+graded, verifiable human assurance: combine bounded local evidence, verified
+assertions, attacker cost and measured outcomes while keeping harm to legitimate
+users within an explicit budget.
+
+Bot defense is no longer the product. The detector, decoy and challenge
+machinery remains as the evidence substrate of the lowest assurance levels, and
+the three-score model remains intact underneath. The success criterion changed:
+not "blocked the automated client", but "the relying service could justify how
+much human evidence it had, and what obtaining it cost the person." The
+assurance ladder and its unimplemented layers are specified in
+[Human Trust Protocol](docs/HUMAN_TRUST_PROTOCOL.md); the boundary decision is
+[ADR 0004](docs/adr/0004-verify-humans-never-issue-identity.md).
 
 The product strategy and market boundary are documented in
 [Differentiation](docs/DIFFERENTIATION.md). The machine-readable privacy contract
@@ -35,7 +49,10 @@ Every release candidate reports all applicable values, including missing data:
 - challenge completion, fallback and unresolved rates;
 - p50/p95/p99 added decision latency and failure behavior;
 - retained data classes, maximum retention and configured external egress;
-- rollback time and the fraction of enforcement covered by a signed rollout.
+- rollback time and the fraction of enforcement covered by a signed rollout;
+- once any surface is gated on assurance: the confirmed-human false-positive and
+  abandonment interval **per assurance level**, by endpoint class, plus the share
+  of users who completed the alternative path instead.
 
 No single detection-rate number can replace this scorecard. Results from
 synthetic fixtures, one deployment or weak upstream labels are never presented
@@ -193,7 +210,60 @@ migration-contract implementation item, but it does not close the representative
 deployment, independent-review or maintainer-capacity gates above.
 
 Version 1.0 will still not claim universal bot detection, universal legal
-compliance or an unsolvable challenge.
+compliance, an unsolvable challenge, proof of personhood or a guarantee that a
+verified assertion cannot be obtained under coercion or sale.
+
+## Primary arc — human and agent provenance
+
+Status: specified, unimplemented. This is now the product direction, not an
+optional extension. It nevertheless does **not** short-circuit the v0.3–v0.9
+exit gates: those gates prove that the evidence substrate underneath H1 and H2
+is measured and honest, and an assurance ladder built on unmeasured evidence
+would be worse than no ladder. The sequencing is deliberate—finish measuring the
+substrate, then raise assurance on top of it.
+
+The design, its egress and persistence rules, its legal-assessment items and its
+own exit gates are in [Human Trust Protocol](docs/HUMAN_TRUST_PROTOCOL.md); the
+boundary decision is
+[ADR 0004](docs/adr/0004-verify-humans-never-issue-identity.md).
+
+Deliverables:
+
+- [x] specify a human-assurance assertion format with a JSON Schema, a
+  deterministic offline verifier and conformance fixtures;
+- [x] express verified interaction evidence as an H1 assertion on a separate
+  versioned surface, without adding a persisted class, a request-path callsite
+  or any change to the frozen decision contract;
+- [x] add an interactive liveness challenge type before any H2 assertion is
+  possible; the existing proof-of-work challenge is a cost and outcome signal
+  that browser automation may complete routinely, so it cannot reach H2. The
+  level it supports is computed and then withheld: raising the ceiling is the
+  measurement deliverable below, not a constant change;
+- [ ] accept platform device attestation as H3 evidence bound to the existing
+  short-lived proof token;
+- [x] define the signed, expiring local issuer trust-list and revocation
+  artifact so H4 verification stays offline and fails closed on expiry;
+- [x] generalize verified-for-a-purpose crawler identity into agent provenance,
+  keeping identity separate from authorization;
+- [x] record the assurance level with the decision and report the linked outcome
+  evaluation per level and endpoint class. Measuring an actual confirmed-human
+  false-positive and abandonment interval still needs a representative
+  deployment, and remains the gate before any surface is gated above H1 or the
+  ceiling is raised.
+
+The contract-versioning question that blocked every remaining deliverable is
+settled by [ADR 0005](docs/adr/0005-assurance-api-surface.md): assurance lives on
+its own versioned surface, so `/v1/decision`, its protobuf contract and every
+existing adapter stay byte-identical. What remains is missing mechanism rather
+than missing contract. H2 needs an interactive liveness challenge; H3 and H4 now
+have a surface to arrive on and a trust root to be checked against, but no
+verifier.
+
+Exit gate: an independently implemented issuer adapter passes the same privacy,
+failure-policy and decision-contract suite as a transport adapter; every gated
+surface has a reviewed alternative path; red-team results exist for proof
+relay, credential replay, issuer-key compromise and stale revocation. PALISADE
+still issues no credential and claims no global proof of personhood.
 
 ## Private-data lane
 
@@ -215,5 +285,8 @@ records or model-training data to the project.
 - direct integration with a maintainer's private products or production data;
 - treating automation, residential origin or a browser-like fingerprint as
   proof of harmful intent or humanity;
+- operating an identity, biometric or personhood registry, issuing a
+  PALISADE human credential, or claiming global proof of personhood; PALISADE
+  verifies assertions made by operator-selected external issuers;
 - opaque auto-learning that can activate blocking without measured review;
 - claims of 100% separation, zero false positives or automatic GDPR compliance.

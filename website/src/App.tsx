@@ -1,7 +1,7 @@
 import { useState } from "react";
 import logoUrl from "../../brand/logo/palisade-horizontal.svg";
 
-const githubUrl = "https://github.com/palisade-bot-defense/palisade";
+const githubUrl = "https://github.com/palisade-human-trust/palisade";
 
 const repositoryParts = [
   {
@@ -77,8 +77,8 @@ export function App() {
         <section className="hero-section">
           <div className="hero-copy">
             <p className="eyebrow"><span /> EU-FIRST · OPEN-SOURCE BOT DEFENSE</p>
-            <h1>Bot defense you can <em>run, inspect and prove.</em></h1>
-            <p className="hero-lede">Keep traffic evidence on infrastructure you choose. Palisade fuses bounded signals into explainable decisions, measures outcomes locally and lets risky enforcement advance only through signed, reversible rollout.</p>
+            <h1>Proof a human is on the other end — <em>run, inspect and prove it yourself.</em></h1>
+            <p className="hero-lede">Palisade verifies human presence, continuity and agent provenance on infrastructure you choose. It verifies assertions and never issues an identity: no biometric capture, no personhood registry, no cross-site graph. Evidence stays local, and risky enforcement advances only through signed, reversible rollout.</p>
             <div className="hero-actions">
               <a className="button primary" href="#repository">Explore the repository</a>
               <a className="button secondary" href={githubUrl}>View source <span aria-hidden="true">↗</span></a>
@@ -175,7 +175,7 @@ export function App() {
         <section className="section faq-section">
           <div className="section-heading compact"><p className="eyebrow">STRAIGHT ANSWERS</p><h2>Before you put Palisade in a request path.</h2></div>
           <div className="faq-grid">
-            <details><summary>Is Palisade a validated universal bot detector?</summary><p>No. Its current confirmed-human cohort is not representative enough to support that claim. Palisade is an explainable fusion and policy layer whose thresholds must be measured on each protected surface.</p></details>
+            <details><summary>Does Palisade prove personhood?</summary><p>No. Only the two lowest assurance levels — verified interaction evidence and a replay-resistant interactive challenge — exist today. Device attestation, issuer-signed credentials and uniqueness are specified and unimplemented, and no global proof of personhood is claimed. The current confirmed-human cohort is also not representative enough to publish a false-positive rate, so thresholds must be measured on each protected surface.</p></details>
             <details><summary>Which signals can it use?</summary><p>Trusted adapters can submit normalized protocol, transport, reputation, crawler, policy and server-continuity evidence. The browser sensor adds bounded behavior counts. Raw vendor payloads are not accepted by the public decision API.</p></details>
             <details><summary>Do I need to upload traffic logs?</summary><p>No. Normal operation uses closed signals, and optional encrypted measurement remains local. The generic historical import runs locally, pseudonymizes direct references and makes no network request. Raw or normalized deployment data must never enter the repository or hosted CI.</p></details>
             <details><summary>Can I self-host the complete project?</summary><p>Yes. The core is AGPL-3.0-only and the browser sensor is Apache-2.0. The project currently focuses exclusively on the open-source, self-hosted path.</p></details>
@@ -190,7 +190,7 @@ export function App() {
       </main>
 
       <footer className="site-footer">
-        <div><img src={logoUrl} alt="PALISADE" /><p>EU-first bot defense you can run, inspect and prove.</p></div>
+        <div><img src={logoUrl} alt="PALISADE" /><p>EU-first proof of human presence you can run, inspect and prove.</p></div>
         <div className="footer-links"><a href={githubUrl}>GitHub</a><a href={`${githubUrl}/blob/main/SECURITY.md`}>Security</a><a href={`${githubUrl}/blob/main/LICENSING.md`}>Licensing</a></div>
         <p className="legal">Core AGPL-3.0-only · Sensor Apache-2.0 · No tracking on this site</p>
       </footer>

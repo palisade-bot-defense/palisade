@@ -3,20 +3,47 @@
 </p>
 
 <p align="center">
-  EU-first, self-hosted bot defense with explainable, privacy-limited decisions.
+  EU-first, self-hosted proof of human presence—verified, explainable, privacy-limited.
 </p>
 
 > [!IMPORTANT]
-> PALISADE is an early defensive prototype. It does not claim perfect bot detection and must begin in shadow mode. Its false-positive rate is not yet calibrated on a representative confirmed-human cohort. No CAPTCHA, fingerprint or behavior model can guarantee 100% separation against an adaptive attacker.
+> PALISADE is an early prototype of a proof-of-human protocol. The assurance assertion contract exists, but its supported ceiling is H1: the reference verifier refuses to sign or accept anything higher, and nothing yet emits an assertion in the decision path; device attestation, issuer-signed credentials and uniqueness (H3–H5) are specified and unimplemented. The only integration surface that exists is HTTP and the web: origin adapter, reverse proxy and browser sensor. Calls and messaging are target surfaces with no adapter. PALISADE never issues an identity, never captures biometrics and makes no claim of global proof of personhood. Any deployment must begin in shadow mode: the false-positive rate is not yet calibrated on a representative confirmed-human cohort, and no challenge, credential or behavior model can guarantee 100% separation against an adaptive attacker.
 
 ## Project focus
 
-PALISADE is an EU-first, self-hosted and open-source fusion and policy layer for
-bounded bot and abuse signals. It runs on infrastructure selected and controlled
-by the operator—including on-premises or in an EU region—without a mandatory
-PALISADE cloud account, hosted control plane, central telemetry service or
-cross-site identity graph. The operator chooses the processing location,
-retention, keys, enabled signals and enforcement policy.
+PALISADE answers one question for a relying service: **is there a verified human
+on the other end of this call, message or transaction?**
+
+It is a proof-of-human protocol, not a bot filter. The relying service receives
+a short-lived signed proof and a bounded assurance level—never a name, a face, a
+biometric template, a device identifier or a cross-site identifier. PALISADE
+**verifies** assertions and never issues them: it operates no identity,
+biometric or personhood registry, and any credential issuer is external,
+pluggable and selected by the operator. The full design, its assurance ladder
+and its unimplemented layers are in the
+[Human Trust Protocol](docs/HUMAN_TRUST_PROTOCOL.md) and
+[ADR 0004](docs/adr/0004-verify-humans-never-issue-identity.md).
+
+Automation detection did not disappear; it changed role. The detectors, decoys,
+bounded interaction evidence and progressive challenge lifecycle are now the
+**evidence substrate** for the lowest assurance levels, not the product claim.
+PALISADE is no longer positioned or developed as a bot-defense product, and
+"blocked the bot" is no longer a success criterion. "The relying service could
+justify how much human evidence it had, and what it cost the person" is.
+
+It runs on infrastructure selected and controlled by the operator—including
+on-premises or in an EU region—without a mandatory PALISADE cloud account,
+hosted control plane, central telemetry service or cross-site identity graph.
+The operator chooses the processing location, retention, keys, enabled signals,
+accepted issuers and enforcement policy.
+
+The internet PALISADE has to serve contains people, people using AI tools,
+authorized autonomous agents, organisation-controlled agents, unattributed
+automation and hostile automation. Distinguishing those six is the goal;
+blocking everything non-human is not, and would break the accessibility,
+indexing and integration cases the three-score design exists to protect. An
+agent that can present *authorized by a verified human, for this purpose, until
+this time* is a first-class participant.
 
 The current priority is a reproducible local experience, representative shadow
 evaluation and useful adapters—not hosted SaaS, managed operations, billing or
@@ -73,7 +100,40 @@ map](docs/DATA_MAP.md) records accepted classes, destinations and persistence.
 
 ## What exists today
 
+The assurance assertion is a real, frozen contract:
+[`human-assurance-assertion-v1`](schemas/human-assurance-assertion-v1.schema.json)
+with a deterministic offline verifier in
+[`pkg/palisadeassurance`](pkg/palisadeassurance) and a
+[conformance suite](examples/conformance/human-assurance-assertion-v1.json).
+An assertion is short-lived, Ed25519-signed, bound to one audience, session,
+action and endpoint class, and carries no subject identity, biometric material,
+device identifier or cross-site identifier. Its session commitment is derived
+per audience, so two relying services cannot link the same visitor.
+
+A deployment can emit one today. `POST /v1/assurance` lives behind its own
+versioned contract, [`api/openapi-assurance-v1.yaml`](api/openapi-assurance-v1.yaml),
+so `/v1/decision`, its protobuf contract and every existing adapter stay
+byte-identical and a deployment that wants no assurance carries no new data
+class. The surface stays disabled unless a signing key, a binding secret and an
+explicit audience allow list are all configured, and an unlisted audience is
+refused rather than minted.
+
+Its **supported ceiling is H1**—verified bounded interaction evidence. The
+verifier refuses to sign or accept a higher level, and a test enforces that the
+ceiling cannot be raised without a mechanism behind it. H2 needs an interactive
+liveness challenge that does not exist here: the current challenge is a cost and
+outcome signal that browser automation may complete routinely. Device
+attestation (H3), issuer-signed credentials (H4) and scope uniqueness (H5) are
+specified in the [Human Trust Protocol](docs/HUMAN_TRUST_PROTOCOL.md) and have
+no implementation and no measured false-positive interval. Nothing emits an
+assertion in the decision path yet.
+
 The first vertical slice is runnable: a Go decision service, short-lived replay-protected proof tokens, an optional server-issued signed continuity cookie, bounded in-memory sessions, detector evidence, three-dimensional score fusion, CEL policy evaluation, deterministic JSONL replay, a privacy-limited browser sensor, an embedded control-room dashboard, encrypted local analysis, signed reversible rollout plans and a session/action/endpoint-bound native challenge lifecycle.
+
+The three evidence dimensions below are the machinery underneath assurance, not
+a separate product. They stay separate and separately explainable; human
+assurance is a fourth derived view over them plus verified assertions, never a
+replacement that collapses them into one number.
 
 PALISADE keeps three questions separate:
 
@@ -291,7 +351,7 @@ all requests reaching the protected origin. See the
 
 ## Architecture
 
-PALISADE starts as a modular monolith so detector APIs, policy behavior and replay fixtures can stabilize before services are split. The hot path stays in Go. TypeScript is limited to the browser sensor and static dashboard; Python is reserved for offline research and evaluation.
+PALISADE starts as a modular monolith so evidence APIs, policy behavior and replay fixtures can stabilize before services are split. The components below are the verification substrate of the assurance ladder: the proof token carries the short-lived assertion, the continuity cookie carries continuity, the challenge lifecycle carries interactive liveness, and signed local artifacts carry issuer keys and revocation without a control plane. The hot path stays in Go. TypeScript is limited to the browser sensor and static dashboard; Python is reserved for offline research and evaluation.
 
 ```text
 browser sensor ────┐

@@ -1,17 +1,26 @@
 # Machine-readable data map
 
-The current versioned [PALISADE data map](../manifests/data-map-v6.json) records the
+The current versioned [PALISADE data map](../manifests/data-map-v7.json) records the
 reference product's accepted data classes, destinations, network scopes and
 persistence modes. Its JSON Schema is
-[`schemas/data-map-v6.schema.json`](../schemas/data-map-v6.schema.json). The
-[v1](../manifests/data-map-v1.json), [v2](../manifests/data-map-v2.json) and
-[v3](../manifests/data-map-v3.json), [v4](../manifests/data-map-v4.json) and
-[v5](../manifests/data-map-v5.json) maps remain immutable records of earlier
-boundaries.
+[`schemas/data-map-v7.schema.json`](../schemas/data-map-v7.schema.json). The
+[v1](../manifests/data-map-v1.json), [v2](../manifests/data-map-v2.json),
+[v3](../manifests/data-map-v3.json), [v4](../manifests/data-map-v4.json),
+[v5](../manifests/data-map-v5.json) and [v6](../manifests/data-map-v6.json) maps
+remain immutable records of earlier boundaries.
 
-The v6 map covers fourteen flows:
+The v7 map adds the assurance flow to the fourteen v6 flows. A relying service
+that asks for proof of human presence receives a short-lived signed assertion
+stating an assurance level, its evidence classes and stable reason codes. The
+assertion carries no subject identity, biometric material, device identifier or
+cross-site identifier, and its session commitment is derived per audience, so
+two relying services cannot link the same visitor. The flow exists only where a
+deployment enables the separate assurance surface.
+
+The v7 map covers fifteen flows:
 
 1. bounded browser-event ingestion;
+1. the optional signed human assurance assertion;
 2. trusted normalized decision requests;
 3. the signed first-party continuity cookie;
 4. the server-only origin challenge binding;

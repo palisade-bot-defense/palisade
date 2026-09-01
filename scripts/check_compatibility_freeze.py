@@ -12,22 +12,25 @@ import sys
 
 API_PATHS = {
     "api/openapi.yaml",
+    "api/openapi-assurance-v1.yaml",
     "api/contracts/normalized-signal-v1.json",
     *{f"api/proto/palisade/v1/{name}.proto" for name in ("challenge", "common", "coverage", "decision", "decoy", "event")},
 }
 CURRENT_SCHEMA_NAMES = {
-    "adversarial-holdout-suite-v1", "adversarial-suite-v1", "compatibility-freeze-v2", "crawler-registry-v1", "data-map-v6",
-    "detector-bundle-v1", "edge-signal-envelope-v1", "local-artifact-v1", "local-evidence-event-v1",
+    "adversarial-holdout-suite-v1", "adversarial-suite-v1", "compatibility-freeze-v2", "crawler-registry-v1", "data-map-v7",
+    "detector-bundle-v1", "edge-signal-envelope-v1", "human-assurance-assertion-v1",
+    "issuer-trust-list-v1",
+    "local-artifact-v1", "local-evidence-event-v1",
     "local-evidence-input-v1", "local-evidence-manifest-v1", "local-family-annotation-v1",
     "local-holdout-report-v1", "local-release-v1", "local-sequence-report-v1", "migration-matrix-v2",
     "normalized-signal-contract-v1",
     "origin-adapter-conformance-v1", "policy-bundle-v1", "red-team-suite-v1", "release-reproduction-v1", "rollout-plan-v2",
-    "rollout-review-v4", "runtime-egress-v1", "shadow-analysis-report-v4", "shadow-holdout-report-v1",
-    "shadow-record-v3", "sovereignty-report-v1", "synthetic-benchmark-report-v1",
+    "rollout-review-v4", "runtime-egress-v1", "shadow-analysis-report-v5", "shadow-holdout-report-v1",
+    "shadow-record-v4", "sovereignty-report-v1", "synthetic-benchmark-report-v1",
     "synthetic-red-team-findings-v1",
 }
 STABLE_CURRENT = API_PATHS | {f"schemas/{name}.schema.json" for name in CURRENT_SCHEMA_NAMES}
-LEGACY_READ = {"schemas/shadow-record-v1.schema.json", "schemas/shadow-record-v2.schema.json"}
+LEGACY_READ = {"schemas/shadow-record-v1.schema.json", "schemas/shadow-record-v2.schema.json", "schemas/shadow-record-v3.schema.json"}
 SAFETY_MARKERS = {
     "docs/COMPATIBILITY.md": "palisade.compatibility-policy.v2",
     "docs/MIGRATIONS.md": "palisade.runbook.migrations.v2",

@@ -1,9 +1,17 @@
 # Architecture and technology stack
 
-PALISADE is a privacy-limited bot-defense control plane. It is designed to sit
-behind an origin adapter or reverse proxy, receive normalized signals, produce
-explainable decisions and measure those decisions locally before enforcement.
-It is not a packet sniffer, a general log warehouse or a raw-vendor-event bus.
+PALISADE is a privacy-limited **human-assurance verification plane**. It is
+designed to sit behind an origin adapter or reverse proxy, receive normalized
+signals and verified assertions, produce explainable assurance decisions and
+measure those decisions locally before enforcement. It is not a packet sniffer,
+a general log warehouse, a raw-vendor-event bus, an identity provider or a
+credential issuer.
+
+The automation-evidence machinery documented below is the substrate of the
+lowest assurance levels rather than the product itself; see
+[Human Trust Protocol](HUMAN_TRUST_PROTOCOL.md) for the ladder it feeds and
+[ADR 0004](adr/0004-verify-humans-never-issue-identity.md) for the
+verifier-never-issuer boundary.
 
 ## Stack
 

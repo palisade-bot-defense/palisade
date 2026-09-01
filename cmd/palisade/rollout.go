@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/rollout"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/rollout"
 )
 
 func rolloutKeygen(args []string) error {

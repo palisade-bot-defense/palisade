@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	decisionengine "github.com/palisade-bot-defense/palisade/internal/engine"
-	"github.com/palisade-bot-defense/palisade/internal/policy"
-	"github.com/palisade-bot-defense/palisade/internal/replay"
-	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	decisionengine "github.com/palisade-human-trust/palisade/internal/engine"
+	"github.com/palisade-human-trust/palisade/internal/policy"
+	"github.com/palisade-human-trust/palisade/internal/replay"
+	"github.com/palisade-human-trust/palisade/internal/shadowanalysis"
 )
 
 func TestReplayEngineOutputIsDeterministic(t *testing.T) {

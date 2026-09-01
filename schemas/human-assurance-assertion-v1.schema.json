@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.bot/schemas/human-assurance-assertion-v1.schema.json",
+  "title": "PALISADE human assurance assertion v1",
+  "description": "A short-lived, signed statement about how much verified human evidence backed one interaction. It carries no subject identity, no biometric material, no device identifier and no cross-site identifier. The specified ladder reaches level 5; a verifier rejects any level it cannot itself verify.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["payload", "key_id", "signature"],
+  "properties": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "assurance_level",
+        "assurance_sources",
+        "reason_codes",
+        "uniqueness_scope",
+        "agent_provenance",
+        "binding",
+        "policy_version",
+        "model_version",
+        "issued_at",
+        "expires_at",
+        "nonce"
+      ],
+      "properties": {
+        "schema_version": { "const": "palisade.human-assurance-assertion.v1" },
+        "assurance_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "0 unattributed, 1 verified interaction evidence, 2 interactive liveness, 3 attested device, 4 issuer-verified liveness, 5 issuer-asserted scope uniqueness."
+        },
+        "assurance_sources": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["behavioral", "challenge", "device", "issuer"] },
+          "description": "Which independent evidence classes contributed. Absence of automation evidence is never a source."
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[a-z][a-z0-9_]*$" },
+          "description": "Stable reason codes explaining the level. They must not encode free text, identifiers or measurements."
+        },
+        "uniqueness_scope": {
+          "type": "string",
+          "enum": ["none", "device", "issuer"],
+          "description": "Population within which the subject is asserted to be distinct. Global personhood is deliberately absent."
+        },
+        "agent_provenance": {
+          "type": "string",
+          "enum": ["none", "declared", "authorized", "verified_purpose"],
+          "description": "How an automated participant identified itself. Identity is never authorization."
+        },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["session_binding", "request_action", "endpoint_class", "audience"],
+          "properties": {
+            "session_binding": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "description": "Opaque per-audience session commitment. It is derived so the same session is unlinkable across audiences and cannot be reversed to the session identifier."
+            },
+            "request_action": {
+              "type": "string",
+              "enum": [
+                "read", "write", "create", "update", "delete", "search", "compare",
+                "login", "logout", "register", "checkout", "purchase", "other"
+              ]
+            },
+            "endpoint_class": {
+              "type": "string",
+              "enum": [
+                "public_content", "compare_index", "compare_noindex", "challenge_worker",
+                "other_public", "account", "login", "checkout", "other"
+              ]
+            },
+            "audience": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+              "description": "Relying-party scope the assertion is valid for. It also salts the session binding."
+            }
+          }
+        },
+        "policy_version": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "model_version": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "issued_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "nonce": { "type": "string", "minLength": 22, "maxLength": 22, "pattern": "^[A-Za-z0-9_-]{22}$" }
+      }
+    },
+    "key_id": { "type": "string", "minLength": 16, "maxLength": 16, "pattern": "^[0-9a-f]{16}$" },
+    "signature": { "type": "string", "minLength": 86, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]{86}$" }
+  }
+}

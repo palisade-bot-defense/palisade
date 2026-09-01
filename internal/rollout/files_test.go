@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/shadowanalysis"
 )
 
 func TestKeyPairAndSignedPlanFiles(t *testing.T) {

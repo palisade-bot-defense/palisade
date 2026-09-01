@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/localartifact"
+	"github.com/palisade-human-trust/palisade/internal/localartifact"
 )
 
 const BundleSchemaVersion = "palisade.policy-bundle.v1"

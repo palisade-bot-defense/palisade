@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.bot/schemas/issuer-trust-list-v1.schema.json",
+  "title": "PALISADE issuer trust list v1",
+  "description": "The signed, expiring local record of which external credential issuers a deployment accepts, at which assurance level, and which of their credentials are revoked. PALISADE verifies issuer assertions and never issues them, so this document is the complete trust root for issuer-backed assurance. It is distributed as a file and verified offline: no issuer lookup, no revocation fetch and no network call happens while a request is handled. An expired list degrades every issuer to untrusted rather than staying valid.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["payload", "signature"],
+  "properties": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "revision", "issued_at", "expires_at", "issuers", "revoked_credentials"],
+      "properties": {
+        "schema_version": { "const": "palisade.issuer-trust-list.v1" },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Monotonic revision. A list that does not increase it is a rollback and is refused."
+        },
+        "issued_at": { "type": "string", "format": "date-time" },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Short validity window. Revocation is delivered by reissuing the list, so a stale list must fail closed rather than accept a revoked credential."
+        },
+        "issuers": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["issuer_id", "public_key", "maximum_assurance_level", "uniqueness_scope", "purpose"],
+            "properties": {
+              "issuer_id": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+                "description": "Stable local name for the issuer. It is not a subject identifier and never appears in an assertion handed to a relying service."
+              },
+              "public_key": {
+                "type": "string",
+                "minLength": 43,
+                "maxLength": 43,
+                "pattern": "^[A-Za-z0-9_-]{43}$",
+                "description": "Base64url Ed25519 verification key."
+              },
+              "maximum_assurance_level": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5,
+                "description": "Ceiling this deployment grants this issuer. Trusting an issuer is an explicit operator decision with a bounded blast radius."
+              },
+              "uniqueness_scope": {
+                "type": "string",
+                "enum": ["none", "device", "issuer"],
+                "description": "Strongest uniqueness this issuer may assert. Global personhood is deliberately absent: an issuer can only dedupe within its own population."
+              },
+              "purpose": {
+                "type": "string",
+                "enum": ["human_presence", "workforce", "age_assurance", "sector_credential", "other"],
+                "description": "What the issuer verifies. Purpose is recorded so an issuer cannot be reused for a claim it was never assessed for."
+              }
+            }
+          }
+        },
+        "revoked_credentials": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43,
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "description": "Opaque per-issuer credential commitment. It is not reversible to a person and is meaningless outside its issuer."
+          }
+        }
+      }
+    },
+    "signature": { "type": "string", "minLength": 86, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]{86}$" }
+  }
+}

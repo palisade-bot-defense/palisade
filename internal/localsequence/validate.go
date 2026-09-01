@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/offlineimport"
+	"github.com/palisade-human-trust/palisade/internal/offlineimport"
 )
 
 func ValidateReport(report Report) error {

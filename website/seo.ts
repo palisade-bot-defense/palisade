@@ -18,18 +18,20 @@ export const normalizePublicSiteUrl = (raw: string | undefined): string | null =
 
 export const createSeoArtifacts = (rawPublicSiteUrl: string | undefined): SeoArtifacts => {
   const publicSiteUrl = normalizePublicSiteUrl(rawPublicSiteUrl);
-  const repository = "https://github.com/palisade-bot-defense/palisade";
-  const description = "EU-first, open-source bot defense you can run, inspect and prove on infrastructure you choose.";
+  const repository = "https://github.com/palisade-human-trust/palisade";
+  const description = "EU-first, open-source proof of human presence you can run, inspect and prove on infrastructure you choose.";
   const llms = [
     "# PALISADE",
     "",
     `> ${description}`,
     "",
-    "PALISADE is an EU-first, open-source and self-hosted signal-fusion and policy layer. It separates automation, abuse intent, and account continuity; measures outcomes locally; and requires signed, reversible rollout approval before risky enforcement.",
+    "PALISADE is an EU-first, open-source and self-hosted proof-of-human protocol. It verifies human presence, continuity, uniqueness and agent provenance without issuing an identity, capturing biometrics or operating a personhood registry. Underneath, it separates automation, abuse intent, and account continuity; measures outcomes locally; and requires signed, reversible rollout approval before risky enforcement.",
     "",
     "## Facts",
     "",
-    "- Project: PALISADE EU-first open-source bot defense",
+    "- Project: PALISADE EU-first open-source proof-of-human protocol",
+    "- Boundary: verifies assertions; never issues identity, captures biometrics or claims proof of personhood",
+    "- Implemented assurance range: behavioral evidence and interactive liveness only; device attestation, issuer credentials and uniqueness are unimplemented",
     "- Core license: AGPL-3.0-only",
     "- Browser sensor license: Apache-2.0",
     "- Data model: closed, normalized signals; no cross-site identity graph",

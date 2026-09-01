@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/core"
 )
 
 func TestPublicContentHighRiskIsThrottled(t *testing.T) {

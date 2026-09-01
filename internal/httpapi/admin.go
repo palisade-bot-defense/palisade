@@ -9,10 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/adminui"
-	"github.com/palisade-bot-defense/palisade/internal/analysisfeed"
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
+	"github.com/palisade-human-trust/palisade/internal/adminui"
+	"github.com/palisade-human-trust/palisade/internal/analysisfeed"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/shadowanalysis"
 )
 
 // AdminConfig contains only immutable, non-secret runtime metadata and the
@@ -46,6 +46,9 @@ type runtimeCounters struct {
 	events              atomic.Uint64
 	decisions           atomic.Uint64
 	originChecks        atomic.Uint64
+	assuranceAssertions atomic.Uint64
+	livenessCompleted   atomic.Uint64
+	livenessFailed      atomic.Uint64
 	recordedDecisions   atomic.Uint64
 	recordedOutcomes    atomic.Uint64
 	contextProofs       atomic.Uint64

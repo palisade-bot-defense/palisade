@@ -41,15 +41,15 @@ Mint, Amber und Sky sind auf Weiß keine geeigneten Farben für kleinen Fließte
 
 ## Ton und Text
 
-PALISADE spricht sachlich, transparent und ruhig. Das System behauptet nie, alle Bots mit 100 Prozent Sicherheit zu erkennen.
+PALISADE spricht sachlich, transparent und ruhig. Das System behauptet nie, Personsein zu beweisen, eine Identität auszustellen oder Menschen mit 100 Prozent Sicherheit von Automatisierung zu trennen.
 
 Empfohlene Kurzzeile:
 
-> Adaptive bot defense, built together.
+> Proof of human presence, built together.
 
 Deutsche Alternative:
 
-> Adaptive Bot-Abwehr, gemeinsam gebaut.
+> Nachweis menschlicher Präsenz, gemeinsam gebaut.
 
 ## Asset-Inventar
 

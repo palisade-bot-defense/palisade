@@ -12,6 +12,7 @@
   "classifications": {
     "runtime_exchange": [
       "api/contracts/normalized-signal-v1.json",
+      "api/openapi-assurance-v1.yaml",
       "api/openapi.yaml",
       "api/proto/palisade/v1/challenge.proto",
       "api/proto/palisade/v1/common.proto",
@@ -22,6 +23,8 @@
       "schemas/crawler-registry-v1.schema.json",
       "schemas/detector-bundle-v1.schema.json",
       "schemas/edge-signal-envelope-v1.schema.json",
+      "schemas/human-assurance-assertion-v1.schema.json",
+      "schemas/issuer-trust-list-v1.schema.json",
       "schemas/local-artifact-v1.schema.json",
       "schemas/normalized-signal-contract-v1.schema.json",
       "schemas/policy-bundle-v1.schema.json",
@@ -35,11 +38,12 @@
       "schemas/local-holdout-report-v1.schema.json",
       "schemas/local-sequence-report-v1.schema.json",
       "schemas/rollout-review-v4.schema.json",
-      "schemas/shadow-analysis-report-v4.schema.json",
+      "schemas/shadow-analysis-report-v5.schema.json",
       "schemas/shadow-holdout-report-v1.schema.json",
       "schemas/shadow-record-v1.schema.json",
       "schemas/shadow-record-v2.schema.json",
       "schemas/shadow-record-v3.schema.json",
+      "schemas/shadow-record-v4.schema.json",
       "schemas/sovereignty-report-v1.schema.json"
     ],
     "maintainer_evidence": [
@@ -52,7 +56,7 @@
       "schemas/adversarial-holdout-suite-v1.schema.json",
       "schemas/adversarial-suite-v1.schema.json",
       "schemas/compatibility-freeze-v2.schema.json",
-      "schemas/data-map-v6.schema.json",
+      "schemas/data-map-v7.schema.json",
       "schemas/migration-matrix-v2.schema.json",
       "schemas/origin-adapter-conformance-v1.schema.json",
       "schemas/red-team-suite-v1.schema.json",
@@ -63,7 +67,9 @@
     {
       "family": "compatibility_freeze",
       "current_schema": "schemas/compatibility-freeze-v2.schema.json",
-      "previous_schemas": ["schemas/compatibility-freeze-v1.schema.json"],
+      "previous_schemas": [
+        "schemas/compatibility-freeze-v1.schema.json"
+      ],
       "previous_support": "unsupported_historical",
       "strategy": "repository_replacement",
       "operator_command": "none",
@@ -71,13 +77,14 @@
     },
     {
       "family": "data_map",
-      "current_schema": "schemas/data-map-v6.schema.json",
+      "current_schema": "schemas/data-map-v7.schema.json",
       "previous_schemas": [
         "schemas/data-map-v1.schema.json",
         "schemas/data-map-v2.schema.json",
         "schemas/data-map-v3.schema.json",
         "schemas/data-map-v4.schema.json",
-        "schemas/data-map-v5.schema.json"
+        "schemas/data-map-v5.schema.json",
+        "schemas/data-map-v6.schema.json"
       ],
       "previous_support": "unsupported_historical",
       "strategy": "repository_replacement",
@@ -87,7 +94,9 @@
     {
       "family": "migration_matrix",
       "current_schema": "schemas/migration-matrix-v2.schema.json",
-      "previous_schemas": ["schemas/migration-matrix-v1.schema.json"],
+      "previous_schemas": [
+        "schemas/migration-matrix-v1.schema.json"
+      ],
       "previous_support": "unsupported_historical",
       "strategy": "repository_replacement",
       "operator_command": "none",
@@ -96,7 +105,9 @@
     {
       "family": "rollout_plan",
       "current_schema": "schemas/rollout-plan-v2.schema.json",
-      "previous_schemas": ["schemas/rollout-plan-v1.schema.json"],
+      "previous_schemas": [
+        "schemas/rollout-plan-v1.schema.json"
+      ],
       "previous_support": "unsupported_historical",
       "strategy": "reissue_from_current_review",
       "operator_command": "palisade prepare-rollout",
@@ -117,11 +128,12 @@
     },
     {
       "family": "shadow_analysis",
-      "current_schema": "schemas/shadow-analysis-report-v4.schema.json",
+      "current_schema": "schemas/shadow-analysis-report-v5.schema.json",
       "previous_schemas": [
         "schemas/shadow-analysis-report-v1.schema.json",
         "schemas/shadow-analysis-report-v2.schema.json",
-        "schemas/shadow-analysis-report-v3.schema.json"
+        "schemas/shadow-analysis-report-v3.schema.json",
+        "schemas/shadow-analysis-report-v4.schema.json"
       ],
       "previous_support": "unsupported_historical",
       "strategy": "regenerate_from_authenticated_source",
@@ -130,15 +142,16 @@
     },
     {
       "family": "shadow_record",
-      "current_schema": "schemas/shadow-record-v3.schema.json",
+      "current_schema": "schemas/shadow-record-v4.schema.json",
       "previous_schemas": [
         "schemas/shadow-record-v1.schema.json",
-        "schemas/shadow-record-v2.schema.json"
+        "schemas/shadow-record-v2.schema.json",
+        "schemas/shadow-record-v3.schema.json"
       ],
       "previous_support": "legacy_read",
       "strategy": "legacy_read_no_rewrite",
       "operator_command": "palisade verify-shadow-log",
-      "loss_boundary": "v1_outcome_has_no_decision_id"
+      "loss_boundary": "v1_outcome_has_no_decision_id_and_pre_v4_has_no_assurance_level"
     }
   ],
   "withdrawals": {

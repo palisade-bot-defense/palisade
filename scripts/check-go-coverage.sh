@@ -38,15 +38,19 @@ if ! meets_minimum "$overall" "$overall_min"; then
 	exit 1
 fi
 
-module=github.com/palisade-bot-defense/palisade
+module=github.com/palisade-human-trust/palisade
 critical_packages='
 internal/analysisfeed
+internal/agentprovenance
+internal/assurance
 internal/challenge
 internal/detector
 internal/engine
 internal/events
 internal/fusion
 internal/httpapi
+internal/issuertrust
+internal/liveness
 internal/localsequence
 internal/localartifact
 internal/offlineimport
@@ -58,6 +62,7 @@ internal/sessioncookie
 internal/shadowanalysis
 internal/shadowlog
 internal/token
+pkg/palisadeassurance
 pkg/palisadecontract
 pkg/palisadeedge
 pkg/palisadehttp

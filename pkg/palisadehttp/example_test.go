@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/palisade-bot-defense/palisade/pkg/palisadehttp"
+	"github.com/palisade-human-trust/palisade/pkg/palisadehttp"
 )
 
 func Example() {

@@ -6,7 +6,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/palisade-bot-defense/palisade/pkg/palisadeproxy"
+	"github.com/palisade-human-trust/palisade/pkg/palisadeproxy"
 )
 
 func Example() {

@@ -5,23 +5,24 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/core"
 )
 
 const (
-	SchemaVersion                = "palisade.shadow-record.v3"
-	PreviousSchemaVersion        = "palisade.shadow-record.v2"
-	LegacySchemaVersion          = "palisade.shadow-record.v1"
-	DefaultMaxFileBytes          = int64(64 << 20)
-	DefaultMaxFileAge            = time.Hour
-	DefaultRetention             = 7 * 24 * time.Hour
-	DefaultQueueSize             = 4096
-	DefaultScanMaxFiles          = uint64(4096)
-	DefaultScanMaxRecords        = uint64(10_000_000)
-	DefaultScanMaxEncryptedBytes = int64(16 << 30)
-	MaximumScanMaxFiles          = uint64(1_000_000)
-	MaximumScanMaxRecords        = uint64(100_000_000)
-	MaximumScanMaxEncryptedBytes = int64(1 << 40)
+	SchemaVersion                  = "palisade.shadow-record.v4"
+	CurrentGenerationSchemaVersion = "palisade.shadow-record.v3"
+	PreviousSchemaVersion          = "palisade.shadow-record.v2"
+	LegacySchemaVersion            = "palisade.shadow-record.v1"
+	DefaultMaxFileBytes            = int64(64 << 20)
+	DefaultMaxFileAge              = time.Hour
+	DefaultRetention               = 7 * 24 * time.Hour
+	DefaultQueueSize               = 4096
+	DefaultScanMaxFiles            = uint64(4096)
+	DefaultScanMaxRecords          = uint64(10_000_000)
+	DefaultScanMaxEncryptedBytes   = int64(16 << 30)
+	MaximumScanMaxFiles            = uint64(1_000_000)
+	MaximumScanMaxRecords          = uint64(100_000_000)
+	MaximumScanMaxEncryptedBytes   = int64(1 << 40)
 )
 
 var (
@@ -73,6 +74,17 @@ type DecisionEntry struct {
 	ReasonCodes      []string              `json:"reason_codes"`
 	PolicyVersion    string                `json:"policy_version"`
 	ModelVersion     string                `json:"model_version"`
+	// AssuranceLevel is the human assurance level this decision backed, or nil
+	// when the decision was not evaluated for assurance. Absent is not zero: a
+	// record written before v4, or one from the risk surface, carries no level
+	// at all, and recording it as level 0 would make an unmeasured decision look
+	// like a measured absence of human presence.
+	AssuranceLevel *int `json:"assurance_level,omitempty"`
+	// AssuranceWithheld reports that the evidence supported a higher level than
+	// the build would state. Without it a withheld level is indistinguishable
+	// from an unearned one, and the measurement that decides whether to raise
+	// the ceiling needs exactly that distinction.
+	AssuranceWithheld bool `json:"assurance_withheld,omitempty"`
 }
 
 type OutcomeRequest struct {

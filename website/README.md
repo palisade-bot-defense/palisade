@@ -8,9 +8,9 @@ configuration.
 ## Local use
 
 ```sh
-pnpm --filter @palisade-bot-defense/website dev
-pnpm --filter @palisade-bot-defense/website test
-pnpm --filter @palisade-bot-defense/website build
+pnpm --filter @palisade-human-trust/website dev
+pnpm --filter @palisade-human-trust/website test
+pnpm --filter @palisade-human-trust/website build
 ```
 
 The production output is written to `website/dist/`. Brand files are sourced
@@ -23,7 +23,7 @@ Set the reviewed canonical HTTPS origin, including its trailing slash:
 
 ```sh
 VITE_PUBLIC_SITE_URL='https://palisade.example/' \
-  pnpm --filter @palisade-bot-defense/website build
+  pnpm --filter @palisade-human-trust/website build
 ```
 
 The build then emits a canonical URL, absolute social image, Open Graph URL,

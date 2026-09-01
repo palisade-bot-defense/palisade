@@ -24,8 +24,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/pkg/palisadehttp"
-	"github.com/palisade-bot-defense/palisade/pkg/palisadeproxy"
+	"github.com/palisade-human-trust/palisade/pkg/palisadehttp"
+	"github.com/palisade-human-trust/palisade/pkg/palisadeproxy"
 )
 
 const (

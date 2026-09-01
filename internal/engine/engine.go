@@ -9,15 +9,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/decoy"
-	"github.com/palisade-bot-defense/palisade/internal/detector"
-	"github.com/palisade-bot-defense/palisade/internal/fusion"
-	"github.com/palisade-bot-defense/palisade/internal/policy"
-	"github.com/palisade-bot-defense/palisade/internal/rollout"
-	"github.com/palisade-bot-defense/palisade/internal/session"
-	"github.com/palisade-bot-defense/palisade/internal/token"
-	"github.com/palisade-bot-defense/palisade/pkg/palisadecontract"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/decoy"
+	"github.com/palisade-human-trust/palisade/internal/detector"
+	"github.com/palisade-human-trust/palisade/internal/fusion"
+	"github.com/palisade-human-trust/palisade/internal/policy"
+	"github.com/palisade-human-trust/palisade/internal/rollout"
+	"github.com/palisade-human-trust/palisade/internal/session"
+	"github.com/palisade-human-trust/palisade/internal/token"
+	"github.com/palisade-human-trust/palisade/pkg/palisadecontract"
 )
 
 var (

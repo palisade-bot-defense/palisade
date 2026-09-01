@@ -1,0 +1,232 @@
+openapi: 3.1.0
+
+info:
+  title: PALISADE assurance API
+  version: 1.0.0
+  description: |
+    The proof-of-human surface. It is a separate contract from the PALISADE HTTP
+    API so that api/openapi.yaml, its protobuf contract and every existing
+    adapter stay byte-identical, and so a deployment that wants no assurance
+    carries no new data class. See docs/adr/0005-assurance-api-surface.md.
+
+    A relying service learns how much verified human evidence backed one
+    interaction. It does not learn who the visitor is: an assertion carries no
+    subject identity, biometric material, device identifier or cross-site
+    identifier, and its session commitment is derived per audience so two
+    relying services cannot link the same visitor.
+
+    The specified assurance ladder reaches level 5. This implementation refuses
+    to sign or accept anything above level 1. Interactive liveness is
+    implemented and a completed attempt is recorded in the assertion, but the
+    level it earns is withheld until a confirmed-human false-positive and
+    abandonment interval exists per level: gating a surface on an unmeasured
+    level would harm people before anyone knows how often it does. Device
+    attestation, issuer credentials and uniqueness have no verifier at all.
+
+paths:
+  /v1/assurance:
+    post:
+      summary: Mint a signed human assurance assertion for one relying service
+      description: |
+        Evaluates the same normalized request the risk surface would and returns
+        only the assertion. Scores, evidence, enforcement actions and the
+        decision identifier are deliberately not reflected: a relying service
+        asking about human presence has no need for the risk decision.
+
+        The response is a complete assertion document. Absence of human evidence
+        is a signed level 0, not an error: "presence could not be established"
+        is a real answer and must be distinguishable from a failed request.
+      operationId: mintAssuranceAssertion
+      parameters:
+        - in: header
+          name: X-Palisade-Assurance-Audience
+          required: true
+          description: |
+            The relying-party scope this assertion is minted for. It must appear
+            in the deployment's configured allow list; an unlisted audience is
+            refused rather than minted, so a misconfiguration cannot produce
+            assertions for an attacker-chosen scope. The audience also salts the
+            session commitment.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: "^[a-z0-9][a-z0-9._:-]*$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "openapi.yaml#/components/schemas/DecisionRequest"
+      responses:
+        "200":
+          description: A signed assertion bound to this audience, session, action and endpoint class.
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/human-assurance-assertion-v1.schema.json"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "501":
+          description: |
+            The deployment does not offer assurance. The surface is disabled
+            unless a signing key, a binding secret and at least one allowed
+            audience are all configured, so an incomplete configuration fails
+            closed instead of minting unusable assertions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+
+  /v1/assurance/liveness:
+    post:
+      summary: Open an interactive liveness attempt
+      description: |
+        Returns the first round. Later rounds are not disclosed: each prompt is
+        revealed only when the previous one is answered, so an attempt cannot be
+        solved ahead of time. The correct option is never sent to the client.
+
+        Completing an attempt evidences that the client stayed attached across
+        several rounds and answered each inside a narrow window. It does not
+        establish that the client is human: browser automation can drive a real
+        browser in real time.
+      operationId: beginLiveness
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [session_id, action, endpoint_class]
+              properties:
+                session_id: { type: string, minLength: 8, maxLength: 128 }
+                action:
+                  type: string
+                  enum: [read, write, create, update, delete, search, compare, login, logout, register, checkout, purchase, other]
+                endpoint_class:
+                  type: string
+                  enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]
+      responses:
+        "200":
+          description: The attempt and its first round.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LivenessPrompt"
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+
+  /v1/assurance/liveness/answer:
+    post:
+      summary: Answer one round of an interactive liveness attempt
+      description: |
+        Any failure ends the attempt and reports only that it ended. A wrong
+        answer, an answer faster than the human reaction floor and a late answer
+        are not distinguished: telling a client which constraint it missed tells
+        an attacker which one to tune. Retrying inside one attempt is not
+        possible, so a client cannot search the option space.
+      operationId: answerLiveness
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [challenge_id, session_id, round, answer]
+              properties:
+                challenge_id: { type: string, minLength: 1, maxLength: 64 }
+                session_id: { type: string, minLength: 8, maxLength: 128 }
+                round: { type: integer, minimum: 0, maximum: 7 }
+                answer: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        "200":
+          description: The next round, or the completed attempt and its attestation.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [completed]
+                properties:
+                  completed: { type: boolean }
+                  next: { $ref: "#/components/schemas/Prompt" }
+                  attestation:
+                    type: string
+                    description: |
+                      Present exactly once, on completion. Present it to
+                      /v1/assurance in X-Palisade-Liveness-Attestation. It is
+                      bound to the session, action and endpoint class it was
+                      earned on and expires in two minutes.
+                    minLength: 1
+                    maxLength: 128
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "409":
+          description: The attempt ended. No further rounds are accepted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+
+components:
+  responses:
+    Error:
+      description: Stable machine-readable error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum:
+            [
+              invalid_audience,
+              invalid_request,
+              invalid_json,
+              invalid_session,
+              assurance_not_enabled,
+              assurance_unavailable,
+              liveness_not_enabled,
+              liveness_capacity,
+              liveness_attempt_ended,
+            ]
+    Prompt:
+      type: object
+      additionalProperties: false
+      required: [round, options, deadline_at]
+      description: |
+        One round. The correct option is deliberately absent: disclosing it
+        would make the challenge answerable without reacting to it. Options are
+        plain labels so a screen reader can announce them and a keyboard can
+        select them; nothing here requires sight or a pointer.
+      properties:
+        round: { type: integer, minimum: 0, maximum: 7 }
+        options:
+          type: array
+          minItems: 2
+          maxItems: 8
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 64 }
+        deadline_at: { type: string, format: date-time }
+    LivenessPrompt:
+      type: object
+      additionalProperties: false
+      required: [challenge_id, family, prompt]
+      properties:
+        challenge_id: { type: string, minLength: 1, maxLength: 64 }
+        family: { type: string, const: interactive_liveness_v1 }
+        prompt: { $ref: "#/components/schemas/Prompt" }

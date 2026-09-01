@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/offlineimport"
-	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
+	"github.com/palisade-human-trust/palisade/internal/offlineimport"
+	"github.com/palisade-human-trust/palisade/internal/shadowanalysis"
 )
 
 var holdoutRuleDefinitions = []RuleDefinition{

@@ -1,0 +1,130 @@
+{
+  "schema_version": "palisade.human-assurance-assertion-suite.v1",
+  "contract": "palisade.human-assurance-assertion.v1",
+  "scope": "assurance_assertion_verifier",
+  "synthetic_only": true,
+  "privacy_assertions": [
+    "no_subject_identifier",
+    "no_biometric_material",
+    "no_device_identifier",
+    "no_cross_audience_identifier",
+    "no_raw_session_identifier"
+  ],
+  "supported_level_ceiling": 1,
+  "specified_level_ceiling": 5,
+  "ceiling_rationale": "Only verified bounded interaction evidence exists. The current proof-of-work challenge is a cost and outcome signal that browser automation may complete routinely, so it is not interactive liveness and cannot reach level 2.",
+  "scenarios": [
+    {
+      "id": "behavioral_accepted",
+      "description": "A level 1 assertion with verified interaction evidence is accepted for its own audience inside its validity window.",
+      "mutation": "none",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "accepted"
+    },
+    {
+      "id": "unattributed_accepted",
+      "description": "A level 0 assertion carries no human evidence and is still structurally valid.",
+      "mutation": "none",
+      "level": 0,
+      "sources": [],
+      "expected": "accepted"
+    },
+    {
+      "id": "interactive_level_refused",
+      "description": "Level 2 claims interactive liveness that no mechanism in this repository provides.",
+      "mutation": "none",
+      "level": 2,
+      "sources": ["behavioral", "challenge"],
+      "expected": "unsupported_level"
+    },
+    {
+      "id": "attested_device_level_refused",
+      "description": "Level 3 claims a hardware-attested key that is never verified here.",
+      "mutation": "none",
+      "level": 3,
+      "sources": ["behavioral", "challenge", "device"],
+      "expected": "unsupported_level"
+    },
+    {
+      "id": "issuer_unique_level_refused",
+      "description": "Level 5 claims issuer-asserted uniqueness with no issuer trust list in existence.",
+      "mutation": "none",
+      "level": 5,
+      "sources": ["behavioral", "challenge", "device", "issuer"],
+      "expected": "unsupported_level"
+    },
+    {
+      "id": "missing_required_source_refused",
+      "description": "A level 1 assertion without the behavioral evidence class is malformed.",
+      "mutation": "drop_required_source",
+      "level": 1,
+      "sources": [],
+      "expected": "invalid"
+    },
+    {
+      "id": "uniqueness_without_issuer_refused",
+      "description": "Issuer-scope uniqueness without the issuer evidence class is malformed.",
+      "mutation": "uniqueness_without_source",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "foreign_audience_refused",
+      "description": "An assertion minted for another relying service does not verify here.",
+      "mutation": "other_audience",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "tampered_level_refused",
+      "description": "Raising the level after signing breaks the signature.",
+      "mutation": "raise_level_after_signing",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "foreign_key_refused",
+      "description": "A correctly shaped assertion signed by another key is rejected.",
+      "mutation": "other_signing_key",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "local_artifact_signature_refused",
+      "description": "A signature produced under the signed local artifact domain must not verify as an assertion.",
+      "mutation": "foreign_domain_signature",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "unknown_field_refused",
+      "description": "The document is closed; an added field is rejected rather than ignored.",
+      "mutation": "unknown_field",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "expired_refused",
+      "description": "An assertion evaluated after its expiry fails closed.",
+      "mutation": "evaluate_after_expiry",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "expired"
+    },
+    {
+      "id": "future_issued_refused",
+      "description": "An assertion issued beyond the tolerated clock skew is rejected.",
+      "mutation": "evaluate_before_issue",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    }
+  ]
+}

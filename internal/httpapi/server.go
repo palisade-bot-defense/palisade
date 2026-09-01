@@ -13,14 +13,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/challenge"
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/decoy"
-	decisionengine "github.com/palisade-bot-defense/palisade/internal/engine"
-	"github.com/palisade-bot-defense/palisade/internal/events"
-	"github.com/palisade-bot-defense/palisade/internal/sessioncookie"
-	"github.com/palisade-bot-defense/palisade/internal/shadowlog"
-	"github.com/palisade-bot-defense/palisade/internal/token"
+	"github.com/palisade-human-trust/palisade/internal/challenge"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/decoy"
+	decisionengine "github.com/palisade-human-trust/palisade/internal/engine"
+	"github.com/palisade-human-trust/palisade/internal/events"
+	"github.com/palisade-human-trust/palisade/internal/liveness"
+	"github.com/palisade-human-trust/palisade/internal/sessioncookie"
+	"github.com/palisade-human-trust/palisade/internal/shadowlog"
+	"github.com/palisade-human-trust/palisade/internal/token"
 )
 
 const maxBodyBytes = 64 << 10
@@ -32,6 +33,14 @@ type DecisionEngine interface {
 type ShadowRecorder interface {
 	RecordDecision(core.DecisionRequest, core.Decision, time.Time) error
 	RecordOutcome(shadowlog.OutcomeRequest, time.Time) error
+}
+
+// AssuranceRecorder is an optional extension. A recorder that implements it
+// also stores the assurance level a decision backed, which is what lets the
+// confirmed-human false-positive and abandonment interval be reported per
+// level. A recorder that does not implement it keeps working unchanged.
+type AssuranceRecorder interface {
+	RecordAssuredDecision(core.DecisionRequest, core.Decision, shadowlog.Assurance, time.Time) error
 }
 
 type Server struct {
@@ -50,6 +59,8 @@ type Server struct {
 	eventShadow       *EventShadowProfile
 	eventShadowDrops  atomic.Uint64
 	originCoverage    *originCoverageStore
+	assurance         *AssuranceConfig
+	liveness          *liveness.Service
 	admin             AdminConfig
 	counters          runtimeCounters
 }
@@ -109,6 +120,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/session", s.handleSession)
 	mux.HandleFunc("POST /v1/events", s.handleEvents)
 	mux.HandleFunc("POST /v1/decision", s.handleDecision)
+	mux.HandleFunc("POST /v1/assurance", s.handleAssurance)
+	mux.HandleFunc("POST /v1/assurance/liveness", s.handleLivenessBegin)
+	mux.HandleFunc("POST /v1/assurance/liveness/answer", s.handleLivenessAnswer)
 	mux.HandleFunc("POST /v1/origin-check", s.handleOriginCheck)
 	mux.HandleFunc("POST /v1/origin-coverage", s.handleOriginCoverage)
 	mux.HandleFunc("POST /v1/outcome", s.handleOutcome)
@@ -613,13 +627,27 @@ func (s *Server) evaluateDecision(w http.ResponseWriter, r *http.Request) (core.
 }
 
 func (s *Server) recordDecision(request core.DecisionRequest, decision core.Decision) {
+	s.recordDecisionWithAssurance(request, decision, nil)
+}
+
+func (s *Server) recordDecisionWithAssurance(request core.DecisionRequest, decision core.Decision, assurance *shadowlog.Assurance) {
 	if s.shadowRecorder != nil {
-		if err := s.shadowRecorder.RecordDecision(request, decision, time.Now().UTC()); err != nil {
+		if err := s.writeDecisionRecord(request, decision, assurance); err != nil {
 			s.recordShadowDrop()
 			return
 		}
 		s.counters.recordedDecisions.Add(1)
 	}
+}
+
+func (s *Server) writeDecisionRecord(request core.DecisionRequest, decision core.Decision, assurance *shadowlog.Assurance) error {
+	now := time.Now().UTC()
+	if assurance != nil {
+		if recorder, ok := s.shadowRecorder.(AssuranceRecorder); ok {
+			return recorder.RecordAssuredDecision(request, decision, *assurance, now)
+		}
+	}
+	return s.shadowRecorder.RecordDecision(request, decision, now)
 }
 
 func originStatus(decision core.Decision, now time.Time) (int, bool) {

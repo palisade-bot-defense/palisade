@@ -15,7 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/pkg/palisadeassurance"
 )
 
 func VerifyDirectory(directory, keyFile string) (Verification, error) {
@@ -203,7 +204,7 @@ func decodeRecord(encoded []byte) (Record, error) {
 }
 
 func validateRecord(record Record) error {
-	if (record.SchemaVersion != SchemaVersion && record.SchemaVersion != PreviousSchemaVersion && record.SchemaVersion != LegacySchemaVersion) || (record.Kind != "decision" && record.Kind != "outcome") {
+	if !readableSchemaVersion(record.SchemaVersion) || (record.Kind != "decision" && record.Kind != "outcome") {
 		return errors.New("unsupported shadow record")
 	}
 	parsedAt, err := time.Parse(time.RFC3339, record.RecordedAt)
@@ -226,10 +227,21 @@ func validateRecord(record Record) error {
 		}
 		if !stableValue.MatchString(entry.DecisionID) || normalizeRequestAction(entry.RequestAction) != entry.RequestAction || normalizeEndpoint(entry.EndpointClass) != entry.EndpointClass ||
 			!validCohort || (record.SchemaVersion != LegacySchemaVersion && cohort != entry.EvaluationCohort) ||
-			!validAction(entry.Action, record.SchemaVersion == SchemaVersion) || !validAction(entry.ComputedAction, record.SchemaVersion == SchemaVersion) || (entry.Mode != core.RuntimeModeShadow && entry.Mode != core.RuntimeModeCanary && entry.Mode != core.RuntimeModeEnforce) ||
+			!validAction(entry.Action, currentGeneration(record.SchemaVersion)) || !validAction(entry.ComputedAction, currentGeneration(record.SchemaVersion)) || (entry.Mode != core.RuntimeModeShadow && entry.Mode != core.RuntimeModeCanary && entry.Mode != core.RuntimeModeEnforce) ||
 			entry.Scores.AutomationRisk < 0 || entry.Scores.AutomationRisk > 1 || entry.Scores.AbuseIntentRisk < 0 || entry.Scores.AbuseIntentRisk > 1 || entry.Scores.AccountContinuity < 0 || entry.Scores.AccountContinuity > 1 ||
 			(entry.RolloutID != "" && !stableValue.MatchString(entry.RolloutID)) || !stableValue.MatchString(entry.PolicyVersion) || !stableValue.MatchString(entry.ModelVersion) || len(entry.ReasonCodes) > 32 {
 			return errors.New("invalid decision record")
+		}
+		// Only a v4 record may carry an assurance level, and only a level this
+		// build can state. A record that claims more than the ceiling allows is
+		// refused rather than clamped: it did not come from this implementation.
+		if entry.AssuranceLevel != nil &&
+			(record.SchemaVersion != SchemaVersion ||
+				*entry.AssuranceLevel < 0 || *entry.AssuranceLevel > palisadeassurance.MaximumSupportedLevel) {
+			return errors.New("invalid decision assurance level")
+		}
+		if entry.AssuranceWithheld && entry.AssuranceLevel == nil {
+			return errors.New("withheld assurance without a recorded level")
 		}
 		if entry.Mode == core.RuntimeModeCanary && entry.RolloutID == "" {
 			return errors.New("canary decision record requires rollout_id")
@@ -250,6 +262,24 @@ func validateRecord(record Record) error {
 		Provenance: record.Outcome.Provenance, Confidence: record.Outcome.Confidence,
 	}
 	return validateOutcomeRequest(request, record.SchemaVersion != LegacySchemaVersion)
+}
+
+// readableSchemaVersion reports whether a record version can still be read.
+// Older generations remain readable so an existing encrypted log keeps
+// analyzing after an upgrade; new output always uses the current version.
+func readableSchemaVersion(version string) bool {
+	switch version {
+	case SchemaVersion, CurrentGenerationSchemaVersion, PreviousSchemaVersion, LegacySchemaVersion:
+		return true
+	default:
+		return false
+	}
+}
+
+// currentGeneration reports whether a version belongs to the generation that
+// may carry the full action vocabulary.
+func currentGeneration(version string) bool {
+	return version == SchemaVersion || version == CurrentGenerationSchemaVersion
 }
 
 func validAction(action core.Action, allowDelay bool) bool {

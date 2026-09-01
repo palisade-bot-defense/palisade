@@ -3,7 +3,7 @@ package fusion
 import (
 	"testing"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/core"
 )
 
 func TestSuspiciousEvidenceRaisesRisk(t *testing.T) {

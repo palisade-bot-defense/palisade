@@ -7,8 +7,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/palisade-bot-defense/palisade/internal/core"
-	"github.com/palisade-bot-defense/palisade/internal/shadowlog"
+	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/shadowlog"
 )
 
 func TestSparseEvidenceKeepsShadowAndExplainsGaps(t *testing.T) {

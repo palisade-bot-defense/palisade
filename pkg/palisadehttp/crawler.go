@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/pkg/palisadecontract"
+	"github.com/palisade-human-trust/palisade/pkg/palisadecontract"
 )
 
 const (

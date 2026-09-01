@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/palisade-bot-defense/palisade/internal/rollout"
-	"github.com/palisade-bot-defense/palisade/internal/shadowanalysis"
+	"github.com/palisade-human-trust/palisade/internal/rollout"
+	"github.com/palisade-human-trust/palisade/internal/shadowanalysis"
 )
 
 const (
