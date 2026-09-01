@@ -12,6 +12,7 @@ package assurance
 import (
 	"sort"
 
+	"github.com/palisade-human-trust/palisade/internal/agentprovenance"
 	"github.com/palisade-human-trust/palisade/internal/core"
 	"github.com/palisade-human-trust/palisade/pkg/palisadeassurance"
 )
@@ -88,17 +89,45 @@ func Derive(decision core.Decision) Result {
 
 // Payload turns a derived result into the signable assertion payload for one
 // audience, leaving the timestamps and nonce to the signer.
-func (r Result) Payload(binding palisadeassurance.Binding, policyVersion, modelVersion string) palisadeassurance.Payload {
+//
+// The agent provenance is carried through unchanged: an assertion should say
+// how an automated participant identified itself rather than hide it.
+// Provenance never raises the assurance level, because identifying as an agent
+// is not evidence that a human is present.
+func (r Result) Payload(
+	binding palisadeassurance.Binding,
+	provenance agentprovenance.Result,
+	policyVersion, modelVersion string,
+) palisadeassurance.Payload {
+	reasons := append(append([]string(nil), r.ReasonCodes...), provenance.ReasonCodes...)
+	sort.Strings(reasons)
+	declared := provenance.Provenance
+	if declared == "" {
+		declared = agentprovenance.None
+	}
 	return palisadeassurance.Payload{
 		AssuranceLevel:   r.Level,
 		AssuranceSources: r.Sources,
-		ReasonCodes:      r.ReasonCodes,
+		ReasonCodes:      dedupe(reasons),
 		UniquenessScope:  "none",
-		AgentProvenance:  "none",
+		AgentProvenance:  declared,
 		Binding:          binding,
 		PolicyVersion:    policyVersion,
 		ModelVersion:     modelVersion,
 	}
+}
+
+func dedupe(values []string) []string {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		if _, duplicate := seen[value]; duplicate {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 func finish(level int, sources, reasons []string) Result {

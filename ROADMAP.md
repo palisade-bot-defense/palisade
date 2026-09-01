@@ -240,7 +240,7 @@ Deliverables:
   short-lived proof token;
 - [x] define the signed, expiring local issuer trust-list and revocation
   artifact so H4 verification stays offline and fails closed on expiry;
-- [ ] generalize verified-for-a-purpose crawler identity into agent provenance,
+- [x] generalize verified-for-a-purpose crawler identity into agent provenance,
   keeping identity separate from authorization;
 - [ ] measure a confirmed-human false-positive and abandonment interval per
   assurance level, by endpoint class, before any surface is gated above H1.

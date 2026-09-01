@@ -3,9 +3,11 @@ package assurance
 import (
 	"crypto/ed25519"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/palisade-human-trust/palisade/internal/agentprovenance"
 	"github.com/palisade-human-trust/palisade/internal/core"
 	"github.com/palisade-human-trust/palisade/pkg/palisadeassurance"
 )
@@ -149,7 +151,7 @@ func TestDerivedPayloadSignsAndVerifies(t *testing.T) {
 		RequestAction:  "login",
 		EndpointClass:  "login",
 		Audience:       "relying.example",
-	}, decision.PolicyVersion, decision.ModelVersion)
+	}, agentprovenance.Result{}, decision.PolicyVersion, decision.ModelVersion)
 
 	encoded, err := palisadeassurance.Sign(payload, time.Minute, now, private)
 	if err != nil {
@@ -174,9 +176,49 @@ func TestDerivedPayloadSignsAndVerifies(t *testing.T) {
 		RequestAction:  "read",
 		EndpointClass:  "public_content",
 		Audience:       "relying.example",
-	}, decision.PolicyVersion, decision.ModelVersion)
+	}, agentprovenance.Result{}, decision.PolicyVersion, decision.ModelVersion)
 	if _, err := palisadeassurance.Sign(empty, time.Minute, now, private); err != nil {
 		t.Fatalf("sign unattributed payload: %v", err)
+	}
+}
+
+func TestAgentProvenanceIsCarriedButNeverRaisesAssurance(t *testing.T) {
+	// A verified crawler is a legitimate participant whose identity belongs in
+	// the assertion. It is still not a human, so the level must stay at zero.
+	verified := agentprovenance.Derive(core.Observations{
+		VerifiedBot:         true,
+		CrawlerClass:        core.CrawlerClassSearchIndexer,
+		CrawlerVerification: core.CrawlerVerification("ip_ua_registry"),
+	}, "public_content")
+	if verified.Provenance != agentprovenance.VerifiedPurpose {
+		t.Fatalf("the control case did not verify: %+v", verified)
+	}
+
+	payload := Derive(decisionWith()).Payload(palisadeassurance.Binding{
+		SessionBinding: strings.Repeat("A", 43),
+		RequestAction:  "read",
+		EndpointClass:  "public_content",
+		Audience:       "relying.example",
+	}, verified, "default-v5", "transparent-baseline-v13")
+
+	if payload.AgentProvenance != agentprovenance.VerifiedPurpose {
+		t.Fatalf("provenance was not carried into the assertion: %+v", payload)
+	}
+	if payload.AssuranceLevel != palisadeassurance.LevelUnattributed {
+		t.Fatalf("a verified agent raised assurance to %d", payload.AssuranceLevel)
+	}
+	if !contains(payload.ReasonCodes, agentprovenance.ReasonVerifiedPurpose) {
+		t.Fatalf("the provenance reason was dropped: %v", payload.ReasonCodes)
+	}
+	// An empty provenance must still produce a valid closed value.
+	fallback := Derive(decisionWith()).Payload(palisadeassurance.Binding{
+		SessionBinding: strings.Repeat("A", 43),
+		RequestAction:  "read",
+		EndpointClass:  "public_content",
+		Audience:       "relying.example",
+	}, agentprovenance.Result{}, "default-v5", "transparent-baseline-v13")
+	if fallback.AgentProvenance != agentprovenance.None {
+		t.Fatalf("an empty provenance produced %q", fallback.AgentProvenance)
 	}
 }
 
