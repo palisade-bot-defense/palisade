@@ -245,6 +245,15 @@ Deliverables:
 - [ ] measure a confirmed-human false-positive and abandonment interval per
   assurance level, by endpoint class, before any surface is gated above H1.
 
+Every remaining deliverable above needs an assurance assertion, a liveness
+challenge or an attestation to cross the HTTP boundary, and all of them are
+blocked by the same rule: `docs/COMPATIBILITY.md` requires a new contract
+version for any added field, enum value or endpoint, and `api/openapi.yaml`
+defines no extension mechanism. That is a contract-versioning decision, not an
+implementation detail; the options and this repository's own preferred answer
+are in [ADR 0005](docs/adr/0005-assurance-api-surface.md). The offline work each
+deliverable depends on is implemented and needed no contract change.
+
 Exit gate: an independently implemented issuer adapter passes the same privacy,
 failure-policy and decision-contract suite as a transport adapter; every gated
 surface has a reviewed alternative path; red-team results exist for proof
