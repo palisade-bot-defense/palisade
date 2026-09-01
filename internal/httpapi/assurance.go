@@ -111,7 +111,7 @@ func (s *Server) handleAssurance(w http.ResponseWriter, r *http.Request) {
 	// Deriving it again here rather than inside mintAssertion keeps one source
 	// of truth for what was recorded and what was asserted.
 	live := s.verifiedLiveness(r, request.SessionID, request.Action, request.EndpointClass)
-	derived := assurance.Derive(decision, live)
+	derived := assurance.Derive(decision, assurance.Evidence{LivenessVerified: live})
 	s.recordDecisionWithAssurance(request, decision, &shadowlog.Assurance{
 		Level:    derived.Level,
 		Withheld: derived.Withheld(),

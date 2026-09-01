@@ -239,7 +239,7 @@ Deliverables:
   that browser automation may complete routinely, so it cannot reach H2. The
   level it supports is computed and then withheld: raising the ceiling is the
   measurement deliverable below, not a constant change;
-- [ ] accept platform device attestation as H3 evidence bound to the existing
+- [x] accept platform device attestation as H3 evidence bound to the existing
   short-lived proof token;
 - [x] define the signed, expiring local issuer trust-list and revocation
   artifact so H4 verification stays offline and fails closed on expiry;

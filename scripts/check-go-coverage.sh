@@ -44,6 +44,7 @@ internal/analysisfeed
 internal/agentprovenance
 internal/assurance
 internal/challenge
+internal/deviceattest
 internal/detector
 internal/engine
 internal/events

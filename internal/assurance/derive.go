@@ -36,6 +36,7 @@ const (
 
 	reasonVerifiedBrowserSequence = "verified_browser_sequence"
 	reasonInteractiveLiveness     = "interactive_liveness_completed"
+	reasonAttestedDevice          = "attested_device_credential_verified"
 	reasonLevelPendingMeasurement = "level_withheld_pending_measurement"
 	reasonServerSessionVerified   = "server_session_verified"
 	reasonAutomationContradiction = "automation_evidence_contradicts_presence"
@@ -61,18 +62,34 @@ type Result struct {
 	ReasonCodes []string
 }
 
-// Derive computes the assurance level backed by a decision's evidence and, when
-// livenessVerified is set, by a completed interactive liveness challenge whose
-// attestation the caller already checked against this session, action and
-// endpoint class.
+// Evidence is the verified, non-decision input to a derivation. Each field is
+// set only after the caller verified the corresponding proof for this exact
+// session, action and endpoint class; this package trusts, and never re-checks,
+// that verification.
+type Evidence struct {
+	// LivenessVerified reports a completed interactive liveness challenge.
+	LivenessVerified bool
+	// DeviceAttested reports a verified assertion from a registered
+	// device-bound credential. Possession of a device is not presence of a
+	// person, so it never substitutes for interaction evidence.
+	DeviceAttested bool
+}
+
+// Derive computes the assurance level backed by a decision's evidence and the
+// verified proofs the caller presents.
 //
 // The result is clamped to palisadeassurance.MaximumSupportedLevel. Interactive
-// liveness is implemented, so the computed level can reach H2, but the ceiling
-// stays at H1 until a confirmed-human false-positive and abandonment interval
-// exists per level. Withholding a level that the evidence supports is the
-// deliberate choice: gating a surface on an unmeasured level would harm people
-// before anyone knows how often it does.
-func Derive(decision core.Decision, livenessVerified bool) Result {
+// liveness and device attestation are both implemented, so the computed level
+// can reach H3, but the ceiling stays at H1 until a confirmed-human
+// false-positive and abandonment interval exists per level. Withholding a level
+// the evidence supports is the deliberate choice: gating a surface on an
+// unmeasured level would harm people before anyone knows how often it does.
+//
+// The order is cumulative rather than substitutable. A device credential never
+// stands in for interaction evidence, because possession of a device is not
+// presence of a person, and neither ever overrides an automation contradiction.
+func Derive(decision core.Decision, evidence Evidence) Result {
+	livenessVerified := evidence.LivenessVerified
 	verifiedSequence := false
 	verifiedSession := false
 	contradicted := false
@@ -99,6 +116,10 @@ func Derive(decision core.Decision, livenessVerified bool) Result {
 	case contradicted:
 		reasons = append(reasons, reasonAutomationContradiction)
 		return finish(palisadeassurance.LevelUnattributed, nil, reasons)
+	case verifiedSequence && livenessVerified && evidence.DeviceAttested:
+		reasons = append(reasons, reasonVerifiedBrowserSequence, reasonInteractiveLiveness, reasonAttestedDevice)
+		return finish(palisadeassurance.LevelAttestedDevice,
+			[]string{"behavioral", "challenge", "device"}, reasons)
 	case verifiedSequence && livenessVerified:
 		reasons = append(reasons, reasonVerifiedBrowserSequence, reasonInteractiveLiveness)
 		return finish(palisadeassurance.LevelInteractive, []string{"behavioral", "challenge"}, reasons)

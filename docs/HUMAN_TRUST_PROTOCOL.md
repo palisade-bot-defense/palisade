@@ -10,9 +10,18 @@ Specification status is separate from implementation status. The assertion
 contract itself is implemented and frozen as
 [`human-assurance-assertion-v1`](../schemas/human-assurance-assertion-v1.schema.json),
 but its **supported ceiling is H1**: the reference verifier refuses to sign or
-accept any higher level, because no mechanism in this repository verifies
-interactive liveness, device attestation, issuer credentials or uniqueness. A
-reader should assume that everything above H1 is design, not capability.
+accept any higher level.
+
+The ceiling is no longer set by missing mechanisms. Interactive liveness and
+device-bound credential verification are both implemented, so the derivation
+computes H2 and H3 and then withholds them, marking the assertion
+`level_withheld_pending_measurement`. What is missing is the measurement itself:
+a confirmed-human false-positive and abandonment interval per level, which needs
+a representative deployment. Gating a surface on an unmeasured level would harm
+people before anyone knows how often it does.
+
+Issuer credentials (H4) and uniqueness (H5) have no verifier at all and remain
+design rather than capability.
 
 ## Position
 
@@ -72,8 +81,8 @@ Consequences that follow directly:
 - there is no "PALISADE Trust Network" and no PALISADE-operated issuer; that
   would contradict the sovereignty contract and the v1.0 requirement of no
   dependency on private PALISADE-operated services;
-- an operator with no issuer still gets H0–H2, because those levels use only
-  signals PALISADE already accepts;
+- an operator with no issuer still gets everything up to the current ceiling,
+  because those levels use only signals PALISADE already accepts;
 - trusting an issuer is an explicit, reviewable operator decision with a
   documented blast radius, not a PALISADE default.
 
@@ -116,7 +125,7 @@ explainable.
 | H0 | none; unattributed traffic | anonymous reads | available |
 | H1 | verified bounded interaction evidence and low automation risk | commenting, low-value writes | implemented: the assertion contract exists and this is its ceiling |
 | H2 | H1 plus a completed session/action/endpoint-bound **interactive** challenge | account creation, rate-limited signup | mechanism implemented; the level is computed but withheld until measured |
-| H3 | H2 plus a device-attested key bound to the session | marketplace actions, messaging identity | not implemented |
+| H3 | H2 plus a device-attested key bound to the session | marketplace actions, messaging identity | assertion verification implemented; attestation statements deliberately not; the level is computed and withheld |
 | H4 | H3 plus an issuer assertion of verified liveness at enrolment | high-value transactions, bank-detail changes | not implemented; requires an external issuer |
 | H5 | H4 plus an issuer assertion of scope uniqueness | governance, one-person-one-vote surfaces | not implemented; requires an external issuer with a dedupe guarantee |
 
@@ -208,6 +217,23 @@ substantially more expensive.
 
 This layer is verification-only: the attestation arrives with the request, and
 verification uses locally held roots.
+
+`internal/deviceattest` implements it, and its boundary is deliberate. It
+verifies a WebAuthn authentication assertion: that the holder of a registered
+credential signed a challenge this deployment issued, for this relying party and
+origin, with user presence signalled and a signature counter that advanced. It
+does **not** verify an attestation statement. Deciding which vendor made an
+authenticator means parsing packed, TPM, Android-key and Apple formats and
+maintaining vendor roots, and a partial implementation of that is worse than
+none: it would report a provenance it had not checked. Registration happens
+outside PALISADE, which receives only the resulting credential through a signed
+local artifact — the same verify-never-issue shape as the issuer trust list.
+
+So a verification means "a credential this deployment registered was used, live,
+here". It does not mean "a genuine hardware key from vendor X", and it does not
+mean a person: possession of a device is not presence of a human. That is why
+device evidence sits above interaction evidence in the ladder rather than
+replacing it, and why a device credential alone carries no level at all.
 
 ### 4. Issuer-signed credential — H4
 
