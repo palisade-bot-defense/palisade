@@ -124,7 +124,7 @@ func TestDataMapIsClosedAndContainsNoRawAcceptedClass(t *testing.T) {
 	}
 	wantFlowIDs := []string{
 		"aggregate_analysis", "assurance_assertion", "browser_event_ingest", "continuity_cookie", "decision_request",
-		"delayed_outcome", "local_evidence_import", "local_holdout_evaluation", "local_sequence_analysis", "native_challenge_lifecycle", "native_decoy_lifecycle", "operator_console_summary", "origin_challenge_binding", "shadow_measurement", "sovereignty_report",
+		"delayed_outcome", "interactive_liveness", "local_evidence_import", "local_holdout_evaluation", "local_sequence_analysis", "native_challenge_lifecycle", "native_decoy_lifecycle", "operator_console_summary", "origin_challenge_binding", "shadow_measurement", "sovereignty_report",
 	}
 	wantDirectReferences := []string{"operator_session_reference_may_be_personal_data", "operator_subject_reference_may_include_network_identifier"}
 	wantSequenceLinkage := []string{"daily_rotating_pseudonym_for_sequence_linkage"}

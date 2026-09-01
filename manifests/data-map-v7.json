@@ -32,17 +32,17 @@
     {
       "id": "assurance_assertion",
       "source": "trusted_origin_adapter",
-      "destination": "relying_service",
+      "destination": "relying_service_via_trusted_adapter",
       "purpose": "proof_of_human_presence",
       "data_classes": [
         "closed_decision_request",
-        "closed_route_context",
-        "opaque_per_audience_session_commitment",
+        "closed_signal_classes",
+        "opaque_session_handle",
         "signed_human_assurance_assertion"
       ],
       "transient_data_classes": [],
       "network_scope": "operator_configured_internal_endpoint",
-      "persistence": "none_beyond_decision_window",
+      "persistence": "none_beyond_bounded_memory",
       "external_export": false
     },
     {
@@ -105,6 +105,22 @@
       "transient_data_classes": [],
       "network_scope": "operator_configured_internal_endpoint",
       "persistence": "optional_encrypted_operator_bounded_default_seven_days",
+      "external_export": false
+    },
+    {
+      "id": "interactive_liveness",
+      "source": "first_party_browser",
+      "destination": "decision_engine",
+      "purpose": "interactive_human_presence_evidence",
+      "data_classes": [
+        "liveness_round_response",
+        "one_time_liveness_attestation",
+        "opaque_session_handle",
+        "server_generated_liveness_prompt"
+      ],
+      "transient_data_classes": [],
+      "network_scope": "operator_same_origin_endpoint",
+      "persistence": "bounded_memory_two_minutes",
       "external_export": false
     },
     {
@@ -231,6 +247,7 @@
       "purpose": "shadow_evaluation",
       "data_classes": [
         "closed_decision_result",
+        "derived_human_assurance_level",
         "opaque_link_key",
         "stable_reason_codes",
         "versioned_policy_and_model"

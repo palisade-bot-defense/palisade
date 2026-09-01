@@ -17,23 +17,39 @@ cross-site identifier, and its session commitment is derived per audience, so
 two relying services cannot link the same visitor. The flow exists only where a
 deployment enables the separate assurance surface.
 
-The v7 map covers fifteen flows:
+The v7 map covers sixteen flows:
 
 1. bounded browser-event ingestion;
-1. the optional signed human assurance assertion;
 2. trusted normalized decision requests;
-3. the signed first-party continuity cookie;
-4. the server-only origin challenge binding;
-5. the same-origin native challenge lifecycle;
-6. the backend-authenticated native decoy-capability lifecycle;
-7. optional encrypted shadow decisions;
-8. delayed closed outcome labels;
-9. local aggregate analysis;
-10. the generic local evidence import;
-11. bounded local aggregate sequence analysis;
-12. local chronological and optional unseen-family holdout evaluation;
-13. the loopback Operator Console summary; and
-14. the non-identifying Sovereignty Report.
+3. the optional signed human assurance assertion;
+4. the same-origin interactive liveness lifecycle;
+5. the signed first-party continuity cookie;
+6. the server-only origin challenge binding;
+7. the same-origin native challenge lifecycle;
+8. the backend-authenticated native decoy-capability lifecycle;
+9. optional encrypted shadow decisions, including the derived assurance level;
+10. delayed closed outcome labels;
+11. local aggregate analysis;
+12. the generic local evidence import;
+13. bounded local aggregate sequence analysis;
+14. local chronological and optional unseen-family holdout evaluation;
+15. the loopback Operator Console summary; and
+16. the non-identifying Sovereignty Report.
+
+The assurance flow returns a short-lived signed assertion to the trusted
+adapter. It carries an assurance level, its evidence classes and stable reason
+codes, and no subject identity, biometric material, device identifier or
+cross-site identifier. Its session commitment is derived per audience, so two
+relying services cannot link the same visitor.
+
+The liveness flow holds a server-generated prompt, the client's per-round
+response and a one-time attestation, all in bounded memory for at most two
+minutes. The attestation is bound to one session, action and endpoint class.
+
+The shadow flow records the derived assurance level so the confirmed-human
+false-positive and abandonment interval can later be reported per level. A
+decision that was never evaluated for assurance records no level at all rather
+than level 0.
 
 Every mapped flow has `external_export: false`. That field means PALISADE does
 not export the flow to a PALISADE-operated external service. It does not override
