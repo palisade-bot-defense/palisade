@@ -1,5 +1,6 @@
 packages:
   - sensor
+  - verifier
   - dashboard
   - website
 

@@ -1,0 +1,107 @@
+{
+  "schema_version": "palisade.human-assurance-assertion-vectors.v1",
+  "contract": "palisade.human-assurance-assertion.v1",
+  "synthetic_only": true,
+  "note": "Documents signed by the Go reference implementation with a fixed test key. Every implementation must produce the same outcome for each. Regenerate with PALISADE_WRITE_VECTORS=1 go test ./pkg/palisadeassurance.",
+  "vectors": [
+    {
+      "id": "go_signed_behavioral_accepted",
+      "description": "A level 1 assertion signed by the Go implementation verifies for its audience one second after issue.",
+      "audience": "relying.example",
+      "public_key_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "evaluate_at": "2026-09-01T12:00:01Z",
+      "document": "{\"payload\":{\"schema_version\":\"palisade.human-assurance-assertion.v1\",\"assurance_level\":1,\"assurance_sources\":[\"behavioral\"],\"reason_codes\":[\"verified_browser_events\"],\"uniqueness_scope\":\"none\",\"agent_provenance\":\"none\",\"binding\":{\"session_binding\":\"yl20b5ZF8_rAKYr1nanXE2RGICJxmqT0x7lWrJIAyaw\",\"request_action\":\"login\",\"endpoint_class\":\"login\",\"audience\":\"relying.example\"},\"policy_version\":\"default-v5\",\"model_version\":\"transparent-baseline-v13\",\"issued_at\":\"2026-09-01T12:00:00Z\",\"expires_at\":\"2026-09-01T12:01:00Z\",\"nonce\":\"MDEyMzQ1Njc4OWFiY2RlZg\"},\"key_id\":\"fe812c12f3ab4ce6\",\"signature\":\"Yy1squfRVYAOmVR-Rn3S-W52-1I-Y4nLqhdObL6DQirKL53XbJq4cMMWkHD8pxnBSjoFHc9wWd13Wy38pilxBA\"}",
+      "expected": "accepted"
+    },
+    {
+      "id": "go_signed_unattributed_accepted",
+      "description": "A level 0 assertion with empty evidence lists encodes them as arrays and verifies.",
+      "audience": "relying.example",
+      "public_key_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "evaluate_at": "2026-09-01T12:00:01Z",
+      "document": "{\"payload\":{\"schema_version\":\"palisade.human-assurance-assertion.v1\",\"assurance_level\":0,\"assurance_sources\":[],\"reason_codes\":[],\"uniqueness_scope\":\"none\",\"agent_provenance\":\"none\",\"binding\":{\"session_binding\":\"yl20b5ZF8_rAKYr1nanXE2RGICJxmqT0x7lWrJIAyaw\",\"request_action\":\"login\",\"endpoint_class\":\"login\",\"audience\":\"relying.example\"},\"policy_version\":\"default-v5\",\"model_version\":\"transparent-baseline-v13\",\"issued_at\":\"2026-09-01T12:00:00Z\",\"expires_at\":\"2026-09-01T12:01:00Z\",\"nonce\":\"MDEyMzQ1Njc4OWFiY2RlZg\"},\"key_id\":\"fe812c12f3ab4ce6\",\"signature\":\"AWcz8w5PLo2WaKca5B2G5TwR7DdTpu0YAH0M3NcuGLaRgEgpX4Tp2wy5QtyefE9KC8WbvMl8HgcvqknI7qN7AQ\"}",
+      "expected": "accepted"
+    },
+    {
+      "id": "go_signed_expired",
+      "description": "The same document evaluated after its expiry is refused as expired, not invalid.",
+      "audience": "relying.example",
+      "public_key_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "evaluate_at": "2026-09-01T12:10:00Z",
+      "document": "{\"payload\":{\"schema_version\":\"palisade.human-assurance-assertion.v1\",\"assurance_level\":1,\"assurance_sources\":[\"behavioral\"],\"reason_codes\":[\"verified_browser_events\"],\"uniqueness_scope\":\"none\",\"agent_provenance\":\"none\",\"binding\":{\"session_binding\":\"yl20b5ZF8_rAKYr1nanXE2RGICJxmqT0x7lWrJIAyaw\",\"request_action\":\"login\",\"endpoint_class\":\"login\",\"audience\":\"relying.example\"},\"policy_version\":\"default-v5\",\"model_version\":\"transparent-baseline-v13\",\"issued_at\":\"2026-09-01T12:00:00Z\",\"expires_at\":\"2026-09-01T12:01:00Z\",\"nonce\":\"MDEyMzQ1Njc4OWFiY2RlZg\"},\"key_id\":\"fe812c12f3ab4ce6\",\"signature\":\"Yy1squfRVYAOmVR-Rn3S-W52-1I-Y4nLqhdObL6DQirKL53XbJq4cMMWkHD8pxnBSjoFHc9wWd13Wy38pilxBA\"}",
+      "expected": "expired"
+    },
+    {
+      "id": "go_signed_future_issued",
+      "description": "Evaluated an hour before issue, the document is beyond clock skew and invalid.",
+      "audience": "relying.example",
+      "public_key_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "evaluate_at": "2026-09-01T11:00:00Z",
+      "document": "{\"payload\":{\"schema_version\":\"palisade.human-assurance-assertion.v1\",\"assurance_level\":1,\"assurance_sources\":[\"behavioral\"],\"reason_codes\":[\"verified_browser_events\"],\"uniqueness_scope\":\"none\",\"agent_provenance\":\"none\",\"binding\":{\"session_binding\":\"yl20b5ZF8_rAKYr1nanXE2RGICJxmqT0x7lWrJIAyaw\",\"request_action\":\"login\",\"endpoint_class\":\"login\",\"audience\":\"relying.example\"},\"policy_version\":\"default-v5\",\"model_version\":\"transparent-baseline-v13\",\"issued_at\":\"2026-09-01T12:00:00Z\",\"expires_at\":\"2026-09-01T12:01:00Z\",\"nonce\":\"MDEyMzQ1Njc4OWFiY2RlZg\"},\"key_id\":\"fe812c12f3ab4ce6\",\"signature\":\"Yy1squfRVYAOmVR-Rn3S-W52-1I-Y4nLqhdObL6DQirKL53XbJq4cMMWkHD8pxnBSjoFHc9wWd13Wy38pilxBA\"}",
+      "expected": "invalid"
+    },
+    {
+      "id": "go_signed_interactive_unsupported",
+      "description": "A level 2 document with a valid signature is refused because the level is above the supported ceiling.",
+      "audience": "relying.example",
+      "public_key_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "evaluate_at": "2026-09-01T12:00:01Z",
+      "document": "{\"payload\":{\"schema_version\":\"palisade.human-assurance-assertion.v1\",\"assurance_level\":2,\"assurance_sources\":[\"behavioral\",\"challenge\"],\"reason_codes\":[\"verified_browser_events\"],\"uniqueness_scope\":\"none\",\"agent_provenance\":\"none\",\"binding\":{\"session_binding\":\"yl20b5ZF8_rAKYr1nanXE2RGICJxmqT0x7lWrJIAyaw\",\"request_action\":\"login\",\"endpoint_class\":\"login\",\"audience\":\"relying.example\"},\"policy_version\":\"default-v5\",\"model_version\":\"transparent-baseline-v13\",\"issued_at\":\"2026-09-01T12:00:00Z\",\"expires_at\":\"2026-09-01T12:01:00Z\",\"nonce\":\"MDEyMzQ1Njc4OWFiY2RlZg\"},\"key_id\":\"fe812c12f3ab4ce6\",\"signature\":\"oVascPKTkTaBa9juusB76yLAymTOowxDYjhvrzP4Kdzg10gqDMfyI6-Zo6ftH1dGpxfZsFmp8Qx1y4b-FVACBA\"}",
+      "expected": "unsupported_level"
+    },
+    {
+      "id": "go_signed_foreign_audience",
+      "description": "A document minted for another audience does not verify for this one.",
+      "audience": "relying.example",
+      "public_key_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "evaluate_at": "2026-09-01T12:00:01Z",
+      "document": "{\"payload\":{\"schema_version\":\"palisade.human-assurance-assertion.v1\",\"assurance_level\":1,\"assurance_sources\":[\"behavioral\"],\"reason_codes\":[\"verified_browser_events\"],\"uniqueness_scope\":\"none\",\"agent_provenance\":\"none\",\"binding\":{\"session_binding\":\"yl20b5ZF8_rAKYr1nanXE2RGICJxmqT0x7lWrJIAyaw\",\"request_action\":\"login\",\"endpoint_class\":\"login\",\"audience\":\"other.example\"},\"policy_version\":\"default-v5\",\"model_version\":\"transparent-baseline-v13\",\"issued_at\":\"2026-09-01T12:00:00Z\",\"expires_at\":\"2026-09-01T12:01:00Z\",\"nonce\":\"MDEyMzQ1Njc4OWFiY2RlZg\"},\"key_id\":\"fe812c12f3ab4ce6\",\"signature\":\"AdvG2tnq2yFiXBJXFMzTBX8AWwQAf4MbYeaf8qszNHG1MNRq36O6L5gtyeaAG2ch7fkI4VnKRcFcKjDIdZp5BA\"}",
+      "expected": "invalid"
+    },
+    {
+      "id": "go_signed_other_key",
+      "description": "A well formed document signed by another key is invalid.",
+      "audience": "relying.example",
+      "public_key_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "evaluate_at": "2026-09-01T12:00:01Z",
+      "document": "{\"payload\":{\"schema_version\":\"palisade.human-assurance-assertion.v1\",\"assurance_level\":1,\"assurance_sources\":[\"behavioral\"],\"reason_codes\":[\"verified_browser_events\"],\"uniqueness_scope\":\"none\",\"agent_provenance\":\"none\",\"binding\":{\"session_binding\":\"yl20b5ZF8_rAKYr1nanXE2RGICJxmqT0x7lWrJIAyaw\",\"request_action\":\"login\",\"endpoint_class\":\"login\",\"audience\":\"relying.example\"},\"policy_version\":\"default-v5\",\"model_version\":\"transparent-baseline-v13\",\"issued_at\":\"2026-09-01T12:00:00Z\",\"expires_at\":\"2026-09-01T12:01:00Z\",\"nonce\":\"MDEyMzQ1Njc4OWFiY2RlZg\"},\"key_id\":\"5c29b78f10a35a49\",\"signature\":\"AC77Gm69YDG4t87lcS6vm7CCaoaMyW6dMihsdzNojNerpeU8mOYluwD7cC628zzUUlZZuw2rfoSu2lfDDnL7BQ\"}",
+      "expected": "invalid"
+    },
+    {
+      "id": "go_signed_foreign_domain",
+      "description": "A signature under the local-artifact domain separator must not verify as an assertion.",
+      "audience": "relying.example",
+      "public_key_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "evaluate_at": "2026-09-01T12:00:01Z",
+      "document": "{\"payload\":{\"schema_version\":\"palisade.human-assurance-assertion.v1\",\"assurance_level\":1,\"assurance_sources\":[\"behavioral\"],\"reason_codes\":[\"verified_browser_events\"],\"uniqueness_scope\":\"none\",\"agent_provenance\":\"none\",\"binding\":{\"session_binding\":\"yl20b5ZF8_rAKYr1nanXE2RGICJxmqT0x7lWrJIAyaw\",\"request_action\":\"login\",\"endpoint_class\":\"login\",\"audience\":\"relying.example\"},\"policy_version\":\"default-v5\",\"model_version\":\"transparent-baseline-v13\",\"issued_at\":\"2026-09-01T12:00:00Z\",\"expires_at\":\"2026-09-01T12:01:00Z\",\"nonce\":\"MDEyMzQ1Njc4OWFiY2RlZg\"},\"key_id\":\"fe812c12f3ab4ce6\",\"signature\":\"XvAAIMi9lfWFUvFtwNJYvEpxaCsrTOvg0FeWVouTDCWnoUdR5JB1St-vwg1ioMD4vsRbqjsamLdG-gqPtCf7Cw\"}",
+      "expected": "invalid"
+    },
+    {
+      "id": "go_signed_tampered_level",
+      "description": "Raising the level after signing breaks the signature.",
+      "audience": "relying.example",
+      "public_key_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "evaluate_at": "2026-09-01T12:00:01Z",
+      "document": "{\"key_id\":\"fe812c12f3ab4ce6\",\"payload\":{\"agent_provenance\":\"none\",\"assurance_level\":5,\"assurance_sources\":[\"behavioral\"],\"binding\":{\"audience\":\"relying.example\",\"endpoint_class\":\"login\",\"request_action\":\"login\",\"session_binding\":\"yl20b5ZF8_rAKYr1nanXE2RGICJxmqT0x7lWrJIAyaw\"},\"expires_at\":\"2026-09-01T12:01:00Z\",\"issued_at\":\"2026-09-01T12:00:00Z\",\"model_version\":\"transparent-baseline-v13\",\"nonce\":\"MDEyMzQ1Njc4OWFiY2RlZg\",\"policy_version\":\"default-v5\",\"reason_codes\":[\"verified_browser_events\"],\"schema_version\":\"palisade.human-assurance-assertion.v1\",\"uniqueness_scope\":\"none\"},\"signature\":\"Yy1squfRVYAOmVR-Rn3S-W52-1I-Y4nLqhdObL6DQirKL53XbJq4cMMWkHD8pxnBSjoFHc9wWd13Wy38pilxBA\"}",
+      "expected": "invalid"
+    },
+    {
+      "id": "go_signed_unknown_field",
+      "description": "The document is closed; an added top-level field is refused.",
+      "audience": "relying.example",
+      "public_key_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "evaluate_at": "2026-09-01T12:00:01Z",
+      "document": "{\"key_id\":\"fe812c12f3ab4ce6\",\"payload\":{\"agent_provenance\":\"none\",\"assurance_level\":1,\"assurance_sources\":[\"behavioral\"],\"binding\":{\"audience\":\"relying.example\",\"endpoint_class\":\"login\",\"request_action\":\"login\",\"session_binding\":\"yl20b5ZF8_rAKYr1nanXE2RGICJxmqT0x7lWrJIAyaw\"},\"expires_at\":\"2026-09-01T12:01:00Z\",\"issued_at\":\"2026-09-01T12:00:00Z\",\"model_version\":\"transparent-baseline-v13\",\"nonce\":\"MDEyMzQ1Njc4OWFiY2RlZg\",\"policy_version\":\"default-v5\",\"reason_codes\":[\"verified_browser_events\"],\"schema_version\":\"palisade.human-assurance-assertion.v1\",\"uniqueness_scope\":\"none\"},\"signature\":\"Yy1squfRVYAOmVR-Rn3S-W52-1I-Y4nLqhdObL6DQirKL53XbJq4cMMWkHD8pxnBSjoFHc9wWd13Wy38pilxBA\",\"subject_identifier\":\"person\"}",
+      "expected": "invalid"
+    },
+    {
+      "id": "go_signed_null_sources",
+      "description": "A null evidence list is refused even though Go would decode it to an empty slice.",
+      "audience": "relying.example",
+      "public_key_hex": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "evaluate_at": "2026-09-01T12:00:01Z",
+      "document": "{\"key_id\":\"fe812c12f3ab4ce6\",\"payload\":{\"agent_provenance\":\"none\",\"assurance_level\":1,\"assurance_sources\":null,\"binding\":{\"audience\":\"relying.example\",\"endpoint_class\":\"login\",\"request_action\":\"login\",\"session_binding\":\"yl20b5ZF8_rAKYr1nanXE2RGICJxmqT0x7lWrJIAyaw\"},\"expires_at\":\"2026-09-01T12:01:00Z\",\"issued_at\":\"2026-09-01T12:00:00Z\",\"model_version\":\"transparent-baseline-v13\",\"nonce\":\"MDEyMzQ1Njc4OWFiY2RlZg\",\"policy_version\":\"default-v5\",\"reason_codes\":[\"verified_browser_events\"],\"schema_version\":\"palisade.human-assurance-assertion.v1\",\"uniqueness_scope\":\"none\"},\"signature\":\"Yy1squfRVYAOmVR-Rn3S-W52-1I-Y4nLqhdObL6DQirKL53XbJq4cMMWkHD8pxnBSjoFHc9wWd13Wy38pilxBA\"}",
+      "expected": "invalid"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@palisade-human-trust/verifier",
+  "version": "0.1.0",
+  "description": "Client-side verifier for PALISADE human assurance assertions",
+  "type": "module",
+  "license": "Apache-2.0",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/palisade-verifier.umd.cjs",
+  "module": "./dist/palisade-verifier.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/palisade-verifier.js",
+      "require": "./dist/palisade-verifier.umd.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "4.1.11"
+  }
+}

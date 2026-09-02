@@ -409,5 +409,7 @@ from design into capability. Responds to the first consequence in 0.1.
   (`internal/issuertrust`); what is missing is the delegation credential.
 - Nothing here can supply RQ4, RQ6 or the production half of any interval.
   Those need people and a deployment.
-- Nothing here touches the message or call surface. C11 to C14 are the path
-  from one surface to three, and C14 is the prerequisite for the other two.
+- C14 exists: `verifier/` is a client-side verifier held to the same
+  conformance suite as the Go implementation plus a set of documents Go
+  actually signed, so the two cannot drift by a byte. C11 to C13 — the message
+  and call surfaces themselves — are not started; C14 was their prerequisite.

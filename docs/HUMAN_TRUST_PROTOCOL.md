@@ -41,6 +41,13 @@ The relying service receives a short-lived signed proof and a bounded assurance
 profile. It does not receive a biometric template, a face, a device identifier,
 a PALISADE account or a cross-site identifier.
 
+A relying party need not be a server. `verifier/` is a client-side verifier
+for the same contract, so a browser, a phone or a desktop client can check an
+assertion locally. It is a second implementation held to the shared conformance
+suite and to documents the Go implementation actually signed, which is what
+makes the message and call surfaces possible: there, the relying party is a
+person's client.
+
 The one-sentence framing:
 
 **PALISADE is an open verification protocol for human presence, continuity,

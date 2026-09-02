@@ -12,7 +12,9 @@ Thumbs.db
 # Build and dependency caches
 node_modules/
 sensor/dist/
+verifier/dist/
 website/dist/
+.claude-flow/
 coverage/
 *.test
 *.out

@@ -11,6 +11,10 @@ PALISADE uses a clearly separated license structure:
 - **Browser sensor:** Everything under [`sensor/`](sensor/) is licensed under
   the **Apache License 2.0** (`Apache-2.0`). The complete terms are in
   [`sensor/LICENSE`](sensor/LICENSE).
+- **Client verifier:** Everything under [`verifier/`](verifier/) is likewise
+  licensed under the **Apache License 2.0** (`Apache-2.0`), because it is
+  embedded in relying parties' own clients. The complete terms are in
+  [`verifier/LICENSE`](verifier/LICENSE).
 - **Third-party components:** Their own terms continue to apply. See
   [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and the corresponding
   dependency metadata.
@@ -19,6 +23,6 @@ No license in this repository grants rights to PALISADE names, logos or other
 trademarks except as necessary for reasonable attribution.
 
 Contributions are accepted under the license that covers the affected path:
-AGPL-3.0-only by default, or Apache-2.0 under `sensor/`. Contributors retain
+AGPL-3.0-only by default, or Apache-2.0 under `sensor/` and `verifier/`. Contributors retain
 their copyright. The repository does not require copyright assignment or a
 separate contributor license agreement; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
