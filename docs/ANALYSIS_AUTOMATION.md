@@ -14,7 +14,7 @@ encrypted *.plog + key
 analyze-shadow-log --watch-interval
           │ validate + fsync + atomic same-directory rename
           v
-owner-only palisade.shadow-analysis.v4 report
+owner-only palisade.shadow-analysis.v5 report
           │ bounded read + closed JSON decode + aggregate validation
           v
 serve --admin-analysis-report

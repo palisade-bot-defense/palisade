@@ -58,7 +58,13 @@ The evaluator authenticates the same encrypted files as `verify-shadow-log` and
 uses SHA-256 decision-ID digests as in-memory equality keys. Neither decision
 IDs nor digests enter the report. Scan and linkage budgets fail closed. The
 output follows
-[`palisade.shadow-holdout.v1`](../schemas/shadow-holdout-report-v1.schema.json),
+[`palisade.shadow-holdout.v2`](../schemas/shadow-holdout-report-v2.schema.json),
+whose partitions each carry `assurance_slices`: the same linked evaluation per
+endpoint class and human assurance level. That is what the decision to raise
+the assurance ceiling is read from — a level earns its ceiling on a holdout,
+not on the population its thresholds came from — and `unknown` is kept separate
+from level 0 so an unevaluated decision is never counted as a measured absence
+of human presence.
 is create-only, exactly `0600`, and must be placed in a canonical owner-only
 directory outside every Git worktree. The repository privacy guard rejects the
 report even after renaming.

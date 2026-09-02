@@ -143,7 +143,7 @@ def validate_admin_summary(document: dict[str, object], minimum_decisions: int, 
 
 
 def validate_analysis(document: dict[str, object]) -> None:
-    if document.get("schema_version") != "palisade.shadow-analysis.v4":
+    if document.get("schema_version") != "palisade.shadow-analysis.v5":
         raise DrillError("aggregate shadow analysis version changed")
     source = document.get("source")
     readiness = document.get("readiness")
