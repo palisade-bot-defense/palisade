@@ -83,6 +83,10 @@ const (
 	// because the whole point is to re-attest: a call whose last attestation is
 	// older than this has lost its claim to presence.
 	MaximumChannelLifetime = 2 * time.Minute
+	// ChannelInterval is the re-attestation cadence on the call surface. The
+	// emitting deployment derives the interval index from its own clock, so a
+	// client cannot mint an assertion for an interval that has not started.
+	ChannelInterval = time.Minute
 	// MaximumClockSkew tolerates a small clock difference between the emitting
 	// deployment and the relying service.
 	MaximumClockSkew = 30 * time.Second
@@ -380,6 +384,27 @@ func (v *Verifier) Verify(encoded []byte, now time.Time) (Verified, error) {
 // requires a level this implementation refuses. The parameters exist so a
 // relying service can state its requirement now and have it enforced the moment
 // a mechanism backs it.
+
+// IntervalIndex returns the channel interval that contains a moment.
+func IntervalIndex(now time.Time) uint64 {
+	return uint64(now.UTC().Unix() / int64(ChannelInterval/time.Second))
+}
+
+// ChannelContinues reports whether next re-attests the same channel as
+// previous at a later interval. The other participant's client cannot derive
+// the channel commitment itself — that needs the deployment secret — so
+// continuity is what it checks: the same opaque channel, and an interval that
+// advanced. A repeated or earlier interval is a replay, not a re-attestation.
+func (v Verified) ChannelContinues(previous Verified) bool {
+	if v.Payload.Binding.Profile != ProfileChannel || previous.Payload.Binding.Profile != ProfileChannel {
+		return false
+	}
+	if v.Payload.Binding.IntervalIndex == nil || previous.Payload.Binding.IntervalIndex == nil {
+		return false
+	}
+	return hmac.Equal([]byte(v.Payload.Binding.ChannelBinding), []byte(previous.Payload.Binding.ChannelBinding)) &&
+		*v.Payload.Binding.IntervalIndex > *previous.Payload.Binding.IntervalIndex
+}
 
 // MatchesContent reports whether a content-profile assertion was minted for
 // exactly this message. A recipient calls it with the bytes it received: an

@@ -1,14 +1,14 @@
 # Machine-readable data map
 
-The current versioned [PALISADE data map](../manifests/data-map-v8.json) records the
+The current versioned [PALISADE data map](../manifests/data-map-v9.json) records the
 reference product's accepted data classes, destinations, network scopes and
 persistence modes. Its JSON Schema is
-[`schemas/data-map-v8.schema.json`](../schemas/data-map-v8.schema.json). The
+[`schemas/data-map-v9.schema.json`](../schemas/data-map-v9.schema.json). The
 [v1](../manifests/data-map-v1.json), [v2](../manifests/data-map-v2.json),
 [v3](../manifests/data-map-v3.json), [v4](../manifests/data-map-v4.json),
-[v5](../manifests/data-map-v5.json), [v6](../manifests/data-map-v6.json) and
-[v7](../manifests/data-map-v7.json) maps remain immutable records of earlier
-boundaries.
+[v5](../manifests/data-map-v5.json), [v6](../manifests/data-map-v6.json),
+[v7](../manifests/data-map-v7.json) and [v8](../manifests/data-map-v8.json) maps
+remain immutable records of earlier boundaries.
 
 The v7 map adds the assurance flow to the fourteen v6 flows. A relying service
 that asks for proof of human presence receives a short-lived signed assertion
@@ -18,7 +18,7 @@ cross-site identifier, and its session commitment is derived per audience, so
 two relying services cannot link the same visitor. The flow exists only where a
 deployment enables the separate assurance surface.
 
-The v8 map covers sixteen flows:
+The v9 map covers sixteen flows:
 
 1. bounded browser-event ingestion;
 2. trusted normalized decision requests;
@@ -44,8 +44,10 @@ cross-site identifier. Its session commitment is derived per audience, so two
 relying services cannot link the same visitor. On the message surface the
 adapter also submits a `sender_content_commitment`: a SHA-256 the sender
 computed over the message, so the assertion can be bound to what was sent
-without PALISADE ever receiving the message. That class is why v8 exists; v3 to
-v4 bumped for the same reason.
+without PALISADE ever receiving the message. On the call surface it submits an
+`opaque_channel_reference`, the call identifier both participants share; the
+assertion carries only a per-audience commitment derived from it. Each new
+received class is why v8 and v9 exist; v3 to v4 bumped for the same reason.
 
 The liveness flow holds a server-generated prompt, the client's per-round
 response and a one-time attestation, all in bounded memory for at most two

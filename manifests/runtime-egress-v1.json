@@ -22,6 +22,7 @@
         "closed_decision_request",
         "closed_outcome_label",
         "one_time_origin_flow_binding",
+        "opaque_channel_reference",
         "opaque_decision_handle",
         "sender_content_commitment",
         "signed_continuity_cookie",

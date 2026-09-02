@@ -42,7 +42,8 @@ Every clause is load-bearing.
   and they are not three adapters for one problem. They differ in who the
   relying party is, when verification happens relative to the interaction, what
   the assertion binds to, and what freshness means. Section 0.1 sets that out.
-  The transaction and message surfaces exist; the call surface does not yet.
+  All three surfaces have a transport; the call surface re-attests through
+  liveness rather than a device signature until the device transport exists.
 
 The theses, questions and concepts below are decompositions of this question.
 Every one of them should be traceable back to a clause of it.
@@ -57,7 +58,7 @@ Every one of them should be traceable back to a clause of it.
 | **Freshness** | a minute | validity and freshness diverge: verifiable for days, freshness is evidence age *at send* | continuous; presence must be re-established, not assumed |
 | **Primary threat** | scripted automation, relay | spam at scale, impersonation, forwarded assertions | voice and video cloning, relay of a real person |
 | **What PALISADE verifies** | interaction evidence, liveness, device | the same, minted at send, bound to content | device-bound continuity plus periodic liveness — never the media |
-| **Status** | HTTP surface exists | content surface exists; client verifier checks the commitment | no adapter |
+| **Status** | HTTP surface exists | content surface exists; client verifier checks the commitment | channel surface exists; client verifier checks continuity |
 
 Three consequences follow.
 
@@ -401,6 +402,15 @@ channel identifier and the current interval, on a cadence the other
 participant's client displays as "present · verified *n* seconds ago". No media
 is analysed, and the client copy says exactly what was verified and what was
 not. Responds to RQ21 and RQ22.
+*Status:* implemented in its liveness form. `POST /v1/assurance/channel` mints
+one assertion per interval; the deployment derives the interval from its own
+clock, validity is two minutes, and both verifiers expose `channelContinues`
+for the other participant's client — same opaque channel, interval advanced,
+anything else is a replay. Re-attestation is a liveness attestation renewed
+inside its two-minute window; the low-cost device-signature re-attestation
+waits on the device transport (T7 has the verifier but no HTTP path). RQ21's
+cadence question is therefore still open: one minute is a constant, not a
+measurement.
 
 **C14 — A client-side verifier.** Messages and calls make a person's client the
 relying party. A verifier that runs in a browser or a phone, with the same

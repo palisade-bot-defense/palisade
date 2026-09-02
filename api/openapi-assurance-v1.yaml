@@ -143,6 +143,67 @@ paths:
         "501": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
 
+  /v1/assurance/channel:
+    post:
+      summary: Mint a channel-profile assertion for the current interval of a call
+      description: |
+        The call surface. Presence is re-established rather than assumed: the
+        assertion lives two minutes at most, and a client requests a new one
+        every interval for as long as the call lasts. The deployment derives
+        the interval from its own clock; a client cannot name one. The other
+        participant's client verifies each assertion for its own audience and
+        checks that it continues the channel the call started on — the same
+        opaque channel commitment, at an interval that advanced.
+
+        Liveness is carried as on every surface: an attestation earned within
+        the last two minutes counts, after which the person completes a
+        challenge again or the assertion falls back to interaction evidence
+        alone. No media is analysed. A verified channel means a present person
+        stayed attached; it does not mean the voice is real, and a client must
+        not phrase it as if it did.
+      operationId: mintChannelAssertion
+      parameters:
+        - in: header
+          name: X-Palisade-Assurance-Audience
+          required: true
+          description: The other participant's scope this assertion is minted for.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: "^[a-z0-9][a-z0-9._:-]*$"
+        - in: header
+          name: X-Palisade-Liveness-Attestation
+          required: false
+          description: A completed interactive liveness attestation for this session, action and endpoint class.
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "openapi.yaml#/components/schemas/DecisionRequest"
+                - type: object
+                  required: [channel_id]
+                  properties:
+                    channel_id:
+                      type: string
+                      minLength: 8
+                      maxLength: 128
+                      description: The opaque call reference both participants share. It never appears in the assertion; the assertion carries a per-audience commitment derived from it.
+      responses:
+        "200":
+          description: A signed channel-profile assertion for the current interval.
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/human-assurance-assertion-v2.schema.json"
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+
   /v1/assurance/liveness:
     post:
       summary: Open an interactive liveness attempt

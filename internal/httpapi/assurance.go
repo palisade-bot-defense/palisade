@@ -130,6 +130,73 @@ func (s *Server) handleContentAssurance(w http.ResponseWriter, r *http.Request) 
 	}, s.assurance.contentTTL())
 }
 
+// channelAssuranceRequest is the body of the call surface: the same closed
+// decision request plus the opaque channel reference both participants share.
+// The interval is not a field. The deployment derives it from its own clock.
+type channelAssuranceRequest struct {
+	core.DecisionRequest
+	ChannelID string `json:"channel_id"`
+}
+
+// handleChannelAssurance mints a channel-profile assertion for the current
+// interval of one call. Presence is re-established rather than assumed: the
+// assertion lives two minutes at most, and a client re-requests one every
+// interval for as long as the call lasts. Liveness is carried the same way as
+// on every surface — an attestation earned within the last two minutes counts,
+// after which the person must complete a challenge again or the assertion
+// falls back to interaction evidence alone. What is never analysed is the
+// media: a verified channel means a present person stayed attached, not that
+// the voice is real.
+func (s *Server) handleChannelAssurance(w http.ResponseWriter, r *http.Request) {
+	if s.assurance == nil {
+		writeError(w, http.StatusNotImplemented, "assurance_not_enabled")
+		return
+	}
+	audience := r.Header.Get(AudienceHeader)
+	if !audiencePattern.MatchString(audience) || !s.assurance.permits(audience) {
+		writeError(w, http.StatusBadRequest, "invalid_audience")
+		return
+	}
+	var body channelAssuranceRequest
+	if err := decodeJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if len(body.ChannelID) < 8 || len(body.ChannelID) > 128 {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	request, decision, ok := s.evaluateRequest(w, r, body.DecisionRequest)
+	if !ok {
+		return
+	}
+	live := s.verifiedLiveness(r, request.SessionID, request.Action, request.EndpointClass)
+	derived := assurance.Derive(decision, assurance.Evidence{LivenessVerified: live})
+	s.recordDecisionWithAssurance(request, decision, &shadowlog.Assurance{
+		Level:    derived.Level,
+		Withheld: derived.Withheld(),
+	})
+	now := time.Now().UTC()
+	sessionBinding, err := palisadeassurance.SessionBinding(s.assurance.BindingSecret, request.SessionID, audience)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	channelBinding, err := palisadeassurance.ChannelBinding(s.assurance.BindingSecret, body.ChannelID, audience)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	interval := palisadeassurance.IntervalIndex(now)
+	s.respondWithAssertion(w, request, decision, derived, palisadeassurance.Binding{
+		Profile:        palisadeassurance.ProfileChannel,
+		SessionBinding: sessionBinding,
+		ChannelBinding: channelBinding,
+		IntervalIndex:  &interval,
+		Audience:       audience,
+	}, palisadeassurance.MaximumChannelLifetime)
+}
+
 // validCommitment accepts exactly the shape ContentCommitment produces: a
 // base64url SHA-256 without padding.
 func validCommitment(value string) bool {

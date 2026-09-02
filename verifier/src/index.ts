@@ -55,6 +55,13 @@ export const MAXIMUM_CONTENT_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
  * last attestation is older than this has lost its claim to presence.
  */
 export const MAXIMUM_CHANNEL_LIFETIME_MS = 2 * 60 * 1000;
+/** The re-attestation cadence on the call surface. */
+export const CHANNEL_INTERVAL_MS = 60 * 1000;
+
+/** The channel interval that contains a moment, as the emitting deployment computes it. */
+export function intervalIndex(now: Date): number {
+  return Math.floor(now.getTime() / CHANNEL_INTERVAL_MS);
+}
 
 // The separators are NUL bytes, byte-identical to the Go constant. They are
 // built at runtime so this source file contains no NUL and no escape that a
@@ -183,6 +190,25 @@ export interface Verified {
  * Reports whether an accepted assertion meets a relying service's minimum.
  * Insufficient assurance is an ordinary policy input, not an error.
  */
+/**
+ * Reports whether `next` re-attests the same channel as `previous` at a later
+ * interval. The other participant's client cannot derive the channel commitment
+ * — that needs the deployment secret — so continuity is what it checks: the
+ * same opaque channel and an interval that advanced. A repeated or earlier
+ * interval is a replay, not a re-attestation.
+ */
+export function channelContinues(previous: Verified, next: Verified): boolean {
+  const before = previous.payload.binding;
+  const after = next.payload.binding;
+  if (before.profile !== PROFILE_CHANNEL || after.profile !== PROFILE_CHANNEL) {
+    return false;
+  }
+  if (before.interval_index === undefined || after.interval_index === undefined) {
+    return false;
+  }
+  return before.channel_binding === after.channel_binding && after.interval_index > before.interval_index;
+}
+
 /**
  * Reports whether a content-profile assertion was minted for exactly this
  * message. A recipient calls it with the bytes it received: an assertion

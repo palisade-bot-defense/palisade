@@ -122,6 +122,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/decision", s.handleDecision)
 	mux.HandleFunc("POST /v1/assurance", s.handleAssurance)
 	mux.HandleFunc("POST /v1/assurance/content", s.handleContentAssurance)
+	mux.HandleFunc("POST /v1/assurance/channel", s.handleChannelAssurance)
 	mux.HandleFunc("POST /v1/assurance/liveness", s.handleLivenessBegin)
 	mux.HandleFunc("POST /v1/assurance/liveness/answer", s.handleLivenessAnswer)
 	mux.HandleFunc("POST /v1/origin-check", s.handleOriginCheck)

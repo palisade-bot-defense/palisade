@@ -11,8 +11,8 @@ contract itself is implemented and frozen as
 [`human-assurance-assertion-v2`](../schemas/human-assurance-assertion-v2.schema.json),
 whose binding carries one of three profiles — `request` for the transaction
 surface, `content` for a message and `channel` for a call — with validity
-bounds of five minutes, seven days and two minutes respectively; the request
-and content profiles have a transport, the channel profile does not yet,
+bounds of five minutes, seven days and two minutes respectively, and all three
+profiles have a transport,
 but its **supported ceiling is H1**: the reference verifier refuses to sign or
 accept any higher level.
 
