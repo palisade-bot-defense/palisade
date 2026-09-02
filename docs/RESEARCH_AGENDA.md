@@ -135,6 +135,14 @@ by: showing that a detector's false-negative rate is bounded tightly enough that
 its silence carries information — which would require exactly the measurement
 that does not exist.
 
+**T2a — A level must earn its ceiling on a holdout, not on the population it
+was tuned on.** A false-positive interval reported over all decisions hides the
+level that produced it, and one reported over the data the thresholds came from
+measures fit rather than generalisation. `shadow-holdout-report-v2` therefore
+slices a predeclared chronological split per assurance level. Falsified by: a
+level whose in-sample and out-of-sample intervals coincide across deployments,
+which would make the split redundant.
+
 **T3 — The verifier must never be the issuer.** Issuing identity concentrates
 power; verifying does not. The personhood-credentials paper names issuer power
 as an open problem, and Privacy Pass names issuer centralization as one. A

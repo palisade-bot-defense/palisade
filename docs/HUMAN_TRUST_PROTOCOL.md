@@ -426,7 +426,10 @@ credible until at least the following exist, and none of them do today:
   confirmed-human cohort, by endpoint class. The machinery exists: the level is
   recorded with each decision in `shadow-record-v4`, and
   `shadow-analysis-report-v5` reports the linked outcome evaluation per level
-  and endpoint class using the same Wilson intervals as the endpoint slices.
+  and endpoint class using the same Wilson intervals as the endpoint slices,
+  and `shadow-holdout-report-v2` does the same on a predeclared chronological
+  split — the form the decision actually needs, since a level earns its ceiling
+  on a holdout rather than on the population its thresholds came from.
   What is missing is a representative deployment to measure. Decisions never
   evaluated for assurance are counted under `unknown` rather than level 0,
   because an unevaluated decision is not a measured absence of human presence;

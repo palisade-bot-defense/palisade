@@ -1,0 +1,474 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.invalid/schemas/shadow-holdout-report-v2.schema.json",
+  "title": "PALISADE chronological linked shadow holdout report v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source",
+    "split",
+    "readiness",
+    "linkage",
+    "baseline",
+    "holdout",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "palisade.shadow-holdout.v2"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "split": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holdout_start",
+        "rule"
+      ],
+      "properties": {
+        "holdout_start": {
+          "$ref": "#/$defs/time"
+        },
+        "rule": {
+          "const": "decision_recorded_before_cutoff_is_baseline_otherwise_holdout"
+        }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "automatic_enforcement",
+        "minimum_confirmed_human",
+        "minimum_confirmed_abuse",
+        "reason_codes"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "insufficient_confirmed_labels",
+            "chronological_ready"
+          ]
+        },
+        "automatic_enforcement": {
+          "const": false
+        },
+        "minimum_confirmed_human": {
+          "$ref": "#/$defs/positive_count"
+        },
+        "minimum_confirmed_abuse": {
+          "$ref": "#/$defs/positive_count"
+        },
+        "reason_codes": {
+          "type": "array",
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "baseline_decisions_missing",
+              "holdout_decisions_missing",
+              "baseline_confirmed_human_below_minimum",
+              "baseline_confirmed_abuse_below_minimum",
+              "holdout_confirmed_human_below_minimum",
+              "holdout_confirmed_abuse_below_minimum"
+            ]
+          }
+        }
+      }
+    },
+    "linkage": {
+      "$ref": "#/$defs/linkage"
+    },
+    "baseline": {
+      "$ref": "#/$defs/partition"
+    },
+    "holdout": {
+      "$ref": "#/$defs/partition"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "const": "chronology is assigned by authenticated decision record time; delayed outcome time never changes the partition"
+        },
+        {
+          "const": "confirmed labels are operator or deployment assertions and do not establish causality"
+        },
+        {
+          "const": "this report does not evaluate unseen attack families and never authorizes enforcement"
+        }
+      ],
+      "items": false
+    }
+  },
+  "$defs": {
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "positive_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000000
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "endpoint": {
+      "enum": [
+        "public_content",
+        "compare_index",
+        "compare_noindex",
+        "challenge_worker",
+        "other_public",
+        "account",
+        "login",
+        "checkout",
+        "other"
+      ]
+    },
+    "cohort": {
+      "enum": [
+        "standard",
+        "reduced_motion",
+        "keyboard_only",
+        "fallback_path",
+        "sensor_missing",
+        "unknown"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "files",
+        "records",
+        "decisions",
+        "outcomes",
+        "encrypted_bytes"
+      ],
+      "properties": {
+        "files": {
+          "$ref": "#/$defs/count"
+        },
+        "records": {
+          "$ref": "#/$defs/count"
+        },
+        "decisions": {
+          "$ref": "#/$defs/count"
+        },
+        "outcomes": {
+          "$ref": "#/$defs/count"
+        },
+        "encrypted_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "first_at": {
+          "$ref": "#/$defs/time"
+        },
+        "last_at": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "proportion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "count",
+        "total",
+        "rate",
+        "lower_95",
+        "upper_95"
+      ],
+      "properties": {
+        "count": {
+          "$ref": "#/$defs/count"
+        },
+        "total": {
+          "$ref": "#/$defs/count"
+        },
+        "rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "lower_95": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "upper_95": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "confusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "true_positive",
+        "false_positive",
+        "true_negative",
+        "false_negative"
+      ],
+      "properties": {
+        "true_positive": {
+          "$ref": "#/$defs/count"
+        },
+        "false_positive": {
+          "$ref": "#/$defs/count"
+        },
+        "true_negative": {
+          "$ref": "#/$defs/count"
+        },
+        "false_negative": {
+          "$ref": "#/$defs/count"
+        }
+      }
+    },
+    "linked_evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decisions",
+        "confirmed_labels",
+        "ambiguous_ground_truth",
+        "confusion",
+        "false_positive_rate",
+        "abuse_recall",
+        "abuse_precision",
+        "mature_challenges",
+        "challenge_passed",
+        "challenge_failed",
+        "challenge_abandoned",
+        "fallback_used",
+        "unresolved_mature_challenges",
+        "ambiguous_challenge_outcomes",
+        "challenge_pass_rate",
+        "challenge_failure_rate",
+        "challenge_abandonment_rate",
+        "fallback_rate"
+      ],
+      "properties": {
+        "decisions": {
+          "$ref": "#/$defs/count"
+        },
+        "confirmed_labels": {
+          "$ref": "#/$defs/count"
+        },
+        "ambiguous_ground_truth": {
+          "$ref": "#/$defs/count"
+        },
+        "confusion": {
+          "$ref": "#/$defs/confusion"
+        },
+        "false_positive_rate": {
+          "$ref": "#/$defs/proportion"
+        },
+        "abuse_recall": {
+          "$ref": "#/$defs/proportion"
+        },
+        "abuse_precision": {
+          "$ref": "#/$defs/proportion"
+        },
+        "mature_challenges": {
+          "$ref": "#/$defs/count"
+        },
+        "challenge_passed": {
+          "$ref": "#/$defs/count"
+        },
+        "challenge_failed": {
+          "$ref": "#/$defs/count"
+        },
+        "challenge_abandoned": {
+          "$ref": "#/$defs/count"
+        },
+        "fallback_used": {
+          "$ref": "#/$defs/count"
+        },
+        "unresolved_mature_challenges": {
+          "$ref": "#/$defs/count"
+        },
+        "ambiguous_challenge_outcomes": {
+          "$ref": "#/$defs/count"
+        },
+        "challenge_pass_rate": {
+          "$ref": "#/$defs/proportion"
+        },
+        "challenge_failure_rate": {
+          "$ref": "#/$defs/proportion"
+        },
+        "challenge_abandonment_rate": {
+          "$ref": "#/$defs/proportion"
+        },
+        "fallback_rate": {
+          "$ref": "#/$defs/proportion"
+        }
+      }
+    },
+    "evaluation_slice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "endpoint_class",
+        "evaluation_cohort",
+        "evaluation"
+      ],
+      "properties": {
+        "endpoint_class": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "evaluation_cohort": {
+          "$ref": "#/$defs/cohort"
+        },
+        "evaluation": {
+          "$ref": "#/$defs/linked_evaluation"
+        }
+      }
+    },
+    "partition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assurance_slices",
+        "confirmed_abuse",
+        "confirmed_human",
+        "decisions",
+        "evaluation",
+        "evaluation_slices",
+        "unlabeled_decisions"
+      ],
+      "properties": {
+        "decisions": {
+          "$ref": "#/$defs/count"
+        },
+        "confirmed_human": {
+          "$ref": "#/$defs/count"
+        },
+        "confirmed_abuse": {
+          "$ref": "#/$defs/count"
+        },
+        "unlabeled_decisions": {
+          "$ref": "#/$defs/count"
+        },
+        "evaluation": {
+          "$ref": "#/$defs/linked_evaluation"
+        },
+        "evaluation_slices": {
+          "type": "array",
+          "maxItems": 54,
+          "items": {
+            "$ref": "#/$defs/evaluation_slice"
+          }
+        },
+        "assurance_slices": {
+          "type": "array",
+          "maxItems": 108,
+          "items": {
+            "$ref": "#/$defs/assurance_slice"
+          },
+          "description": "The same evaluation per endpoint class and assurance level. Raising the assurance ceiling is read from here: a level may only be granted once its own confirmed-human false-positive and abandonment interval exists on a chronological holdout."
+        }
+      }
+    },
+    "linkage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unique_decision_ids",
+        "duplicate_decision_ids",
+        "duplicate_decision_records",
+        "outcome_events_with_decision_id",
+        "legacy_outcome_events_without_id",
+        "matched_outcome_events",
+        "unknown_decision_outcome_events",
+        "endpoint_mismatch_outcome_events",
+        "duplicate_outcome_events",
+        "confirmed_decision_labels",
+        "confirmed_label_coverage",
+        "ambiguous_ground_truth_decisions",
+        "ambiguous_challenge_decisions"
+      ],
+      "properties": {
+        "unique_decision_ids": {
+          "$ref": "#/$defs/count"
+        },
+        "duplicate_decision_ids": {
+          "$ref": "#/$defs/count"
+        },
+        "duplicate_decision_records": {
+          "$ref": "#/$defs/count"
+        },
+        "outcome_events_with_decision_id": {
+          "$ref": "#/$defs/count"
+        },
+        "legacy_outcome_events_without_id": {
+          "$ref": "#/$defs/count"
+        },
+        "matched_outcome_events": {
+          "$ref": "#/$defs/count"
+        },
+        "unknown_decision_outcome_events": {
+          "$ref": "#/$defs/count"
+        },
+        "endpoint_mismatch_outcome_events": {
+          "$ref": "#/$defs/count"
+        },
+        "duplicate_outcome_events": {
+          "$ref": "#/$defs/count"
+        },
+        "confirmed_decision_labels": {
+          "$ref": "#/$defs/count"
+        },
+        "confirmed_label_coverage": {
+          "$ref": "#/$defs/proportion"
+        },
+        "ambiguous_ground_truth_decisions": {
+          "$ref": "#/$defs/count"
+        },
+        "ambiguous_challenge_decisions": {
+          "$ref": "#/$defs/count"
+        }
+      }
+    },
+    "assurance_slice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "endpoint_class",
+        "assurance_level",
+        "withheld",
+        "evaluation"
+      ],
+      "properties": {
+        "endpoint_class": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "assurance_level": {
+          "type": "string",
+          "pattern": "^(unknown|[0-5])$",
+          "description": "A decimal assurance level, or \"unknown\" for a decision never evaluated for assurance. Unknown is deliberately not level 0: an unevaluated decision is not a measured absence of human presence, and merging the two would corrupt the interval this report exists to produce."
+        },
+        "withheld": {
+          "type": "boolean",
+          "description": "The evidence supported a higher level than the build stated."
+        },
+        "evaluation": {
+          "$ref": "#/$defs/linked_evaluation"
+        }
+      }
+    }
+  }
+}

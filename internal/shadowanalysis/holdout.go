@@ -3,6 +3,7 @@ package shadowanalysis
 import (
 	"crypto/sha256"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/palisade-human-trust/palisade/internal/core"
@@ -10,7 +11,7 @@ import (
 )
 
 const (
-	ShadowHoldoutSchemaVersion = "palisade.shadow-holdout.v1"
+	ShadowHoldoutSchemaVersion = "palisade.shadow-holdout.v2"
 	DefaultHoldoutMinimum      = uint64(100)
 )
 
@@ -55,6 +56,12 @@ type ShadowHoldoutPartition struct {
 	UnlabeledDecisions uint64            `json:"unlabeled_decisions"`
 	Evaluation         LinkedEvaluation  `json:"evaluation"`
 	EvaluationSlices   []EvaluationSlice `json:"evaluation_slices"`
+	// AssuranceSlices carries the same evaluation per endpoint class and
+	// assurance level. It is what the decision to raise the ceiling is read
+	// from: a level may only be granted once its own confirmed-human
+	// false-positive and abandonment interval exists on a chronological
+	// holdout, not merely on the whole population.
+	AssuranceSlices []AssuranceSlice `json:"assurance_slices"`
 }
 
 type shadowHoldoutAnalyzer struct {
@@ -65,8 +72,9 @@ type shadowHoldoutAnalyzer struct {
 }
 
 type shadowPartitionAccumulator struct {
-	overall linkedAccumulator
-	slices  map[evaluationSliceKey]*linkedAccumulator
+	overall   linkedAccumulator
+	slices    map[evaluationSliceKey]*linkedAccumulator
+	assurance map[assuranceSliceKey]*linkedAccumulator
 }
 
 func EvaluateShadowHoldoutDirectory(directory, keyFile string, config ShadowHoldoutConfig) (ShadowHoldoutReport, error) {
@@ -144,6 +152,15 @@ func (a *shadowHoldoutAnalyzer) observeDecision(entry *shadowlog.DecisionEntry, 
 	link.recordedAt = observedAt
 	link.predictedRisky = isRisky(entry.ComputedAction)
 	link.challenged = entry.Action == core.ActionChallenge
+	// A record written before the level existed, or one from the risk surface,
+	// carries none. It is counted as unknown rather than as level 0: an
+	// unevaluated decision is not a measured absence of human presence, and
+	// merging the two would corrupt the interval this report exists to produce.
+	link.assurance = AssuranceLevelUnknown
+	if entry.AssuranceLevel != nil {
+		link.assurance = strconv.Itoa(*entry.AssuranceLevel)
+	}
+	link.assuranceWithheld = entry.AssuranceWithheld
 	return nil
 }
 
@@ -242,7 +259,10 @@ func (a *shadowHoldoutAnalyzer) finish(source shadowlog.Verification) ShadowHold
 }
 
 func newShadowPartitionAccumulator() *shadowPartitionAccumulator {
-	return &shadowPartitionAccumulator{slices: make(map[evaluationSliceKey]*linkedAccumulator)}
+	return &shadowPartitionAccumulator{
+		slices:    make(map[evaluationSliceKey]*linkedAccumulator),
+		assurance: make(map[assuranceSliceKey]*linkedAccumulator),
+	}
 }
 
 func (a *shadowPartitionAccumulator) observe(link *linkedDecision, matched bool, matureBefore time.Time) {
@@ -254,6 +274,16 @@ func (a *shadowPartitionAccumulator) observe(link *linkedDecision, matched bool,
 		a.slices[key] = slice
 	}
 	slice.observe(link, matched, matureBefore)
+
+	assuranceKey := assuranceSliceKey{
+		endpoint: link.endpoint, level: link.assurance, withheld: link.assuranceWithheld,
+	}
+	assured := a.assurance[assuranceKey]
+	if assured == nil {
+		assured = &linkedAccumulator{}
+		a.assurance[assuranceKey] = assured
+	}
+	assured.observe(link, matched, matureBefore)
 }
 
 func (a *shadowPartitionAccumulator) finish() ShadowHoldoutPartition {
@@ -263,7 +293,9 @@ func (a *shadowPartitionAccumulator) finish() ShadowHoldoutPartition {
 	unlabeled := evaluation.Decisions - evaluation.ConfirmedLabels - evaluation.AmbiguousGroundTruth
 	return ShadowHoldoutPartition{
 		Decisions: evaluation.Decisions, ConfirmedHuman: human, ConfirmedAbuse: abuse,
-		UnlabeledDecisions: unlabeled, Evaluation: evaluation, EvaluationSlices: sortedEvaluationSlices(a.slices),
+		UnlabeledDecisions: unlabeled, Evaluation: evaluation,
+		EvaluationSlices: sortedEvaluationSlices(a.slices),
+		AssuranceSlices:  sortedAssuranceSlices(a.assurance),
 	}
 }
 

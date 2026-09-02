@@ -50,7 +50,7 @@ EXPECTED_CLASSIFICATIONS = {
         "schemas/shadow-record-v3.schema.json",
         "schemas/shadow-record-v4.schema.json",
         "schemas/rollout-review-v4.schema.json", "schemas/shadow-analysis-report-v5.schema.json",
-        "schemas/shadow-holdout-report-v1.schema.json", "schemas/shadow-record-v1.schema.json",
+        "schemas/shadow-holdout-report-v2.schema.json", "schemas/shadow-record-v1.schema.json",
         "schemas/shadow-record-v2.schema.json", "schemas/shadow-record-v4.schema.json",
         "schemas/sovereignty-report-v1.schema.json",
     },
@@ -108,6 +108,13 @@ EXPECTED_TRANSITIONS = {
         "previous_schemas": [f"schemas/shadow-analysis-report-v{version}.schema.json" for version in range(1, 5)],
         "previous_support": "unsupported_historical", "strategy": "regenerate_from_authenticated_source",
         "operator_command": "palisade analyze-shadow-log", "loss_boundary": "historical_report_is_not_rollout_authority",
+    },
+    "shadow_holdout": {
+        "current_schema": "schemas/shadow-holdout-report-v2.schema.json",
+        "previous_schemas": ["schemas/shadow-holdout-report-v1.schema.json"],
+        "previous_support": "unsupported_historical", "strategy": "regenerate_from_authenticated_source",
+        "operator_command": "palisade evaluate-shadow-holdout",
+        "loss_boundary": "historical_holdout_has_no_per_level_interval",
     },
     "shadow_record": {
         "current_schema": "schemas/shadow-record-v4.schema.json",

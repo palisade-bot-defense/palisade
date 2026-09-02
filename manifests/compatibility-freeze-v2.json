@@ -38,7 +38,7 @@
     "schemas/rollout-review-v4.schema.json": "8996d23f98da787c5e1e95811f88a608bb97745cd03d8d10cbdf38c3b30ffe95",
     "schemas/runtime-egress-v1.schema.json": "71e683ffe55e4ce460ef0b31aeefa5d782227c2245a8549de093409a25271ade",
     "schemas/shadow-analysis-report-v5.schema.json": "4d66c96a83ed23497718faed36b119a6af0ca5eb51b7ae944657511cf9e465e2",
-    "schemas/shadow-holdout-report-v1.schema.json": "de20b71d54012c84f5ee987f0f6c03541ee2c4d46a6f7ec88713d881b43ddc7d",
+    "schemas/shadow-holdout-report-v2.schema.json": "3abaed823eabbc26a486966543796cc6ddf19bd7bc30da70ab02410758c794b2",
     "schemas/shadow-record-v4.schema.json": "cb486ea9570c317ba739d7c0c3520581a1e2ffd89b0fcc2a7ed2ba81206d1766",
     "schemas/sovereignty-report-v1.schema.json": "ebbb70c457a1a74d9cc5b1f171b848420511a9388f9b4900b45bed6f3065bb74",
     "schemas/synthetic-benchmark-report-v1.schema.json": "909af816e6b66946ce6eb9bd128e3aad7594f31fb85107cc4202c2ed269236a5",
