@@ -121,6 +121,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/events", s.handleEvents)
 	mux.HandleFunc("POST /v1/decision", s.handleDecision)
 	mux.HandleFunc("POST /v1/assurance", s.handleAssurance)
+	mux.HandleFunc("POST /v1/assurance/content", s.handleContentAssurance)
 	mux.HandleFunc("POST /v1/assurance/liveness", s.handleLivenessBegin)
 	mux.HandleFunc("POST /v1/assurance/liveness/answer", s.handleLivenessAnswer)
 	mux.HandleFunc("POST /v1/origin-check", s.handleOriginCheck)
@@ -586,12 +587,20 @@ func (s *Server) recordShadowDrop() {
 }
 
 func (s *Server) evaluateDecision(w http.ResponseWriter, r *http.Request) (core.DecisionRequest, core.Decision, bool) {
-	now := time.Now().UTC()
 	var request core.DecisionRequest
 	if err := decodeJSON(w, r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return core.DecisionRequest{}, core.Decision{}, false
 	}
+	return s.evaluateRequest(w, r, request)
+}
+
+// evaluateRequest runs an already decoded request through session resolution,
+// event provenance and the engine. It exists so a surface with a differently
+// shaped body — the content-profile assurance request carries a commitment
+// alongside the decision fields — evaluates exactly as the risk surface does.
+func (s *Server) evaluateRequest(w http.ResponseWriter, r *http.Request, request core.DecisionRequest) (core.DecisionRequest, core.Decision, bool) {
+	now := time.Now().UTC()
 	sessionID, verifiedSession, err := s.resolveSession(r, request.SessionID, now)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid_session")

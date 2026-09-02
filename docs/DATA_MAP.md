@@ -1,13 +1,14 @@
 # Machine-readable data map
 
-The current versioned [PALISADE data map](../manifests/data-map-v7.json) records the
+The current versioned [PALISADE data map](../manifests/data-map-v8.json) records the
 reference product's accepted data classes, destinations, network scopes and
 persistence modes. Its JSON Schema is
-[`schemas/data-map-v7.schema.json`](../schemas/data-map-v7.schema.json). The
+[`schemas/data-map-v8.schema.json`](../schemas/data-map-v8.schema.json). The
 [v1](../manifests/data-map-v1.json), [v2](../manifests/data-map-v2.json),
 [v3](../manifests/data-map-v3.json), [v4](../manifests/data-map-v4.json),
-[v5](../manifests/data-map-v5.json) and [v6](../manifests/data-map-v6.json) maps
-remain immutable records of earlier boundaries.
+[v5](../manifests/data-map-v5.json), [v6](../manifests/data-map-v6.json) and
+[v7](../manifests/data-map-v7.json) maps remain immutable records of earlier
+boundaries.
 
 The v7 map adds the assurance flow to the fourteen v6 flows. A relying service
 that asks for proof of human presence receives a short-lived signed assertion
@@ -17,7 +18,7 @@ cross-site identifier, and its session commitment is derived per audience, so
 two relying services cannot link the same visitor. The flow exists only where a
 deployment enables the separate assurance surface.
 
-The v7 map covers sixteen flows:
+The v8 map covers sixteen flows:
 
 1. bounded browser-event ingestion;
 2. trusted normalized decision requests;
@@ -40,7 +41,11 @@ The assurance flow returns a short-lived signed assertion to the trusted
 adapter. It carries an assurance level, its evidence classes and stable reason
 codes, and no subject identity, biometric material, device identifier or
 cross-site identifier. Its session commitment is derived per audience, so two
-relying services cannot link the same visitor.
+relying services cannot link the same visitor. On the message surface the
+adapter also submits a `sender_content_commitment`: a SHA-256 the sender
+computed over the message, so the assertion can be bound to what was sent
+without PALISADE ever receiving the message. That class is why v8 exists; v3 to
+v4 bumped for the same reason.
 
 The liveness flow holds a server-generated prompt, the client's per-round
 response and a one-time attestation, all in bounded memory for at most two

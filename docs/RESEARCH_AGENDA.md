@@ -42,7 +42,7 @@ Every clause is load-bearing.
   and they are not three adapters for one problem. They differ in who the
   relying party is, when verification happens relative to the interaction, what
   the assertion binds to, and what freshness means. Section 0.1 sets that out.
-  Today only the transaction surface exists.
+  The transaction and message surfaces exist; the call surface does not yet.
 
 The theses, questions and concepts below are decompositions of this question.
 Every one of them should be traceable back to a clause of it.
@@ -57,7 +57,7 @@ Every one of them should be traceable back to a clause of it.
 | **Freshness** | a minute | validity and freshness diverge: verifiable for days, freshness is evidence age *at send* | continuous; presence must be re-established, not assumed |
 | **Primary threat** | scripted automation, relay | spam at scale, impersonation, forwarded assertions | voice and video cloning, relay of a real person |
 | **What PALISADE verifies** | interaction evidence, liveness, device | the same, minted at send, bound to content | device-bound continuity plus periodic liveness — never the media |
-| **Status** | HTTP surface exists | no adapter | no adapter |
+| **Status** | HTTP surface exists | content surface exists; client verifier checks the commitment | no adapter |
 
 Three consequences follow.
 
@@ -387,6 +387,13 @@ hashes the message, requests an assertion over the hash and the recipient
 scope, and attaches it. PALISADE never sees plaintext. A recipient verifies
 locally with a client-side verifier. Forwarding breaks the binding by design.
 Responds to RQ19 and RQ20.
+*Status:* implemented. `POST /v1/assurance/content` takes the same normalized
+request plus the sender's commitment, evaluates evidence exactly as the request
+surface does, and returns a content-profile assertion valid for a day by
+default. Both verifiers expose a `matchesContent` check the recipient runs
+against the message it received. The commitment is a plain SHA-256; a salted
+or hiding commitment is still open if content must stay unguessable from the
+commitment alone (RQ19).
 
 **C13 — Continuous presence for calls.** Open the call with the interactive
 liveness challenge, then re-attest with a low-cost device signature over the

@@ -381,6 +381,15 @@ func (v *Verifier) Verify(encoded []byte, now time.Time) (Verified, error) {
 // relying service can state its requirement now and have it enforced the moment
 // a mechanism backs it.
 
+// MatchesContent reports whether a content-profile assertion was minted for
+// exactly this message. A recipient calls it with the bytes it received: an
+// assertion forwarded with a different message, or a message altered after
+// sending, fails here even though the signature still verifies.
+func (v Verified) MatchesContent(content []byte) bool {
+	return v.Payload.Binding.Profile == ProfileContent &&
+		hmac.Equal([]byte(v.Payload.Binding.ContentCommitment), []byte(ContentCommitment(content)))
+}
+
 func (v Verified) Satisfies(minimumLevel int, requireUnique bool) bool {
 	if v.Payload.AssuranceLevel < minimumLevel {
 		return false

@@ -116,8 +116,8 @@ func TestRuntimeEgressManifestMatchesReviewedSourceCallsites(t *testing.T) {
 func TestDataMapIsClosedAndContainsNoRawAcceptedClass(t *testing.T) {
 	root := repositoryRoot(t)
 	var manifest dataMapManifest
-	readRepositoryJSON(t, root, "manifests/data-map-v7.json", &manifest)
-	if manifest.SchemaVersion != "palisade.data-map.v7" || manifest.Scope != "reference_product_data_flows" ||
+	readRepositoryJSON(t, root, "manifests/data-map-v8.json", &manifest)
+	if manifest.SchemaVersion != "palisade.data-map.v8" || manifest.Scope != "reference_product_data_flows" ||
 		manifest.DefaultRules.ExternalExport || manifest.DefaultRules.RawNetworkIdentifiers != "excluded_from_runtime_and_persisted_output" ||
 		manifest.DefaultRules.ContentCollection != "excluded" || manifest.DefaultRules.MissingBrowserSensor != "neutral" {
 		t.Fatalf("unexpected data map defaults: %+v", manifest.DefaultRules)
@@ -190,6 +190,7 @@ func TestSovereigntyRepositorySchemasAreValidJSON(t *testing.T) {
 		"schemas/data-map-v5.schema.json",
 		"schemas/data-map-v6.schema.json",
 		"schemas/data-map-v7.schema.json",
+		"schemas/data-map-v8.schema.json",
 		"schemas/edge-signal-envelope-v1.schema.json",
 		"schemas/local-evidence-event-v1.schema.json",
 		"schemas/local-family-annotation-v1.schema.json",

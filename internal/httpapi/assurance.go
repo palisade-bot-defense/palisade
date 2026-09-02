@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -25,8 +26,15 @@ import (
 // unlinkable across relying services and the caller must always name one.
 const AudienceHeader = "X-Palisade-Assurance-Audience"
 
-// assertionTTL bounds how long a relying service may rely on one assertion.
+// assertionTTL bounds how long a relying service may rely on one
+// request-profile assertion.
 const assertionTTL = time.Minute
+
+// defaultContentAssertionTTL is how long a content-profile assertion stays
+// verifiable when the deployment does not choose otherwise. A message is read
+// later than it is sent, so this is hours rather than minutes; the profile's
+// hard bound is a week.
+const defaultContentAssertionTTL = 24 * time.Hour
 
 var audiencePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._:-]{0,127}$`)
 
@@ -45,12 +53,91 @@ type AssuranceConfig struct {
 	// every audience, so a misconfiguration cannot silently mint assertions for
 	// an attacker-chosen scope.
 	AllowedAudiences []string
+	// ContentAssertionTTL is the validity of a content-profile assertion. Zero
+	// selects the default; a value above the profile's bound disables the
+	// surface rather than being clamped, because a deployment that asked for
+	// more than the contract allows should find out.
+	ContentAssertionTTL time.Duration
+}
+
+func (c AssuranceConfig) contentTTL() time.Duration {
+	if c.ContentAssertionTTL == 0 {
+		return defaultContentAssertionTTL
+	}
+	return c.ContentAssertionTTL
 }
 
 func (c AssuranceConfig) valid() bool {
 	return len(c.SigningKey) == ed25519.PrivateKeySize &&
 		len(c.BindingSecret) >= 32 &&
-		len(c.AllowedAudiences) > 0
+		len(c.AllowedAudiences) > 0 &&
+		c.contentTTL() > 0 && c.contentTTL() <= palisadeassurance.MaximumContentLifetime
+}
+
+// contentAssuranceRequest is the body of the content surface: the same closed
+// decision request, plus the commitment the sender computed over the message.
+// PALISADE receives the commitment and never the message.
+type contentAssuranceRequest struct {
+	core.DecisionRequest
+	ContentCommitment string `json:"content_commitment"`
+}
+
+// handleContentAssurance mints a content-profile assertion: the evidence is
+// evaluated exactly as on the request surface, but the binding names the
+// message rather than the action, and the validity is long enough for the
+// message to be read later. A recipient verifies it with a client-side
+// verifier and checks the commitment against the message it received, so a
+// forwarded assertion fails on the forwarded message.
+func (s *Server) handleContentAssurance(w http.ResponseWriter, r *http.Request) {
+	if s.assurance == nil {
+		writeError(w, http.StatusNotImplemented, "assurance_not_enabled")
+		return
+	}
+	audience := r.Header.Get(AudienceHeader)
+	if !audiencePattern.MatchString(audience) || !s.assurance.permits(audience) {
+		writeError(w, http.StatusBadRequest, "invalid_audience")
+		return
+	}
+	var body contentAssuranceRequest
+	if err := decodeJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if !validCommitment(body.ContentCommitment) {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	request, decision, ok := s.evaluateRequest(w, r, body.DecisionRequest)
+	if !ok {
+		return
+	}
+	live := s.verifiedLiveness(r, request.SessionID, request.Action, request.EndpointClass)
+	derived := assurance.Derive(decision, assurance.Evidence{LivenessVerified: live})
+	s.recordDecisionWithAssurance(request, decision, &shadowlog.Assurance{
+		Level:    derived.Level,
+		Withheld: derived.Withheld(),
+	})
+	sessionBinding, err := palisadeassurance.SessionBinding(s.assurance.BindingSecret, request.SessionID, audience)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	s.respondWithAssertion(w, request, decision, derived, palisadeassurance.Binding{
+		Profile:           palisadeassurance.ProfileContent,
+		SessionBinding:    sessionBinding,
+		ContentCommitment: body.ContentCommitment,
+		Audience:          audience,
+	}, s.assurance.contentTTL())
+}
+
+// validCommitment accepts exactly the shape ContentCommitment produces: a
+// base64url SHA-256 without padding.
+func validCommitment(value string) bool {
+	if len(value) != 43 {
+		return false
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(value)
+	return err == nil && len(decoded) == 32
 }
 
 func (c AssuranceConfig) permits(audience string) bool {
@@ -117,7 +204,32 @@ func (s *Server) handleAssurance(w http.ResponseWriter, r *http.Request) {
 		Withheld: derived.Withheld(),
 	})
 
-	encoded, err := s.mintAssertion(r, request, decision, derived, audience, time.Now().UTC())
+	sessionBinding, err := palisadeassurance.SessionBinding(s.assurance.BindingSecret, request.SessionID, audience)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	s.respondWithAssertion(w, request, decision, derived, palisadeassurance.Binding{
+		Profile:        palisadeassurance.ProfileRequest,
+		SessionBinding: sessionBinding,
+		RequestAction:  request.Action,
+		EndpointClass:  request.EndpointClass,
+		Audience:       audience,
+	}, assertionTTL)
+}
+
+// respondWithAssertion signs one binding and writes the assertion. Every
+// profile goes through here, so the response shape and the error mapping are
+// the same on every surface.
+func (s *Server) respondWithAssertion(
+	w http.ResponseWriter,
+	request core.DecisionRequest,
+	decision core.Decision,
+	derived assurance.Result,
+	binding palisadeassurance.Binding,
+	ttl time.Duration,
+) {
+	encoded, err := s.mintAssertion(request, decision, derived, binding, ttl, time.Now().UTC())
 	if err != nil {
 		// A payload this deployment cannot describe means the request itself was
 		// not expressible in the closed vocabulary. Reporting that as a service
@@ -140,34 +252,19 @@ func (s *Server) handleAssurance(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) mintAssertion(
-	r *http.Request,
 	request core.DecisionRequest,
 	decision core.Decision,
 	derived assurance.Result,
-	audience string,
+	binding palisadeassurance.Binding,
+	ttl time.Duration,
 	now time.Time,
 ) ([]byte, error) {
 	if s.assurance == nil {
 		return nil, errors.New("assurance surface disabled")
 	}
-	binding, err := palisadeassurance.SessionBinding(s.assurance.BindingSecret, request.SessionID, audience)
-	if err != nil {
-		return nil, err
-	}
 	provenance := agentprovenance.Derive(request.Observations, request.EndpointClass)
-	payload := derived.Payload(
-		palisadeassurance.Binding{
-			Profile:        palisadeassurance.ProfileRequest,
-			SessionBinding: binding,
-			RequestAction:  request.Action,
-			EndpointClass:  request.EndpointClass,
-			Audience:       audience,
-		},
-		provenance,
-		decision.PolicyVersion,
-		decision.ModelVersion,
-	)
-	return palisadeassurance.Sign(payload, assertionTTL, now, s.assurance.SigningKey)
+	payload := derived.Payload(binding, provenance, decision.PolicyVersion, decision.ModelVersion)
+	return palisadeassurance.Sign(payload, ttl, now, s.assurance.SigningKey)
 }
 
 // assuranceResponseIsClosed exists so the encoder cannot be changed to emit an

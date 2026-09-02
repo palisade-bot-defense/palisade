@@ -183,6 +183,22 @@ export interface Verified {
  * Reports whether an accepted assertion meets a relying service's minimum.
  * Insufficient assurance is an ordinary policy input, not an error.
  */
+/**
+ * Reports whether a content-profile assertion was minted for exactly this
+ * message. A recipient calls it with the bytes it received: an assertion
+ * forwarded with a different message, or a message altered after sending,
+ * fails here even though the signature still verifies.
+ */
+export async function matchesContent(verified: Verified, content: Uint8Array): Promise<boolean> {
+  if (verified.payload.binding.profile !== PROFILE_CONTENT) {
+    return false;
+  }
+  // Copy into a fresh ArrayBuffer-backed view: WebCrypto refuses a view over a
+  // SharedArrayBuffer, and the caller may hand us one.
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", Uint8Array.from(content)));
+  return verified.payload.binding.content_commitment === encodeBase64Url(digest);
+}
+
 export function satisfies(verified: Verified, minimumLevel: number, requireUnique: boolean): boolean {
   if (verified.payload.assurance_level < minimumLevel) {
     return false;

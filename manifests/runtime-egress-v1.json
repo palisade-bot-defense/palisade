@@ -23,6 +23,7 @@
         "closed_outcome_label",
         "one_time_origin_flow_binding",
         "opaque_decision_handle",
+        "sender_content_commitment",
         "signed_continuity_cookie",
         "signed_human_assurance_assertion"
       ],

@@ -64,7 +64,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "../schemas/human-assurance-assertion-v1.schema.json"
+                $ref: "../schemas/human-assurance-assertion-v2.schema.json"
         "400":
           $ref: "#/components/responses/Error"
         "401":
@@ -81,6 +81,67 @@ paths:
                 $ref: "#/components/schemas/Error"
         "503":
           $ref: "#/components/responses/Error"
+
+  /v1/assurance/content:
+    post:
+      summary: Mint a content-profile assertion for one message
+      description: |
+        The message surface. The sender computes a SHA-256 over the message it
+        is about to send and submits only that commitment alongside the same
+        normalized request the risk surface evaluates. PALISADE never receives
+        the message. The returned assertion is bound to the commitment and to
+        the recipient scope named in the audience header, and stays verifiable
+        for the deployment's configured content validity — a day by default, a
+        week at most — because a message is read later than it is sent.
+
+        The recipient verifies the assertion with a client-side verifier and
+        checks the commitment against the message it received. A forwarded
+        assertion fails on the forwarded message; an altered message fails on
+        the original assertion. issued_at is the evidence age at the moment of
+        sending and must be shown to the recipient separately from validity.
+      operationId: mintContentAssertion
+      parameters:
+        - in: header
+          name: X-Palisade-Assurance-Audience
+          required: true
+          description: The recipient scope this assertion is minted for.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: "^[a-z0-9][a-z0-9._:-]*$"
+        - in: header
+          name: X-Palisade-Liveness-Attestation
+          required: false
+          description: A completed interactive liveness attestation for this session, action and endpoint class.
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "openapi.yaml#/components/schemas/DecisionRequest"
+                - type: object
+                  required: [content_commitment]
+                  properties:
+                    content_commitment:
+                      type: string
+                      minLength: 43
+                      maxLength: 43
+                      pattern: "^[A-Za-z0-9_-]{43}$"
+                      description: base64url SHA-256 of the message, computed by the sender.
+      responses:
+        "200":
+          description: A signed content-profile assertion bound to the commitment and the recipient scope.
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/human-assurance-assertion-v2.schema.json"
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
 
   /v1/assurance/liveness:
     post:

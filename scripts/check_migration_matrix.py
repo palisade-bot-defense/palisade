@@ -60,7 +60,7 @@ EXPECTED_CLASSIFICATIONS = {
     },
     "repository_control": {
         "schemas/adversarial-holdout-suite-v1.schema.json", "schemas/adversarial-suite-v1.schema.json",
-        "schemas/compatibility-freeze-v2.schema.json", "schemas/data-map-v7.schema.json",
+        "schemas/compatibility-freeze-v2.schema.json", "schemas/data-map-v8.schema.json",
         "schemas/migration-matrix-v2.schema.json", "schemas/origin-adapter-conformance-v1.schema.json",
         "schemas/red-team-suite-v1.schema.json", "schemas/runtime-egress-v1.schema.json",
     },
@@ -80,8 +80,8 @@ EXPECTED_TRANSITIONS = {
         "operator_command": "none", "loss_boundary": "assertion_lifetime_is_minutes_to_days_and_nothing_is_persisted",
     },
     "data_map": {
-        "current_schema": "schemas/data-map-v7.schema.json",
-        "previous_schemas": [f"schemas/data-map-v{version}.schema.json" for version in range(1, 7)],
+        "current_schema": "schemas/data-map-v8.schema.json",
+        "previous_schemas": [f"schemas/data-map-v{version}.schema.json" for version in range(1, 8)],
         "previous_support": "unsupported_historical", "strategy": "repository_replacement",
         "operator_command": "none", "loss_boundary": "repository_control_not_runtime_input",
     },
