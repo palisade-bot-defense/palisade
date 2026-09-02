@@ -18,7 +18,10 @@ identity graph.
 
 PALISADE **verifies** assertions and never issues them. It operates no identity,
 biometric or personhood registry; credential issuers are external, pluggable and
-selected by the operator. Only the two lowest assurance levels exist today.
+selected by the operator. Its supported ceiling is H1: interactive liveness and
+device-bound credential verification are implemented and reachable, but the
+levels they earn are computed and withheld until a confirmed-human
+false-positive interval exists per level.
 
 ## Why PALISADE
 
@@ -41,7 +44,7 @@ and replay, and **rollout** that is measured, signed and reversible.
   opaque remote bot score or an unexplained trust badge.
 - **Verifier, never issuer:** no PALISADE identity, biometric capture or
   personhood registry, and no claim of global proof of personhood.
-- **Machine-readable posture:** the [Sovereignty Report](https://github.com/palisade-human-trust/palisade/blob/main/docs/SOVEREIGNTY.md), [egress inventory](https://github.com/palisade-human-trust/palisade/blob/main/manifests/runtime-egress-v1.json) and [data map](https://github.com/palisade-human-trust/palisade/blob/main/manifests/data-map-v6.json) separate product invariants from operator-declared deployment facts.
+- **Machine-readable posture:** the [Sovereignty Report](https://github.com/palisade-human-trust/palisade/blob/main/docs/SOVEREIGNTY.md), [egress inventory](https://github.com/palisade-human-trust/palisade/blob/main/manifests/runtime-egress-v1.json) and [data map](https://github.com/palisade-human-trust/palisade/blob/main/manifests/data-map-v9.json) separate product invariants from operator-declared deployment facts.
 - **Bring data without giving it away:** the [generic local import](https://github.com/palisade-human-trust/palisade/blob/main/docs/LOCAL_IMPORT.md) accepts an operator-owned closed contract and rotates pseudonyms daily; local [sequence](https://github.com/palisade-human-trust/palisade/blob/main/docs/LOCAL_SEQUENCE_ANALYSIS.md) and [holdout](https://github.com/palisade-human-trust/palisade/blob/main/docs/LOCAL_HOLDOUT_EVALUATION.md) analysis persist only bounded aggregates.
 - **Actually open source:** AGPL-3.0-only core and Apache-2.0 browser sensor.
 
@@ -68,6 +71,8 @@ path.
 
 ## What we are building
 
+- An assurance assertion bound to a request, a message or a call channel, with verifiers in Go and TypeScript held to one conformance suite.
+- Interactive liveness and device-bound credential verification, both reachable, both feeding a level that is withheld until measured.
 - A Go decision hot path with fail-safe shadow mode and operator-signed, expiring canary/enforcement plans.
 - A privacy-limited browser sensor that excludes content, keystrokes, form values, and exact pointer paths.
 - Deterministic replay and offline evaluation with label provenance and confidence.
@@ -84,7 +89,7 @@ path.
 Start with the [project overview](https://github.com/palisade-human-trust/palisade#readme), then read the [product differentiation](https://github.com/palisade-human-trust/palisade/blob/main/docs/DIFFERENTIATION.md), [Sovereignty Report](https://github.com/palisade-human-trust/palisade/blob/main/docs/SOVEREIGNTY.md), [roadmap](https://github.com/palisade-human-trust/palisade/blob/main/ROADMAP.md), [evaluation protocol](https://github.com/palisade-human-trust/palisade/blob/main/docs/EVALUATION.md), and [EU deployment checklist](https://github.com/palisade-human-trust/palisade/blob/main/docs/privacy/DEPLOYMENT_CHECKLIST.md).
 
 > [!IMPORTANT]
-> PALISADE does not claim proof of personhood, perfect separation of humans from automation, or an unsolvable challenge. Only the mechanisms underneath the lowest assurance levels exist; no assurance assertion is yet produced or consumed, and the only integration surface is HTTP and the web. The current prototype must begin in shadow mode and has no production-supported release.
+> PALISADE does not claim proof of personhood, perfect separation of humans from automation, or an unsolvable challenge. Its supported ceiling is H1 — set by missing measurement, not missing mechanism: H2 and H3 are computed and then withheld until a confirmed-human false-positive and abandonment interval exists per level. Issuer credentials and uniqueness have no verifier at all. No media is analysed on a call. The current prototype must begin in shadow mode and has no production-supported release.
 
 The PALISADE core is licensed under **GNU AGPL-3.0-only**. The browser sensor is licensed separately under **Apache-2.0**. The repository's licensing map defines the exact scope; software licenses do not grant trademark rights.
 

@@ -215,12 +215,18 @@ verified assertion cannot be obtained under coercion or sale.
 
 ## Primary arc — human and agent provenance
 
-Status: specified, unimplemented. This is now the product direction, not an
-optional extension. It nevertheless does **not** short-circuit the v0.3–v0.9
-exit gates: those gates prove that the evidence substrate underneath H1 and H2
-is measured and honest, and an assurance ladder built on unmeasured evidence
-would be worse than no ladder. The sequencing is deliberate—finish measuring the
-substrate, then raise assurance on top of it.
+Status: implemented up to its measurement gate. Every deliverable below is
+built, reachable and tested: the assertion contract with three binding
+profiles, all three transports, interactive liveness, device attestation, the
+issuer trust list, agent provenance, and per-level outcome reporting on a
+chronological holdout.
+
+What is not done is the one thing code cannot do. H2 and H3 are computed and
+then withheld, because no confirmed-human false-positive and abandonment
+interval exists per level. That interval needs a representative deployment, and
+it is also what the v0.3–v0.9 exit gates produce — so this arc does not
+short-circuit them, it now depends on them. Raising the ceiling afterwards is a
+constant change with evidence behind it; raising it before would be a claim.
 
 The design, its egress and persistence rules, its legal-assessment items and its
 own exit gates are in [Human Trust Protocol](docs/HUMAN_TRUST_PROTOCOL.md); the
