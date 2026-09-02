@@ -31,14 +31,19 @@ type livenessAnswerRequest struct {
 	Answer      string `json:"answer"`
 }
 
-// publicPrompt is the client's view of a round. The target is deliberately
-// absent: disclosing it would make the challenge answerable without reacting to
-// it, and the whole mechanism rests on each prompt being revealed only at its
-// own moment.
+// publicPrompt is the client's view of a round. It carries the instruction,
+// which names the option to select: without it the round is unanswerable by
+// anyone, and withholding it would not disadvantage a script. The mechanism
+// rests on each round being revealed only at its own moment and answered inside
+// a narrow window, not on secrecy.
+//
+// The raw target field is still not sent. A client reads the instruction, the
+// same sentence a person reads or hears.
 type publicPrompt struct {
-	Round      int       `json:"round"`
-	Options    []string  `json:"options"`
-	DeadlineAt time.Time `json:"deadline_at"`
+	Round       int       `json:"round"`
+	Options     []string  `json:"options"`
+	Instruction string    `json:"instruction"`
+	DeadlineAt  time.Time `json:"deadline_at"`
 }
 
 type livenessBeginResponse struct {
@@ -61,7 +66,10 @@ func (s *Server) WithLiveness(service *liveness.Service) *Server {
 }
 
 func toPublicPrompt(prompt liveness.Prompt) publicPrompt {
-	return publicPrompt{Round: prompt.Round, Options: prompt.Options, DeadlineAt: prompt.DeadlineAt}
+	return publicPrompt{
+		Round: prompt.Round, Options: prompt.Options,
+		Instruction: prompt.Instruction, DeadlineAt: prompt.DeadlineAt,
+	}
 }
 
 func (s *Server) handleLivenessBegin(w http.ResponseWriter, r *http.Request) {

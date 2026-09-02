@@ -95,7 +95,7 @@ the channel the call started on — same opaque channel, interval advanced.
 |---|---|---|
 | H0 | yes | No human evidence. A legitimate answer, not an error. |
 | H1 | yes | PALISADE verified bounded interaction evidence against its own event store. |
-| H2 | **computed and withheld** | A completed interactive liveness challenge. |
+| H2 | **computed and withheld** | A completed interactive liveness challenge: several rounds, each revealed at its own moment and answered in order inside a narrow window. It evidences live attachment, not humanity — a script that reads the prompt answers as well as a person. |
 | H3 | **computed and withheld** | Plus a registered device-bound credential. |
 | H4, H5 | no | No verifier exists. |
 

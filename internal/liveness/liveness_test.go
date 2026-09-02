@@ -293,3 +293,42 @@ func TestPromptCarriesNoSubjectData(t *testing.T) {
 		}
 	}
 }
+
+// A round nobody can answer separates nothing and excludes everyone. This is
+// the property an earlier draft got wrong, so it is asserted directly.
+func TestEveryRoundIsAnswerableFromItsOwnInstruction(t *testing.T) {
+	service := newService(t, DefaultRounds)
+	id, prompt, err := service.Begin(testSession, testAction, testEndpoint, start)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	now := start
+	for round := 0; ; round++ {
+		if !strings.Contains(prompt.Instruction, prompt.Target) {
+			t.Fatalf("round %d instruction %q does not name its target %q",
+				round, prompt.Instruction, prompt.Target)
+		}
+		seen := map[string]struct{}{}
+		for _, option := range prompt.Options {
+			if _, duplicate := seen[option]; duplicate {
+				t.Fatalf("round %d repeats option %q, making the round ambiguous", round, option)
+			}
+			seen[option] = struct{}{}
+			if strings.ContainsAny(option, "-_0123456789") {
+				t.Fatalf("option %q is not a word a screen reader can announce", option)
+			}
+		}
+		if _, present := seen[prompt.Target]; !present {
+			t.Fatalf("round %d target %q is not among its options", round, prompt.Target)
+		}
+		now = now.Add(time.Second)
+		progress, err := service.Answer(id, testSession, prompt.Target, prompt.Round, now)
+		if err != nil {
+			t.Fatalf("round %d: %v", round, err)
+		}
+		if progress.Completed {
+			return
+		}
+		prompt = *progress.Next
+	}
+}

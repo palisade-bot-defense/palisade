@@ -333,9 +333,11 @@ paths:
         solved ahead of time. The correct option is never sent to the client.
 
         Completing an attempt evidences that the client stayed attached across
-        several rounds and answered each inside a narrow window. It does not
-        establish that the client is human: browser automation can drive a real
-        browser in real time.
+        several rounds and answered each inside a narrow window, in order. It
+        does not establish that the client is human: each prompt names the
+        option to select, so a script that reads the prompt answers as well as a
+        person does. This is a live-attachment and throughput argument, not a
+        humanity proof.
       operationId: beginLiveness
       requestBody:
         required: true
@@ -452,12 +454,17 @@ components:
     Prompt:
       type: object
       additionalProperties: false
-      required: [round, options, deadline_at]
+      required: [round, options, instruction, deadline_at]
       description: |
-        One round. The correct option is deliberately absent: disclosing it
-        would make the challenge answerable without reacting to it. Options are
-        plain labels so a screen reader can announce them and a keyboard can
-        select them; nothing here requires sight or a pointer.
+        One round. The instruction names the option to select, and is what makes
+        the round answerable at all. Withholding it would not disadvantage a
+        script — a script guesses no better than a person — it would only make
+        the round unanswerable, so the mechanism rests on each round being
+        revealed at its own moment and answered inside a narrow window, not on
+        secrecy. Options are short words so a screen reader can announce them
+        and a keyboard can select them; nothing here requires sight or a
+        pointer. The word list is English only and a deployment serving other
+        languages needs its own.
       properties:
         round: { type: integer, minimum: 0, maximum: 7 }
         options:
@@ -466,6 +473,11 @@ components:
           maxItems: 8
           uniqueItems: true
           items: { type: string, minLength: 1, maxLength: 64 }
+        instruction:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: The sentence a client shows or announces. It names one of the options.
         deadline_at: { type: string, format: date-time }
     LivenessPrompt:
       type: object

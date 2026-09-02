@@ -153,11 +153,24 @@ tries, so a client cannot search the option space. The attestation is bound to
 one session, action and endpoint class, expires in two minutes, and the attempt
 is consumed on completion.
 
-What that does **not** establish is that the client is human: browser
-automation can drive a real browser in real time. The mechanism is an
-attacker-cost and throughput argument, not a proof, and the response floor is
-set generously because excluding a fast assistive-technology user is a worse
-failure than admitting a fast script.
+What that does **not** establish is that the client is human. Each prompt names
+the option to select, so a script that reads it answers as well as a person
+does; what it must do is stay attached and answer every round in order, inside
+its window. This is a live-attachment and throughput argument, not a humanity
+proof.
+
+An earlier draft withheld the target, which sounded stronger and was in fact
+worthless: a person had a one-in-four chance per round, exactly like a script,
+so the challenge separated nothing while excluding almost every real user. It
+was found by a person trying to complete it, not by a test — every test drove
+the service with code that could read the target directly. The lesson is in the
+mechanism now: a control nobody can pass is not a strict control, it is a broken
+one.
+
+The response floor is set generously because excluding a fast
+assistive-technology user is a worse failure than admitting a fast script. That
+this mechanism is worth less than the H2 label suggests is a further reason the
+level stays withheld until measured.
 
 The mechanism is reachable: `POST /v1/assurance/liveness` opens an attempt and
 `/answer` walks its rounds, both on the assurance contract rather than the

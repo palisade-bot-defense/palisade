@@ -157,7 +157,7 @@ func TestAttestationIsRefusedForAnotherActionOrSession(t *testing.T) {
 	}
 }
 
-func TestLivenessPromptNeverDisclosesItsTarget(t *testing.T) {
+func TestLivenessPromptIsAnswerableAndCarriesNoSecret(t *testing.T) {
 	service := livenessService(t)
 	config, _ := assuranceConfig(t, 42)
 	server := assuranceServer(t, assuranceEngine{}, config).WithLiveness(service)
@@ -167,21 +167,58 @@ func TestLivenessPromptNeverDisclosesItsTarget(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("begin status=%d body=%s", response.Code, response.Body.String())
 	}
-	// Disclosing the target would make the challenge answerable without
-	// reacting to it, which is the whole mechanism.
-	if strings.Contains(response.Body.String(), `"target"`) {
-		t.Fatalf("the prompt disclosed its target: %s", response.Body.String())
-	}
-	var begun map[string]any
+	var begun livenessBeginResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &begun); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	prompt, ok := begun["prompt"].(map[string]any)
-	if !ok {
-		t.Fatalf("no prompt in %v", begun)
+
+	// A round must be answerable by whoever reads it. An earlier draft withheld
+	// the target, which left a person guessing one in four — separating nothing
+	// while excluding almost every real user.
+	if begun.Prompt.Instruction == "" {
+		t.Fatal("the prompt carries no instruction, so no one can answer it")
 	}
-	if len(prompt) != 3 {
-		t.Fatalf("the prompt carries unexpected fields: %v", prompt)
+	named := ""
+	for _, option := range begun.Prompt.Options {
+		if strings.Contains(begun.Prompt.Instruction, option) {
+			named = option
+		}
+	}
+	if named == "" {
+		t.Fatalf("the instruction %q names none of the options %v",
+			begun.Prompt.Instruction, begun.Prompt.Options)
+	}
+	// Options must be announceable: words, not opaque tokens.
+	for _, option := range begun.Prompt.Options {
+		if strings.ContainsAny(option, "-_0123456789") {
+			t.Fatalf("option %q is not a word a screen reader can announce", option)
+		}
+	}
+
+	// Answering what the instruction names must work.
+	body, err := json.Marshal(livenessAnswerRequest{
+		ChallengeID: begun.ChallengeID, SessionID: assuranceSession, Round: 0, Answer: named,
+	})
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	time.Sleep(liveness.MinimumResponse + 10*time.Millisecond)
+	answered := post(t, server, "/v1/assurance/liveness/answer", string(body), nil)
+	if answered.Code != http.StatusOK {
+		t.Fatalf("answering the named option failed: %d %s", answered.Code, answered.Body.String())
+	}
+
+	// The response still carries no raw target field and no later round: the
+	// mechanism rests on per-round reveal timing, not on secrecy within a round.
+	if strings.Contains(response.Body.String(), `"target"`) {
+		t.Fatalf("the prompt leaked a raw target field: %s", response.Body.String())
+	}
+	var progress livenessAnswerResponse
+	if err := json.Unmarshal(answered.Body.Bytes(), &progress); err != nil {
+		t.Fatalf("decode answer: %v", err)
+	}
+	if progress.Next == nil || progress.Next.Round != 1 {
+		t.Fatalf("the next round was not revealed in order: %+v", progress.Next)
 	}
 }
 

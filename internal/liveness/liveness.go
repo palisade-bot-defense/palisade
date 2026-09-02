@@ -7,12 +7,19 @@
 // or answered ahead of time, and a relay pays the round trip on every round
 // rather than once.
 //
-// What it does not establish: that the client is human. Browser automation can
-// drive a real browser in real time. No challenge can guarantee separation
-// against an adaptive attacker, and this one is an attacker-cost and throughput
-// argument, not a proof. It is deliberately different from the existing
-// proof-of-work challenge, which a script completes as easily as a person and
-// therefore cannot evidence presence at all.
+// What it does not establish: that the client is human. Each prompt names the
+// option to select, so a script that reads the prompt can answer it as well as
+// a person can — it must merely stay attached and answer within the window,
+// every round, in order. This is a live-attachment and throughput argument, not
+// a humanity proof, and the naming matters: an earlier draft withheld the
+// target, which made the challenge a one-in-four guess for a person and a
+// script alike and therefore separated nothing while excluding almost every
+// real user.
+//
+// It is still worth more than the existing proof-of-work challenge, which can
+// be solved once and replayed, and which evidences no attachment at all. It is
+// worth less than the assurance ladder's H2 label suggests, which is a further
+// reason that level stays withheld until measured.
 //
 // It is separate from internal/challenge on purpose. That contract is frozen,
 // and this mechanism belongs to the assurance surface rather than to
@@ -88,16 +95,23 @@ type Config struct {
 	Random     io.Reader
 }
 
-// Prompt is one round. The target is what the client must select; the options
-// are presented in the order given. Prompts are plain labels so a screen reader
-// can announce them and a keyboard can select them: nothing here requires
-// sight, a pointer, or a particular input device.
+// Prompt is one round. Options are short words so a screen reader can announce
+// them and a keyboard can select them: nothing here requires sight, a pointer,
+// or a particular input device.
+//
+// Target names the option to select and is disclosed to the client. Withholding
+// it would not make the challenge harder for a script — a script guesses as
+// well as a person does — it would only make the round unanswerable, so the
+// mechanism rests on the reveal timing rather than on secrecy.
 type Prompt struct {
-	Round      int       `json:"round"`
-	Options    []string  `json:"options"`
-	Target     string    `json:"target"`
-	RevealAt   time.Time `json:"reveal_at"`
-	DeadlineAt time.Time `json:"deadline_at"`
+	Round   int      `json:"round"`
+	Options []string `json:"options"`
+	Target  string   `json:"target"`
+	// Instruction is the sentence a client shows or announces. It names the
+	// target, and it is the only thing that makes the round answerable.
+	Instruction string    `json:"instruction"`
+	RevealAt    time.Time `json:"reveal_at"`
+	DeadlineAt  time.Time `json:"deadline_at"`
 }
 
 // Progress reports the state of an attempt after a round.
@@ -295,20 +309,45 @@ func (s *Service) revealLocked(entry *record, round int, now time.Time) Prompt {
 	return prompt
 }
 
+// vocabulary is the closed word list a prompt draws from. Short, common,
+// unambiguous when read aloud, and free of digits or punctuation a screen
+// reader would spell out. It is English only: a deployment serving other
+// languages needs its own list, and that localisation gap is real rather than
+// something this list solves.
+var vocabulary = []string{
+	"anchor", "basket", "candle", "dolphin", "engine", "feather", "garden",
+	"harbour", "island", "jacket", "kitchen", "lantern", "meadow", "needle",
+	"orchard", "pillow", "quarry", "ribbon", "saddle", "tunnel", "umbrella",
+	"village", "walnut", "yellow",
+}
+
 func (s *Service) newPrompt(round int) (Prompt, error) {
 	options := make([]string, 0, Options)
-	for index := 0; index < Options; index++ {
-		option, err := s.token(6)
+	chosen := make(map[string]struct{}, Options)
+	for len(options) < Options {
+		index, err := s.index(len(vocabulary))
 		if err != nil {
 			return Prompt{}, err
 		}
-		options = append(options, option)
+		word := vocabulary[index]
+		// A repeated option would make one round ambiguous to answer.
+		if _, taken := chosen[word]; taken {
+			continue
+		}
+		chosen[word] = struct{}{}
+		options = append(options, word)
 	}
 	choice, err := s.index(Options)
 	if err != nil {
 		return Prompt{}, err
 	}
-	return Prompt{Round: round, Options: options, Target: options[choice]}, nil
+	target := options[choice]
+	return Prompt{
+		Round:       round,
+		Options:     options,
+		Target:      target,
+		Instruction: "Select " + target + ".",
+	}, nil
 }
 
 func (s *Service) attest(entry *record, now time.Time) string {

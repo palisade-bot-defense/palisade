@@ -22,6 +22,10 @@ coverage/
 __pycache__/
 *.py[cod]
 bin/
+# A stray `go build ./scripts/...` drops its binary in the repository root.
+# Ignoring the whole root by name is what stops a 15 MB blob reaching a commit.
+/human-liveness-demo
+/palisade
 /dist/
 
 # Local runtime data
