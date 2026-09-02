@@ -7,7 +7,7 @@
 </p>
 
 > [!IMPORTANT]
-> PALISADE is an early prototype of a proof-of-human protocol. The assurance assertion contract exists, but its supported ceiling is H1: the reference verifier refuses to sign or accept anything higher, and nothing yet emits an assertion in the decision path; device attestation, issuer-signed credentials and uniqueness (H3–H5) are specified and unimplemented. The only integration surface that exists is HTTP and the web: origin adapter, reverse proxy and browser sensor. Calls and messaging are target surfaces with no adapter. PALISADE never issues an identity, never captures biometrics and makes no claim of global proof of personhood. Any deployment must begin in shadow mode: the false-positive rate is not yet calibrated on a representative confirmed-human cohort, and no challenge, credential or behavior model can guarantee 100% separation against an adaptive attacker.
+> PALISADE is an early prototype of a proof-of-human protocol. **Its supported ceiling is H1**: the reference verifier refuses to sign or accept any higher level. That ceiling is no longer set by missing mechanisms — interactive liveness and device-bound credential verification are both implemented and reachable — but by missing measurement. The derivation computes H2 and H3 and then withholds them, marking the assertion `level_withheld_pending_measurement`, because a confirmed-human false-positive and abandonment interval per level does not exist yet and gating a surface on an unmeasured level would harm people before anyone knows how often it does. Issuer credentials (H4) and uniqueness (H5) have no verifier at all. PALISADE never issues an identity, never captures biometrics and makes no claim of global proof of personhood. Any deployment must begin in shadow mode, and no challenge, credential or behavior model can guarantee 100% separation against an adaptive attacker.
 
 ## Project focus
 
@@ -101,22 +101,38 @@ map](docs/DATA_MAP.md) records accepted classes, destinations and persistence.
 ## What exists today
 
 The assurance assertion is a real, frozen contract:
-[`human-assurance-assertion-v1`](schemas/human-assurance-assertion-v1.schema.json)
+[`human-assurance-assertion-v2`](schemas/human-assurance-assertion-v2.schema.json)
 with a deterministic offline verifier in
-[`pkg/palisadeassurance`](pkg/palisadeassurance) and a
-[conformance suite](examples/conformance/human-assurance-assertion-v1.json).
-An assertion is short-lived, Ed25519-signed, bound to one audience, session,
-action and endpoint class, and carries no subject identity, biometric material,
-device identifier or cross-site identifier. Its session commitment is derived
-per audience, so two relying services cannot link the same visitor.
+[`pkg/palisadeassurance`](pkg/palisadeassurance), a second implementation in
+[`verifier/`](verifier) for a browser or phone, and a
+[conformance suite](examples/conformance/human-assurance-assertion-v2.json) both
+are held to. An assertion is short-lived, Ed25519-signed, bound to one audience,
+and carries no subject identity, biometric material, device identifier or
+cross-site identifier. Its session commitment is derived per audience, so two
+relying services cannot link the same visitor.
 
-A deployment can emit one today. `POST /v1/assurance` lives behind its own
-versioned contract, [`api/openapi-assurance-v1.yaml`](api/openapi-assurance-v1.yaml),
-so `/v1/decision`, its protobuf contract and every existing adapter stay
+Its binding carries one of three profiles, because the goal names three surfaces
+and they are not three adapters for one problem:
+
+| Profile | Surface | Bound to | Validity |
+|---|---|---|---|
+| `request` | a transaction | session, action, endpoint class | 5 minutes |
+| `content` | a message | a sender-computed content commitment | 7 days |
+| `channel` | a call | a channel commitment and an interval | 2 minutes |
+
+All three have a transport, behind their own versioned contract
+[`api/openapi-assurance-v1.yaml`](api/openapi-assurance-v1.yaml), so
+`/v1/decision`, its protobuf contract and every existing adapter stay
 byte-identical and a deployment that wants no assurance carries no new data
 class. The surface stays disabled unless a signing key, a binding secret and an
 explicit audience allow list are all configured, and an unlisted audience is
 refused rather than minted.
+
+On the message surface PALISADE receives only the commitment, never the
+message: a recipient checks it against what it received, so a forwarded
+assertion fails on the forwarded message. On the call surface no media is
+analysed — a verified channel means a present person stayed attached and
+re-attested, not that the voice is real.
 
 Its **supported ceiling is H1**—verified bounded interaction evidence. The
 verifier refuses to sign or accept a higher level, and a test enforces that the
@@ -251,6 +267,11 @@ For a sensor-only shadow deployment, a static `--event-shadow-action` plus `--ev
 | `POST /v1/decoy/issue` | Backend-authenticated issuance of a session/endpoint-bound opaque decoy capability |
 | `POST /v1/decoy/hit` | Consume a native decoy capability once and queue closed evidence for the next matching decision |
 | `POST /v1/decision` | Explainable risk decision |
+| `POST /v1/assurance` | Mint a request-profile assurance assertion for one relying service |
+| `POST /v1/assurance/content` | Mint a content-profile assertion bound to a sender-computed message commitment |
+| `POST /v1/assurance/channel` | Mint a channel-profile assertion for the current interval of a call |
+| `POST /v1/assurance/liveness` | Open an interactive liveness attempt; `/answer` walks its rounds |
+| `POST /v1/assurance/device/challenge` | Issue a device challenge; `/complete` answers it with a registered credential |
 | `POST /v1/origin-check` | Score once and return the bounded HTTP enforcement result for origin middleware |
 | `POST /v1/origin-coverage` | Accept authenticated cumulative protected-handler counts from reference adapters |
 | `GET /v1/challenge/{id}` | Retrieve the signed-session-bound accessible step-up metadata |
@@ -388,7 +409,7 @@ For the authenticated encrypted decision stream itself,
 decision time and reports separate baseline/holdout endpoint and accessibility
 slices; see [chronological linked shadow holdout](docs/SHADOW_HOLDOUT.md).
 
-See the [architecture and stack](docs/ARCHITECTURE.md), [threat model](docs/THREAT_MODEL.md), [synthetic red-team baseline](docs/RED_TEAM.md), [synthetic benchmark protocol](docs/BENCHMARKS.md), [local HTTP load diagnostic](docs/LOCAL_LOAD_TEST.md), [product differentiation](docs/DIFFERENTIATION.md), [Sovereignty Report](docs/SOVEREIGNTY.md), [runtime egress inventory](docs/RUNTIME_EGRESS.md), [machine-readable data map](docs/DATA_MAP.md), [normalized signal contract](docs/NORMALIZED_SIGNAL_CONTRACT.md), [artifact lifecycle and migrations](docs/MIGRATIONS.md), [signed upstream signals](docs/UPSTREAM_SIGNALS.md), [generic local import](docs/LOCAL_IMPORT.md), [local sequence analysis](docs/LOCAL_SEQUENCE_ANALYSIS.md), [local holdout evaluation](docs/LOCAL_HOLDOUT_EVALUATION.md), [chronological linked shadow holdout](docs/SHADOW_HOLDOUT.md), [public adversarial fixtures](docs/ADVERSARIAL_FIXTURES.md), [production environment preflight](docs/DOCTOR.md), [maintainer process](MAINTAINERS.md), [local release process](docs/RELEASING.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [standalone reverse-proxy adapter](docs/REVERSE_PROXY_ADAPTER.md), [portable adapter conformance](docs/ADAPTER_CONFORMANCE.md), [local TLS and reverse-proxy deployment tests](docs/TLS_DEPLOYMENT_TESTS.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [native challenge lifecycle](docs/CHALLENGE.md), [local real-browser challenge test](docs/BROWSER_E2E.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed local runtime artifacts](docs/LOCAL_ARTIFACTS.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
+See the [architecture and stack](docs/ARCHITECTURE.md), [threat model](docs/THREAT_MODEL.md), [synthetic red-team baseline](docs/RED_TEAM.md), [synthetic benchmark protocol](docs/BENCHMARKS.md), [local HTTP load diagnostic](docs/LOCAL_LOAD_TEST.md), [product differentiation](docs/DIFFERENTIATION.md), [Sovereignty Report](docs/SOVEREIGNTY.md), [runtime egress inventory](docs/RUNTIME_EGRESS.md), [machine-readable data map](docs/DATA_MAP.md), [normalized signal contract](docs/NORMALIZED_SIGNAL_CONTRACT.md), [artifact lifecycle and migrations](docs/MIGRATIONS.md), [signed upstream signals](docs/UPSTREAM_SIGNALS.md), [generic local import](docs/LOCAL_IMPORT.md), [local sequence analysis](docs/LOCAL_SEQUENCE_ANALYSIS.md), [local holdout evaluation](docs/LOCAL_HOLDOUT_EVALUATION.md), [chronological linked shadow holdout](docs/SHADOW_HOLDOUT.md), [public adversarial fixtures](docs/ADVERSARIAL_FIXTURES.md), [production environment preflight](docs/DOCTOR.md), [maintainer process](MAINTAINERS.md), [local release process](docs/RELEASING.md), [reference origin adapter](docs/ORIGIN_ADAPTER.md), [standalone reverse-proxy adapter](docs/REVERSE_PROXY_ADAPTER.md), [portable adapter conformance](docs/ADAPTER_CONFORMANCE.md), [local TLS and reverse-proxy deployment tests](docs/TLS_DEPLOYMENT_TESTS.md), [signal-source integration guide](docs/SIGNAL_SOURCES.md), [assurance operations](docs/ASSURANCE_OPERATIONS.md), [native challenge lifecycle](docs/CHALLENGE.md), [local real-browser challenge test](docs/BROWSER_E2E.md), [automated local analysis](docs/ANALYSIS_AUTOMATION.md), [signed local runtime artifacts](docs/LOCAL_ARTIFACTS.md), [signed rollout guide](docs/ROLLOUT.md), [roadmap](ROADMAP.md), [evaluation protocol](docs/EVALUATION.md), [EU privacy deployment checklist](docs/privacy/DEPLOYMENT_CHECKLIST.md) and [shadow-log operations guide](docs/SHADOW_LOG.md).
 
 ## Project status and license
 

@@ -27,6 +27,10 @@ people before anyone knows how often it does.
 Issuer credentials (H4) and uniqueness (H5) have no verifier at all and remain
 design rather than capability.
 
+Running it is documented separately in
+[assurance operations](ASSURANCE_OPERATIONS.md): what to configure, what to hand
+a relying party, and what to read before granting a level.
+
 ## Position
 
 PALISADE does not decide who you are. It answers narrowly scoped questions for
