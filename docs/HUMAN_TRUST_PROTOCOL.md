@@ -227,7 +227,16 @@ interaction evidence and a bound proof token it makes remote synthesis
 substantially more expensive.
 
 This layer is verification-only: the attestation arrives with the request, and
-verification uses locally held roots.
+verification uses locally held roots. It is reachable:
+`POST /v1/assurance/device/challenge` issues a challenge bound to one session,
+action and endpoint class, and `/complete` answers it. The challenge is what
+makes the assertion fresh — without it a signature proves only that a key
+exists somewhere — and it is consumed whatever the outcome, so a client cannot
+retry against it. A completed ceremony yields an attestation presented in
+`X-Palisade-Device-Attestation` on any assurance surface, checked there against
+that request's session, action and endpoint class. Every failure returns one
+status and one code: naming the cause would say which constraint to work on and
+would reveal whether a credential identifier is registered here.
 
 `internal/deviceattest` implements it, and its boundary is deliberate. It
 verifies a WebAuthn authentication assertion: that the holder of a registered

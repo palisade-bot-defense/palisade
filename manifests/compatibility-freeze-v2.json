@@ -3,7 +3,7 @@
   "scope": "v2_public_contracts_and_operator_safety",
   "stable_current": {
     "api/contracts/normalized-signal-v1.json": "5adab11677a632cc841a4768653bcbb32e6de802e71c5a6775dcb33863e4f6db",
-    "api/openapi-assurance-v1.yaml": "cde3c45e840d48385b3341c27e8b07187769393377b391c8a491bed17f0bc734",
+    "api/openapi-assurance-v1.yaml": "7bf5881bbe02e7d6a25ffcea23c08ef0320da0b7e01341245d0984d4657bd824",
     "api/openapi.yaml": "e1fc1f0df5bbd9c8a39870647d74caafcf7fae7df73bf9a876f2e00246d4ad17",
     "api/proto/palisade/v1/challenge.proto": "edb751f693412e15102e047aee009b9950554cf4acb668b39b6e75b15db18fd6",
     "api/proto/palisade/v1/common.proto": "3a9cf482305590b65f2de4682733ca0f438d23e7a7108e4422a66b09961b20d9",

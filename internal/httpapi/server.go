@@ -16,6 +16,7 @@ import (
 	"github.com/palisade-human-trust/palisade/internal/challenge"
 	"github.com/palisade-human-trust/palisade/internal/core"
 	"github.com/palisade-human-trust/palisade/internal/decoy"
+	"github.com/palisade-human-trust/palisade/internal/deviceattest"
 	decisionengine "github.com/palisade-human-trust/palisade/internal/engine"
 	"github.com/palisade-human-trust/palisade/internal/events"
 	"github.com/palisade-human-trust/palisade/internal/liveness"
@@ -61,6 +62,7 @@ type Server struct {
 	originCoverage    *originCoverageStore
 	assurance         *AssuranceConfig
 	liveness          *liveness.Service
+	devices           *deviceattest.Service
 	admin             AdminConfig
 	counters          runtimeCounters
 }
@@ -123,6 +125,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/assurance", s.handleAssurance)
 	mux.HandleFunc("POST /v1/assurance/content", s.handleContentAssurance)
 	mux.HandleFunc("POST /v1/assurance/channel", s.handleChannelAssurance)
+	mux.HandleFunc("POST /v1/assurance/device/challenge", s.handleDeviceChallenge)
+	mux.HandleFunc("POST /v1/assurance/device/complete", s.handleDeviceComplete)
 	mux.HandleFunc("POST /v1/assurance/liveness", s.handleLivenessBegin)
 	mux.HandleFunc("POST /v1/assurance/liveness/answer", s.handleLivenessAnswer)
 	mux.HandleFunc("POST /v1/origin-check", s.handleOriginCheck)

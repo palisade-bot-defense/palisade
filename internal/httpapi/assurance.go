@@ -111,8 +111,7 @@ func (s *Server) handleContentAssurance(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	live := s.verifiedLiveness(r, request.SessionID, request.Action, request.EndpointClass)
-	derived := assurance.Derive(decision, assurance.Evidence{LivenessVerified: live})
+	derived := assurance.Derive(decision, s.presentedEvidence(r, request))
 	s.recordDecisionWithAssurance(request, decision, &shadowlog.Assurance{
 		Level:    derived.Level,
 		Withheld: derived.Withheld(),
@@ -170,8 +169,7 @@ func (s *Server) handleChannelAssurance(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	live := s.verifiedLiveness(r, request.SessionID, request.Action, request.EndpointClass)
-	derived := assurance.Derive(decision, assurance.Evidence{LivenessVerified: live})
+	derived := assurance.Derive(decision, s.presentedEvidence(r, request))
 	s.recordDecisionWithAssurance(request, decision, &shadowlog.Assurance{
 		Level:    derived.Level,
 		Withheld: derived.Withheld(),
@@ -264,8 +262,7 @@ func (s *Server) handleAssurance(w http.ResponseWriter, r *http.Request) {
 	// false-positive and abandonment interval can later be reported per level.
 	// Deriving it again here rather than inside mintAssertion keeps one source
 	// of truth for what was recorded and what was asserted.
-	live := s.verifiedLiveness(r, request.SessionID, request.Action, request.EndpointClass)
-	derived := assurance.Derive(decision, assurance.Evidence{LivenessVerified: live})
+	derived := assurance.Derive(decision, s.presentedEvidence(r, request))
 	s.recordDecisionWithAssurance(request, decision, &shadowlog.Assurance{
 		Level:    derived.Level,
 		Withheld: derived.Withheld(),
@@ -283,6 +280,16 @@ func (s *Server) handleAssurance(w http.ResponseWriter, r *http.Request) {
 		EndpointClass:  request.EndpointClass,
 		Audience:       audience,
 	}, assertionTTL)
+}
+
+// presentedEvidence collects the verified proofs a request carries. Each is
+// checked against this exact session, action and endpoint class before it
+// counts, so evidence earned elsewhere contributes nothing.
+func (s *Server) presentedEvidence(r *http.Request, request core.DecisionRequest) assurance.Evidence {
+	return assurance.Evidence{
+		LivenessVerified: s.verifiedLiveness(r, request.SessionID, request.Action, request.EndpointClass),
+		DeviceAttested:   s.verifiedDevice(r, request.SessionID, request.Action, request.EndpointClass),
+	}
 }
 
 // respondWithAssertion signs one binding and writes the assertion. Every

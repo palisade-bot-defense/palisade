@@ -115,6 +115,11 @@ paths:
           required: false
           description: A completed interactive liveness attestation for this session, action and endpoint class.
           schema: { type: string, minLength: 1, maxLength: 128 }
+        - in: header
+          name: X-Palisade-Device-Attestation
+          required: false
+          description: A completed device ceremony for this session, action and endpoint class.
+          schema: { type: string, minLength: 1, maxLength: 128 }
       requestBody:
         required: true
         content:
@@ -177,6 +182,11 @@ paths:
           required: false
           description: A completed interactive liveness attestation for this session, action and endpoint class.
           schema: { type: string, minLength: 1, maxLength: 128 }
+        - in: header
+          name: X-Palisade-Device-Attestation
+          required: false
+          description: A completed device ceremony for this session, action and endpoint class.
+          schema: { type: string, minLength: 1, maxLength: 128 }
       requestBody:
         required: true
         content:
@@ -203,6 +213,116 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+
+  /v1/assurance/device/challenge:
+    post:
+      summary: Issue a device challenge bound to one session, action and endpoint class
+      description: |
+        The challenge is what makes a later assertion fresh: without it a
+        signature proves only that a key exists somewhere, not that it was used
+        here and now. It is answerable once, expires in two minutes, and is
+        consumed whatever the outcome, so a client cannot retry against it to
+        search for a credential that happens to verify.
+
+        PALISADE registers no credential. The deployment's own registration
+        ceremony writes them, and PALISADE reads them through a registry the
+        deployment implements, which is where any attestation-statement policy
+        was already applied.
+      operationId: issueDeviceChallenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [session_id, action, endpoint_class]
+              properties:
+                session_id: { type: string, minLength: 8, maxLength: 128 }
+                action:
+                  type: string
+                  enum: [read, write, create, update, delete, search, compare, login, logout, register, checkout, purchase, other]
+                endpoint_class:
+                  type: string
+                  enum: [public_content, compare_index, compare_noindex, challenge_worker, other_public, account, login, checkout, other]
+      responses:
+        "200":
+          description: The challenge and the relying-party scope to run the ceremony under.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [challenge_id, challenge, relying_party_id, expires_at]
+                properties:
+                  challenge_id: { type: string, minLength: 1, maxLength: 64 }
+                  challenge:
+                    type: string
+                    minLength: 43
+                    maxLength: 43
+                    pattern: "^[A-Za-z0-9_-]{43}$"
+                    description: base64url, the encoding a WebAuthn client finds in clientDataJSON after the ceremony.
+                  relying_party_id: { type: string, minLength: 1, maxLength: 253 }
+                  expires_at: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+
+  /v1/assurance/device/complete:
+    post:
+      summary: Answer a device challenge with a registered credential
+      description: |
+        Verifies a WebAuthn authentication assertion against the issued
+        challenge, the deployment's relying party and origin, with user
+        presence signalled and a signature counter that advanced. A completed
+        ceremony returns an attestation to present in
+        X-Palisade-Device-Attestation on any assurance surface.
+
+        Every failure returns one status and one code. Saying whether the
+        credential was unknown, the signature wrong, the authenticator
+        untouched or the counter stale would tell an attacker which constraint
+        to work on, and would reveal whether a credential identifier is
+        registered here.
+
+        A verified credential is possession of hardware, not presence of a
+        person. It never substitutes for interaction evidence and never
+        raises a level on its own.
+      operationId: completeDeviceCeremony
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [challenge_id, session_id, credential_id, authenticator_data, client_data_json, signature]
+              properties:
+                challenge_id: { type: string, minLength: 1, maxLength: 64 }
+                session_id: { type: string, minLength: 8, maxLength: 128 }
+                credential_id: { type: string, minLength: 1, maxLength: 256 }
+                authenticator_data: { type: string, minLength: 1, maxLength: 16384, pattern: "^[A-Za-z0-9_-]+$" }
+                client_data_json: { type: string, minLength: 1, maxLength: 16384, pattern: "^[A-Za-z0-9_-]+$" }
+                signature: { type: string, minLength: 1, maxLength: 16384, pattern: "^[A-Za-z0-9_-]+$" }
+      responses:
+        "200":
+          description: The ceremony completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [attestation]
+                properties:
+                  attestation: { type: string, minLength: 1, maxLength: 128 }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "409":
+          description: The ceremony failed. No further detail is given.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "501": { $ref: "#/components/responses/Error" }
 
   /v1/assurance/liveness:
     post:
@@ -325,6 +445,9 @@ components:
               liveness_not_enabled,
               liveness_capacity,
               liveness_attempt_ended,
+              device_attestation_not_enabled,
+              device_challenge_capacity,
+              device_ceremony_failed,
             ]
     Prompt:
       type: object

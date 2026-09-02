@@ -42,26 +42,28 @@ type actionCounters struct {
 }
 
 type runtimeCounters struct {
-	eventBatches        atomic.Uint64
-	events              atomic.Uint64
-	decisions           atomic.Uint64
-	originChecks        atomic.Uint64
-	assuranceAssertions atomic.Uint64
-	livenessCompleted   atomic.Uint64
-	livenessFailed      atomic.Uint64
-	recordedDecisions   atomic.Uint64
-	recordedOutcomes    atomic.Uint64
-	contextProofs       atomic.Uint64
-	eventShadowRecorded atomic.Uint64
-	eventShadowRejected atomic.Uint64
-	outcomeRejected     atomic.Uint64
-	outcomeDropped      atomic.Uint64
-	transport           transportCounters
-	crawlers            crawlerCounters
-	endpointContexts    endpointCounters
-	enforced            actionCounters
-	computed            actionCounters
-	reasons             reasonCounters
+	eventBatches              atomic.Uint64
+	events                    atomic.Uint64
+	decisions                 atomic.Uint64
+	originChecks              atomic.Uint64
+	assuranceAssertions       atomic.Uint64
+	livenessCompleted         atomic.Uint64
+	deviceCeremoniesCompleted atomic.Uint64
+	deviceCeremoniesFailed    atomic.Uint64
+	livenessFailed            atomic.Uint64
+	recordedDecisions         atomic.Uint64
+	recordedOutcomes          atomic.Uint64
+	contextProofs             atomic.Uint64
+	eventShadowRecorded       atomic.Uint64
+	eventShadowRejected       atomic.Uint64
+	outcomeRejected           atomic.Uint64
+	outcomeDropped            atomic.Uint64
+	transport                 transportCounters
+	crawlers                  crawlerCounters
+	endpointContexts          endpointCounters
+	enforced                  actionCounters
+	computed                  actionCounters
+	reasons                   reasonCounters
 }
 
 const maxAdminReasonCodes = 64

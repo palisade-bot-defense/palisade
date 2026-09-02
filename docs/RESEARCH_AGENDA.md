@@ -42,8 +42,9 @@ Every clause is load-bearing.
   and they are not three adapters for one problem. They differ in who the
   relying party is, when verification happens relative to the interaction, what
   the assertion binds to, and what freshness means. Section 0.1 sets that out.
-  All three surfaces have a transport; the call surface re-attests through
-  liveness rather than a device signature until the device transport exists.
+  All three surfaces have a transport. The call surface re-attests through
+  liveness today; the device transport now exists, so a cheaper device-signature
+  re-attestation could replace it.
 
 The theses, questions and concepts below are decompositions of this question.
 Every one of them should be traceable back to a clause of it.
@@ -408,8 +409,8 @@ clock, validity is two minutes, and both verifiers expose `channelContinues`
 for the other participant's client — same opaque channel, interval advanced,
 anything else is a replay. Re-attestation is a liveness attestation renewed
 inside its two-minute window; the low-cost device-signature re-attestation
-waits on the device transport (T7 has the verifier but no HTTP path). RQ21's
-cadence question is therefore still open: one minute is a constant, not a
+could now be built on the device transport, which exists. RQ21's cadence
+question is still open either way: one minute is a constant, not a
 measurement.
 
 **C14 — A client-side verifier.** Messages and calls make a person's client the

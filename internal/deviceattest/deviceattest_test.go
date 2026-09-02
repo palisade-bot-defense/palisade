@@ -18,6 +18,7 @@ var (
 )
 
 const (
+	testSession  = "session-12345678"
 	relyingParty = "relying.example"
 	origin       = "https://relying.example"
 	credentialID = "Y3JlZGVudGlhbC1pZGVudGlmaWVy"
