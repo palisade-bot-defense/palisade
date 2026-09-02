@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palisade.bot/schemas/human-assurance-assertion-v2.schema.json",
+  "title": "PALISADE human assurance assertion v2",
+  "description": "A signed statement about how much verified human evidence backed one interaction, bound to one audience and one thing on one surface: a request, the content of a message, or an interval of a call channel. It carries no subject identity, no biometric material, no device identifier and no cross-site identifier. The specified ladder reaches level 5; a verifier rejects any level it cannot itself verify.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["payload", "key_id", "signature"],
+  "properties": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "assurance_level",
+        "assurance_sources",
+        "reason_codes",
+        "uniqueness_scope",
+        "agent_provenance",
+        "binding",
+        "policy_version",
+        "model_version",
+        "issued_at",
+        "expires_at",
+        "nonce"
+      ],
+      "properties": {
+        "schema_version": { "const": "palisade.human-assurance-assertion.v2" },
+        "assurance_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "0 unattributed, 1 verified interaction evidence, 2 plus interactive liveness, 3 plus a device-bound credential, 4 plus an issuer assertion, 5 plus issuer-scoped uniqueness. A verifier refuses any level it cannot itself verify."
+        },
+        "assurance_sources": {
+          "type": "array",
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["behavioral", "challenge", "device", "issuer"] },
+          "description": "The evidence classes the level rests on. A level must name every class up to it and must not name a class belonging to a level it does not claim."
+        },
+        "reason_codes": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[a-z][a-z0-9_]{2,63}$" }
+        },
+        "uniqueness_scope": {
+          "type": "string",
+          "enum": ["none", "device", "issuer"],
+          "description": "Global personhood is deliberately absent: an issuer can only dedupe within its own population."
+        },
+        "agent_provenance": {
+          "type": "string",
+          "enum": ["none", "declared", "authorized", "verified_purpose"]
+        },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Ties the assertion to one audience and one thing on one surface. The profile says which fields are present; every other profile's fields must be absent, so a binding can never be read under the wrong profile. Field order is the canonical signing order.",
+          "required": ["profile", "session_binding", "audience"],
+          "properties": {
+            "profile": {
+              "type": "string",
+              "enum": ["request", "content", "channel"],
+              "description": "request: one action on the transaction surface, verified once before the action. content: one message, minted at send and verified at read by the recipient's client; validity may be days, and issued_at is the evidence age at send. channel: one interval of one call channel, re-issued every interval so presence is re-established rather than assumed."
+            },
+            "session_binding": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "description": "Opaque per-audience session commitment. It is derived so the same session is unlinkable across audiences and cannot be reversed to the session identifier."
+            },
+            "request_action": {
+              "type": "string",
+              "enum": ["read", "write", "create", "update", "delete", "search", "compare", "login", "logout", "register", "checkout", "purchase", "other"],
+              "description": "request profile only."
+            },
+            "endpoint_class": {
+              "type": "string",
+              "enum": ["public_content", "compare_index", "compare_noindex", "challenge_worker", "other_public", "account", "login", "checkout", "other"],
+              "description": "request profile only."
+            },
+            "content_commitment": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "description": "content profile only. base64url SHA-256 of the message content, computed by the sender. PALISADE signs the commitment and never sees the content; forwarding the message with the assertion fails, because the binding is to what was sent."
+            },
+            "channel_binding": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "description": "channel profile only. Opaque per-audience channel commitment, derived like the session binding so the same channel is unlinkable across audiences."
+            },
+            "interval_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295,
+              "description": "channel profile only. The re-attestation interval this assertion covers."
+            },
+            "audience": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+              "description": "Relying-party scope the assertion is valid for. It also salts the session and channel bindings."
+            }
+          },
+          "oneOf": [
+            {
+              "properties": { "profile": { "const": "request" } },
+              "required": ["profile", "session_binding", "request_action", "endpoint_class", "audience"],
+              "not": { "anyOf": [{ "required": ["content_commitment"] }, { "required": ["channel_binding"] }, { "required": ["interval_index"] }] }
+            },
+            {
+              "properties": { "profile": { "const": "content" } },
+              "required": ["profile", "session_binding", "content_commitment", "audience"],
+              "not": { "anyOf": [{ "required": ["request_action"] }, { "required": ["endpoint_class"] }, { "required": ["channel_binding"] }, { "required": ["interval_index"] }] }
+            },
+            {
+              "properties": { "profile": { "const": "channel" } },
+              "required": ["profile", "session_binding", "channel_binding", "interval_index", "audience"],
+              "not": { "anyOf": [{ "required": ["request_action"] }, { "required": ["endpoint_class"] }, { "required": ["content_commitment"] }] }
+            }
+          ]
+        },
+        "policy_version": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+        "model_version": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Evidence time. On the content profile this is the evidence age at the moment of sending, which a recipient must show separately from validity."
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Validity bound. At most five minutes after issued_at for the request profile, seven days for content, two minutes for channel."
+        },
+        "nonce": { "type": "string", "minLength": 22, "maxLength": 22, "pattern": "^[A-Za-z0-9_-]{22}$" }
+      }
+    },
+    "key_id": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 16,
+      "pattern": "^[0-9a-f]{16}$",
+      "description": "Identifies the signing key without revealing it: the first eight bytes of the SHA-256 of the public key, hex encoded."
+    },
+    "signature": { "type": "string", "minLength": 86, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]{86}$" }
+  }
+}

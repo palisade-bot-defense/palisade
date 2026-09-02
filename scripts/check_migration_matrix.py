@@ -37,7 +37,7 @@ EXPECTED_CLASSIFICATIONS = {
         "api/openapi-assurance-v1.yaml",
         *{f"api/proto/palisade/v1/{name}.proto" for name in ("challenge", "common", "coverage", "decision", "decoy", "event")},
         "schemas/crawler-registry-v1.schema.json", "schemas/detector-bundle-v1.schema.json",
-        "schemas/human-assurance-assertion-v1.schema.json",
+        "schemas/human-assurance-assertion-v2.schema.json",
         "schemas/issuer-trust-list-v1.schema.json",
         "schemas/edge-signal-envelope-v1.schema.json", "schemas/local-artifact-v1.schema.json",
         "schemas/normalized-signal-contract-v1.schema.json", "schemas/policy-bundle-v1.schema.json",
@@ -72,6 +72,12 @@ EXPECTED_TRANSITIONS = {
         "previous_schemas": ["schemas/compatibility-freeze-v1.schema.json"],
         "previous_support": "unsupported_historical", "strategy": "repository_replacement",
         "operator_command": "none", "loss_boundary": "repository_control_not_runtime_input",
+    },
+    "human_assurance_assertion": {
+        "current_schema": "schemas/human-assurance-assertion-v2.schema.json",
+        "previous_schemas": ["schemas/human-assurance-assertion-v1.schema.json"],
+        "previous_support": "unsupported_historical", "strategy": "reissue_short_lived_assertion",
+        "operator_command": "none", "loss_boundary": "assertion_lifetime_is_minutes_to_days_and_nothing_is_persisted",
     },
     "data_map": {
         "current_schema": "schemas/data-map-v7.schema.json",

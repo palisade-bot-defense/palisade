@@ -376,6 +376,11 @@ profiles: request-bound (session, action, endpoint, audience — exists),
 content-bound (content commitment, recipient scope) and channel-bound (channel
 identifier, interval). The assertion, its verifier and its freeze stay single;
 the profile says what the signature covers. Responds to RQ23.
+*Status:* implemented as `human-assurance-assertion-v2`. Both verifiers accept
+the three profiles with per-profile validity bounds — five minutes for a
+request, seven days for content, two minutes for a channel — and refuse a
+binding that carries another profile's field. Only the request profile has a
+transport; C12 and C13 are the message and call transports on top of it.
 
 **C12 — Sender-committed assertions for encrypted messaging.** The sender
 hashes the message, requests an assertion over the hash and the recipient

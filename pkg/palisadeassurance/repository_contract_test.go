@@ -15,6 +15,7 @@ import (
 // privacy properties that make the assertion safe to hand to a relying service.
 
 type schemaNode struct {
+	OneOf                []schemaNode          `json:"oneOf"`
 	Const                string                `json:"const"`
 	Type                 any                   `json:"type"`
 	Enum                 []string              `json:"enum"`
@@ -28,7 +29,7 @@ type schemaNode struct {
 
 func readSchema(t *testing.T) schemaNode {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("..", "..", "schemas", "human-assurance-assertion-v1.schema.json"))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "schemas", "human-assurance-assertion-v2.schema.json"))
 	if err != nil {
 		t.Fatalf("read assertion schema: %v", err)
 	}
@@ -79,12 +80,37 @@ func TestSchemaIsClosedAndCarriesNoIdentityFields(t *testing.T) {
 	payload := schema.Properties["payload"]
 	binding := payload.Properties["binding"]
 
-	for name, node := range map[string]schemaNode{"document": schema, "payload": payload, "binding": binding} {
+	for name, node := range map[string]schemaNode{"document": schema, "payload": payload} {
 		if node.AdditionalProperties == nil || *node.AdditionalProperties {
 			t.Fatalf("%s object is not closed; unknown fields would be ignored", name)
 		}
 		if len(node.Required) != len(node.Properties) {
 			t.Fatalf("%s has optional fields; every assertion field must be explicit", name)
+		}
+	}
+
+	// The binding is closed too, but its fields are explicit per profile rather
+	// than globally: each oneOf branch fixes exactly one profile's field set, and
+	// together the branches must account for every declared field, so no field
+	// can exist that no profile requires.
+	if binding.AdditionalProperties == nil || *binding.AdditionalProperties {
+		t.Fatal("binding object is not closed; unknown fields would be ignored")
+	}
+	if len(binding.OneOf) != len(profiles) {
+		t.Fatalf("binding declares %d profiles, Go has %d", len(binding.OneOf), len(profiles))
+	}
+	covered := map[string]bool{}
+	for _, branch := range binding.OneOf {
+		for _, field := range branch.Required {
+			if _, declared := binding.Properties[field]; !declared {
+				t.Fatalf("profile branch requires undeclared binding field %q", field)
+			}
+			covered[field] = true
+		}
+	}
+	for field := range binding.Properties {
+		if !covered[field] {
+			t.Fatalf("binding field %q is required by no profile", field)
 		}
 	}
 

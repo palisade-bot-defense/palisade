@@ -39,7 +39,7 @@ type constraint struct {
 
 func loadConstraints(t *testing.T) constraint {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("..", "..", "schemas", "human-assurance-assertion-v1.schema.json"))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "schemas", "human-assurance-assertion-v2.schema.json"))
 	if err != nil {
 		t.Fatalf("read assertion schema: %v", err)
 	}

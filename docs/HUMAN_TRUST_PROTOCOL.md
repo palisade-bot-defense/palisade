@@ -8,7 +8,10 @@ assurance levels.
 
 Specification status is separate from implementation status. The assertion
 contract itself is implemented and frozen as
-[`human-assurance-assertion-v1`](../schemas/human-assurance-assertion-v1.schema.json),
+[`human-assurance-assertion-v2`](../schemas/human-assurance-assertion-v2.schema.json),
+whose binding carries one of three profiles — `request` for the transaction
+surface, `content` for a message and `channel` for a call — with validity
+bounds of five minutes, seven days and two minutes respectively,
 but its **supported ceiling is H1**: the reference verifier refuses to sign or
 accept any higher level.
 

@@ -1,0 +1,231 @@
+{
+  "schema_version": "palisade.human-assurance-assertion-suite.v2",
+  "contract": "palisade.human-assurance-assertion.v2",
+  "scope": "assurance_assertion_verifier",
+  "synthetic_only": true,
+  "privacy_assertions": [
+    "no_subject_identifier",
+    "no_biometric_material",
+    "no_device_identifier",
+    "no_cross_audience_identifier",
+    "no_raw_session_identifier",
+    "no_message_content"
+  ],
+  "supported_level_ceiling": 1,
+  "specified_level_ceiling": 5,
+  "ceiling_rationale": "Interactive liveness and device-bound credential verification are implemented, so the derivation computes levels 2 and 3 and withholds them until a confirmed-human false-positive and abandonment interval exists per level. Issuer credentials and uniqueness have no verifier at all.",
+  "profiles": {
+    "request": "one action on the transaction surface; validity at most five minutes",
+    "content": "one message, bound to a sender-computed content commitment; validity at most seven days, issued_at is the evidence age at send",
+    "channel": "one interval of one call channel; validity at most two minutes, re-issued every interval"
+  },
+  "scenarios": [
+    {
+      "id": "behavioral_accepted",
+      "description": "A level 1 assertion with verified interaction evidence is accepted for its own audience inside its validity window.",
+      "mutation": "none",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "accepted"
+    },
+    {
+      "id": "unattributed_accepted",
+      "description": "A level 0 assertion carries no human evidence and is still structurally valid.",
+      "mutation": "none",
+      "profile": "request",
+      "level": 0,
+      "sources": [],
+      "expected": "accepted"
+    },
+    {
+      "id": "interactive_level_refused",
+      "description": "Level 2 is computed by the derivation but withheld until measured; a verifier refuses it because no measurement exists yet.",
+      "mutation": "none",
+      "profile": "request",
+      "level": 2,
+      "sources": ["behavioral", "challenge"],
+      "expected": "unsupported_level"
+    },
+    {
+      "id": "attested_device_level_refused",
+      "description": "Level 3 is computed by the derivation but withheld until measured; a verifier refuses it because no measurement exists yet.",
+      "mutation": "none",
+      "profile": "request",
+      "level": 3,
+      "sources": ["behavioral", "challenge", "device"],
+      "expected": "unsupported_level"
+    },
+    {
+      "id": "issuer_unique_level_refused",
+      "description": "Level 5 claims issuer-asserted uniqueness that nothing here verifies.",
+      "mutation": "none",
+      "profile": "request",
+      "level": 5,
+      "sources": ["behavioral", "challenge", "device", "issuer"],
+      "expected": "unsupported_level"
+    },
+    {
+      "id": "missing_required_source_refused",
+      "description": "A level 1 assertion without the behavioral evidence class is malformed.",
+      "mutation": "drop_required_source",
+      "profile": "request",
+      "level": 1,
+      "sources": [],
+      "expected": "invalid"
+    },
+    {
+      "id": "uniqueness_without_issuer_refused",
+      "description": "Issuer-scope uniqueness without the issuer evidence class is malformed.",
+      "mutation": "uniqueness_without_source",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "foreign_audience_refused",
+      "description": "An assertion minted for another relying service does not verify here.",
+      "mutation": "other_audience",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "tampered_level_refused",
+      "description": "Raising the level after signing breaks the signature.",
+      "mutation": "raise_level_after_signing",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "foreign_key_refused",
+      "description": "A correctly shaped assertion signed by another key is rejected.",
+      "mutation": "other_signing_key",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "local_artifact_signature_refused",
+      "description": "A signature produced under the signed local artifact domain must not verify as an assertion.",
+      "mutation": "foreign_domain_signature",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "unknown_field_refused",
+      "description": "The document is closed; an added field is rejected rather than ignored.",
+      "mutation": "unknown_field",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "expired_refused",
+      "description": "An assertion evaluated after its expiry fails closed.",
+      "mutation": "evaluate_after_expiry",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "expired"
+    },
+    {
+      "id": "future_issued_refused",
+      "description": "An assertion issued beyond the tolerated clock skew is rejected.",
+      "mutation": "evaluate_before_issue",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "content_profile_accepted",
+      "description": "A content-profile assertion bound to a sender-computed content commitment verifies for its recipient scope.",
+      "mutation": "none",
+      "profile": "content",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "accepted"
+    },
+    {
+      "id": "channel_profile_accepted",
+      "description": "A channel-profile assertion bound to a channel commitment and an interval verifies for the other participant.",
+      "mutation": "none",
+      "profile": "channel",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "accepted"
+    },
+    {
+      "id": "content_read_days_later_accepted",
+      "description": "A content assertion is still verifiable days after it was minted: on the message surface validity is long and issued_at carries the evidence age.",
+      "mutation": "evaluate_days_later",
+      "profile": "content",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "accepted"
+    },
+    {
+      "id": "request_read_days_later_refused",
+      "description": "A request assertion evaluated days later has expired: the transaction surface keeps a validity of minutes.",
+      "mutation": "evaluate_days_later",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "expired"
+    },
+    {
+      "id": "content_lifetime_beyond_bound_refused",
+      "description": "A content assertion whose validity exceeds seven days is malformed; a signer that wrote it is not this implementation.",
+      "mutation": "lifetime_beyond_profile_bound",
+      "profile": "content",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "channel_lifetime_beyond_bound_refused",
+      "description": "A channel assertion whose validity exceeds two minutes defeats re-attestation and is malformed.",
+      "mutation": "lifetime_beyond_profile_bound",
+      "profile": "channel",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "foreign_profile_field_refused",
+      "description": "A request binding that also carries a content commitment could be read under the wrong profile and is refused.",
+      "mutation": "leak_foreign_profile_field",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "unknown_profile_refused",
+      "description": "A profile outside the closed vocabulary is refused rather than treated as a request.",
+      "mutation": "unknown_profile",
+      "profile": "request",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    },
+    {
+      "id": "content_commitment_tampered_refused",
+      "description": "Changing the content commitment after signing breaks the signature: the assertion is bound to what was sent.",
+      "mutation": "tamper_content_commitment",
+      "profile": "content",
+      "level": 1,
+      "sources": ["behavioral"],
+      "expected": "invalid"
+    }
+  ]
+}

@@ -147,6 +147,7 @@ func TestDerivedPayloadSignsAndVerifies(t *testing.T) {
 	}
 	decision := decisionWith(benign(EvidenceVerifiedBrowserSequence, core.DimensionContinuity, .64))
 	payload := Derive(decision, Evidence{}).Payload(palisadeassurance.Binding{
+		Profile:        palisadeassurance.ProfileRequest,
 		SessionBinding: binding,
 		RequestAction:  "login",
 		EndpointClass:  "login",
@@ -172,6 +173,7 @@ func TestDerivedPayloadSignsAndVerifies(t *testing.T) {
 	// The same derivation for an unattributed decision must also be signable:
 	// level 0 is a legitimate statement, not an error.
 	empty := Derive(decisionWith(), Evidence{}).Payload(palisadeassurance.Binding{
+		Profile:        palisadeassurance.ProfileRequest,
 		SessionBinding: binding,
 		RequestAction:  "read",
 		EndpointClass:  "public_content",
@@ -195,6 +197,7 @@ func TestAgentProvenanceIsCarriedButNeverRaisesAssurance(t *testing.T) {
 	}
 
 	payload := Derive(decisionWith(), Evidence{}).Payload(palisadeassurance.Binding{
+		Profile:        palisadeassurance.ProfileRequest,
 		SessionBinding: strings.Repeat("A", 43),
 		RequestAction:  "read",
 		EndpointClass:  "public_content",
@@ -212,6 +215,7 @@ func TestAgentProvenanceIsCarriedButNeverRaisesAssurance(t *testing.T) {
 	}
 	// An empty provenance must still produce a valid closed value.
 	fallback := Derive(decisionWith(), Evidence{}).Payload(palisadeassurance.Binding{
+		Profile:        palisadeassurance.ProfileRequest,
 		SessionBinding: strings.Repeat("A", 43),
 		RequestAction:  "read",
 		EndpointClass:  "public_content",

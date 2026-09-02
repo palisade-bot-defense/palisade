@@ -18,7 +18,7 @@
     "schemas/data-map-v7.schema.json": "ee6e919f60f168600e50da1b842521035363dd07e6d4a36f2e171fe5029b9514",
     "schemas/detector-bundle-v1.schema.json": "f5aa981fb1fac8ce5e2a1337b292e71f648aed415a39cdce1984fc51a639fcad",
     "schemas/edge-signal-envelope-v1.schema.json": "b02a57730f713505483fbaf61c8c01011d1f6ba2331c4b11ba56578bb0343b6a",
-    "schemas/human-assurance-assertion-v1.schema.json": "865370e6c6efdf9f663d570fe1dcb91e497cd2e53c44341c99eddff8a30c2855",
+    "schemas/human-assurance-assertion-v2.schema.json": "aac82a83ca6d79f4fcd9a9791917f7b2b9a6fe1a667a96f4a68f5f0c4e9923b4",
     "schemas/issuer-trust-list-v1.schema.json": "3980def755d3dd331e3e3cb0dd3894b99b6e7d2f1bce54d6e5e72cecc3fd3bc7",
     "schemas/local-artifact-v1.schema.json": "2b1e01d8bc8adea58964eb18738a89e4754df02cd333ad1ff7b218b8d85e63c0",
     "schemas/local-evidence-event-v1.schema.json": "93d7ea8c422dc0b3020aefa24c4e2fe3ca7512bcfe459dd1c8cf097bf7da69ac",

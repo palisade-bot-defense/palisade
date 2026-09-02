@@ -18,7 +18,7 @@ import (
 // Regenerate with PALISADE_WRITE_VECTORS=1; the ordinary run only checks that
 // the committed vectors still verify here, so they cannot drift from Go.
 
-const vectorsPath = "human-assurance-assertion-v1.vectors.json"
+const vectorsPath = "human-assurance-assertion-v2.vectors.json"
 
 type vector struct {
 	ID          string `json:"id"`
@@ -109,7 +109,7 @@ func buildVectors(t *testing.T) vectorFile {
 			}), now.Add(time.Second), "invalid"),
 	}
 	return vectorFile{
-		SchemaVersion: "palisade.human-assurance-assertion-vectors.v1",
+		SchemaVersion: "palisade.human-assurance-assertion-vectors.v2",
 		Contract:      SchemaVersion,
 		SyntheticOnly: true,
 		Note: "Documents signed by the Go reference implementation with a fixed test key. " +

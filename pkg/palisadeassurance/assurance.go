@@ -27,7 +27,7 @@ import (
 
 const (
 	// SchemaVersion identifies the frozen assertion contract.
-	SchemaVersion = "palisade.human-assurance-assertion.v1"
+	SchemaVersion = "palisade.human-assurance-assertion.v2"
 
 	// LevelUnattributed carries no human evidence at all.
 	LevelUnattributed = 0
@@ -56,17 +56,42 @@ const (
 	// verifies the added evidence class, not a constant change.
 	MaximumSupportedLevel = LevelBehavioral
 
-	// MaximumLifetime bounds how long an assertion stays valid. It matches the
+	// ProfileRequest binds an assertion to one request on the transaction
+	// surface: session, action, endpoint class and audience. It is verified
+	// before the action, once.
+	ProfileRequest = "request"
+	// ProfileContent binds an assertion to the content of one message and its
+	// recipient scope. It is minted at send and verified at read, possibly
+	// hours later, by the recipient's own client. PALISADE never sees the
+	// content: the sender commits to it and the commitment is what is signed.
+	ProfileContent = "content"
+	// ProfileChannel binds an assertion to one call channel and one time
+	// interval. It is re-issued every interval for the duration of the call, so
+	// presence is re-established rather than assumed.
+	ProfileChannel = "channel"
+
+	// MaximumLifetime bounds a request-profile assertion. It matches the
 	// existing short-lived proof-token bound.
 	MaximumLifetime = 5 * time.Minute
+	// MaximumContentLifetime bounds a content-profile assertion. Validity and
+	// freshness diverge on the message surface: the assertion stays verifiable
+	// for as long as a message plausibly waits to be read, while issued_at
+	// records how old the evidence was when the message was sent. A recipient
+	// sees both.
+	MaximumContentLifetime = 7 * 24 * time.Hour
+	// MaximumChannelLifetime bounds a channel-profile assertion. It is short
+	// because the whole point is to re-attest: a call whose last attestation is
+	// older than this has lost its claim to presence.
+	MaximumChannelLifetime = 2 * time.Minute
 	// MaximumClockSkew tolerates a small clock difference between the emitting
 	// deployment and the relying service.
 	MaximumClockSkew = 30 * time.Second
 	// MaximumDocumentBytes bounds an encoded assertion.
 	MaximumDocumentBytes = 8 << 10
 
-	domainSeparator = "PALISADE\x00HUMAN-ASSURANCE-ASSERTION\x00V1\x00"
+	domainSeparator = "PALISADE\x00HUMAN-ASSURANCE-ASSERTION\x00V2\x00"
 	bindingContext  = "PALISADE\x00ASSURANCE-SESSION-BINDING\x00V1\x00"
+	channelContext  = "PALISADE\x00ASSURANCE-CHANNEL-BINDING\x00V1\x00"
 )
 
 var (
@@ -83,6 +108,7 @@ var (
 	reasonCode    = regexp.MustCompile(`^[a-z][a-z0-9_]{2,63}$`)
 	audienceValue = regexp.MustCompile(`^[a-z0-9][a-z0-9._:-]{0,127}$`)
 
+	profiles         = []string{ProfileRequest, ProfileContent, ProfileChannel}
 	assuranceSources = []string{"behavioral", "challenge", "device", "issuer"}
 	uniquenessScopes = []string{"none", "device", "issuer"}
 	agentProvenances = []string{"none", "declared", "authorized", "verified_purpose"}
@@ -124,13 +150,63 @@ func UniquenessScopes() []string { return clone(uniquenessScopes) }
 // AgentProvenances returns the closed agent-identification vocabulary.
 func AgentProvenances() []string { return clone(agentProvenances) }
 
-// Binding ties an assertion to exactly one audience, session, action and
-// endpoint class.
+// Binding ties an assertion to exactly one audience and one thing on one
+// surface. The profile says which fields are present; every other field must
+// be absent, so a binding can never be read under the wrong profile.
+//
+// Field order is the canonical signing order and must not change.
 type Binding struct {
+	Profile        string `json:"profile"`
 	SessionBinding string `json:"session_binding"`
-	RequestAction  string `json:"request_action"`
-	EndpointClass  string `json:"endpoint_class"`
-	Audience       string `json:"audience"`
+	// Request profile only.
+	RequestAction string `json:"request_action,omitempty"`
+	EndpointClass string `json:"endpoint_class,omitempty"`
+	// Content profile only: base64url SHA-256 of the message content, computed
+	// by the sender. PALISADE signs the commitment and never sees the content.
+	ContentCommitment string `json:"content_commitment,omitempty"`
+	// Channel profile only: opaque per-audience channel commitment and the
+	// interval this attestation covers.
+	ChannelBinding string  `json:"channel_binding,omitempty"`
+	IntervalIndex  *uint64 `json:"interval_index,omitempty"`
+	Audience       string  `json:"audience"`
+}
+
+// Profiles returns the closed binding-profile vocabulary.
+func Profiles() []string { return clone(profiles) }
+
+// ChannelBinding derives the opaque per-audience channel commitment for the
+// call surface, in the same shape as SessionBinding: the same channel produces
+// a different value for every audience.
+func ChannelBinding(secret []byte, channelID, audience string) (string, error) {
+	if len(secret) < 32 || len(channelID) < 8 || len(channelID) > 128 || !audienceValue.MatchString(audience) {
+		return "", ErrInvalid
+	}
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte(channelContext))
+	mac.Write([]byte(audience))
+	mac.Write([]byte{0})
+	mac.Write([]byte(channelID))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
+}
+
+// ContentCommitment is what a sender computes over a message before asking for
+// a content-profile assertion. It is a plain hash: unforgeable, and revealing
+// nothing about the content to the party that signs it.
+func ContentCommitment(content []byte) string {
+	digest := sha256.Sum256(content)
+	return base64.RawURLEncoding.EncodeToString(digest[:])
+}
+
+// lifetimeFor returns the validity bound of a profile.
+func lifetimeFor(profile string) time.Duration {
+	switch profile {
+	case ProfileContent:
+		return MaximumContentLifetime
+	case ProfileChannel:
+		return MaximumChannelLifetime
+	default:
+		return MaximumLifetime
+	}
 }
 
 // Payload is the signed content of an assertion.
@@ -191,7 +267,7 @@ func Sign(payload Payload, ttl time.Duration, now time.Time, privateKey ed25519.
 	if len(privateKey) != ed25519.PrivateKeySize {
 		return nil, ErrInvalid
 	}
-	if ttl <= 0 || ttl > MaximumLifetime {
+	if ttl <= 0 || ttl > lifetimeFor(payload.Binding.Profile) {
 		return nil, ErrInvalid
 	}
 	issuedAt := now.UTC().Truncate(time.Second)
@@ -391,10 +467,36 @@ func validateBinding(binding Binding) error {
 	if len(binding.SessionBinding) != 43 || !isBase64URL(binding.SessionBinding) {
 		return ErrInvalid
 	}
-	if !contains(requestActions, binding.RequestAction) || !contains(endpointClasses, binding.EndpointClass) {
+	if !audienceValue.MatchString(binding.Audience) {
 		return ErrInvalid
 	}
-	if !audienceValue.MatchString(binding.Audience) {
+	// Each profile must carry exactly its own fields. A request binding with a
+	// content commitment, or a content binding with an endpoint class, is not
+	// "extra information": it is a document that could be read under the
+	// wrong profile, and it is refused.
+	switch binding.Profile {
+	case ProfileRequest:
+		if binding.ContentCommitment != "" || binding.ChannelBinding != "" || binding.IntervalIndex != nil {
+			return ErrInvalid
+		}
+		if !contains(requestActions, binding.RequestAction) || !contains(endpointClasses, binding.EndpointClass) {
+			return ErrInvalid
+		}
+	case ProfileContent:
+		if binding.RequestAction != "" || binding.EndpointClass != "" || binding.ChannelBinding != "" || binding.IntervalIndex != nil {
+			return ErrInvalid
+		}
+		if len(binding.ContentCommitment) != 43 || !isBase64URL(binding.ContentCommitment) {
+			return ErrInvalid
+		}
+	case ProfileChannel:
+		if binding.RequestAction != "" || binding.EndpointClass != "" || binding.ContentCommitment != "" {
+			return ErrInvalid
+		}
+		if len(binding.ChannelBinding) != 43 || !isBase64URL(binding.ChannelBinding) || binding.IntervalIndex == nil {
+			return ErrInvalid
+		}
+	default:
 		return ErrInvalid
 	}
 	return nil
@@ -406,7 +508,7 @@ func validityWindow(payload Payload, now time.Time) (time.Time, time.Time, error
 		return time.Time{}, time.Time{}, ErrInvalid
 	}
 	expiresAt, err := canonicalTime(payload.ExpiresAt)
-	if err != nil || !expiresAt.After(issuedAt) || expiresAt.Sub(issuedAt) > MaximumLifetime {
+	if err != nil || !expiresAt.After(issuedAt) || expiresAt.Sub(issuedAt) > lifetimeFor(payload.Binding.Profile) {
 		return time.Time{}, time.Time{}, ErrInvalid
 	}
 	if issuedAt.After(now.UTC().Add(MaximumClockSkew)) {
@@ -465,7 +567,20 @@ func requireCompleteDocument(encoded []byte) error {
 	if err := json.Unmarshal(payload["binding"], &binding); err != nil {
 		return ErrInvalid
 	}
-	return requireFields(binding, "session_binding", "request_action", "endpoint_class", "audience")
+	var profile string
+	if raw, present := binding["profile"]; !present || json.Unmarshal(raw, &profile) != nil {
+		return ErrInvalid
+	}
+	switch profile {
+	case ProfileRequest:
+		return requireFields(binding, "profile", "session_binding", "request_action", "endpoint_class", "audience")
+	case ProfileContent:
+		return requireFields(binding, "profile", "session_binding", "content_commitment", "audience")
+	case ProfileChannel:
+		return requireFields(binding, "profile", "session_binding", "channel_binding", "interval_index", "audience")
+	default:
+		return ErrInvalid
+	}
 }
 
 func requireFields(object map[string]json.RawMessage, names ...string) error {

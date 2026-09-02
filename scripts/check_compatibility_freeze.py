@@ -18,7 +18,7 @@ API_PATHS = {
 }
 CURRENT_SCHEMA_NAMES = {
     "adversarial-holdout-suite-v1", "adversarial-suite-v1", "compatibility-freeze-v2", "crawler-registry-v1", "data-map-v7",
-    "detector-bundle-v1", "edge-signal-envelope-v1", "human-assurance-assertion-v1",
+    "detector-bundle-v1", "edge-signal-envelope-v1", "human-assurance-assertion-v2",
     "issuer-trust-list-v1",
     "local-artifact-v1", "local-evidence-event-v1",
     "local-evidence-input-v1", "local-evidence-manifest-v1", "local-family-annotation-v1",

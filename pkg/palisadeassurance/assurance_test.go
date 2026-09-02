@@ -25,6 +25,41 @@ func testKey(t *testing.T, seed byte) (ed25519.PublicKey, ed25519.PrivateKey) {
 	return private.Public().(ed25519.PublicKey), private
 }
 
+// testPayloadFor builds a payload for one binding profile. The request profile
+// is the transaction surface; content and channel are the message and call
+// surfaces, and differ only in what the binding names.
+func testPayloadFor(t *testing.T, profile string, level int, sources []string) Payload {
+	t.Helper()
+	payload := testPayload(t, level, sources)
+	switch profile {
+	case "", ProfileRequest:
+		return payload
+	case ProfileContent:
+		payload.Binding = Binding{
+			Profile:           ProfileContent,
+			SessionBinding:    payload.Binding.SessionBinding,
+			ContentCommitment: ContentCommitment([]byte("the message that was actually sent")),
+			Audience:          testAudience,
+		}
+	case ProfileChannel:
+		channel, err := ChannelBinding(testSecret, "channel-identifier-value", testAudience)
+		if err != nil {
+			t.Fatalf("derive channel binding: %v", err)
+		}
+		interval := uint64(17)
+		payload.Binding = Binding{
+			Profile:        ProfileChannel,
+			SessionBinding: payload.Binding.SessionBinding,
+			ChannelBinding: channel,
+			IntervalIndex:  &interval,
+			Audience:       testAudience,
+		}
+	default:
+		t.Fatalf("unknown profile %q", profile)
+	}
+	return payload
+}
+
 func testPayload(t *testing.T, level int, sources []string) Payload {
 	t.Helper()
 	binding, err := SessionBinding(testSecret, "session-identifier-value", testAudience)
@@ -38,6 +73,7 @@ func testPayload(t *testing.T, level int, sources []string) Payload {
 		UniquenessScope:  "none",
 		AgentProvenance:  "none",
 		Binding: Binding{
+			Profile:        ProfileRequest,
 			SessionBinding: binding,
 			RequestAction:  "login",
 			EndpointClass:  "login",
@@ -256,7 +292,7 @@ func TestMalformedPayloadsAreRejected(t *testing.T) {
 }
 
 func TestConformanceSuiteMatchesImplementation(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "..", "examples", "conformance", "human-assurance-assertion-v1.json"))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "examples", "conformance", "human-assurance-assertion-v2.json"))
 	if err != nil {
 		t.Fatalf("read conformance suite: %v", err)
 	}
@@ -269,6 +305,7 @@ func TestConformanceSuiteMatchesImplementation(t *testing.T) {
 		Scenarios             []struct {
 			ID       string   `json:"id"`
 			Mutation string   `json:"mutation"`
+			Profile  string   `json:"profile"`
 			Level    int      `json:"level"`
 			Sources  []string `json:"sources"`
 			Expected string   `json:"expected"`
@@ -296,10 +333,21 @@ func TestConformanceSuiteMatchesImplementation(t *testing.T) {
 	}
 
 	for _, scenario := range suite.Scenarios {
-		payload := testPayload(t, scenario.Level, scenario.Sources)
+		payload := testPayloadFor(t, scenario.Profile, scenario.Level, scenario.Sources)
 		evaluateAt := now.Add(time.Second)
+		ttl := time.Minute
 		switch scenario.Mutation {
 		case "none":
+		case "evaluate_days_later":
+			evaluateAt = now.Add(3 * 24 * time.Hour)
+			ttl = lifetimeFor(payload.Binding.Profile)
+		case "lifetime_beyond_profile_bound":
+			ttl = lifetimeFor(payload.Binding.Profile) + time.Hour
+		case "leak_foreign_profile_field":
+			payload.Binding.ContentCommitment = ContentCommitment([]byte("leaked"))
+		case "unknown_profile":
+			payload.Binding.Profile = "postcard"
+		case "tamper_content_commitment":
 		case "drop_required_source":
 			payload.AssuranceSources = nil
 		case "uniqueness_without_source":
@@ -307,7 +355,7 @@ func TestConformanceSuiteMatchesImplementation(t *testing.T) {
 		case "other_audience":
 			payload.Binding.Audience = "other.example"
 		case "evaluate_after_expiry":
-			evaluateAt = now.Add(2 * MaximumLifetime)
+			evaluateAt = now.Add(2 * lifetimeFor(payload.Binding.Profile))
 		case "evaluate_before_issue":
 			evaluateAt = now.Add(-time.Hour)
 		case "raise_level_after_signing", "other_signing_key", "foreign_domain_signature", "unknown_field":
@@ -318,19 +366,23 @@ func TestConformanceSuiteMatchesImplementation(t *testing.T) {
 		var encoded []byte
 		switch scenario.Mutation {
 		case "other_signing_key":
-			encoded = forceSign(t, payload, time.Minute, now, otherPrivate)
+			encoded = forceSign(t, payload, ttl, now, otherPrivate)
 		case "foreign_domain_signature":
-			encoded = signWithDomain(t, payload, time.Minute, now, private, "PALISADE\x00LOCAL-ARTIFACT\x00V1\x00")
+			encoded = signWithDomain(t, payload, ttl, now, private, "PALISADE\x00LOCAL-ARTIFACT\x00V1\x00")
 		case "raise_level_after_signing":
-			encoded = mutateDocument(t, forceSign(t, payload, time.Minute, now, private), func(document map[string]any) {
+			encoded = mutateDocument(t, forceSign(t, payload, ttl, now, private), func(document map[string]any) {
 				document["payload"].(map[string]any)["assurance_level"] = float64(LevelIssuerUnique)
 			})
 		case "unknown_field":
-			encoded = mutateDocument(t, forceSign(t, payload, time.Minute, now, private), func(document map[string]any) {
+			encoded = mutateDocument(t, forceSign(t, payload, ttl, now, private), func(document map[string]any) {
 				document["subject_identifier"] = "person"
 			})
+		case "tamper_content_commitment":
+			encoded = mutateDocument(t, forceSign(t, payload, ttl, now, private), func(document map[string]any) {
+				document["payload"].(map[string]any)["binding"].(map[string]any)["content_commitment"] = ContentCommitment([]byte("something else"))
+			})
 		default:
-			encoded = forceSign(t, payload, time.Minute, now, private)
+			encoded = forceSign(t, payload, ttl, now, private)
 		}
 
 		_, err := verifier.Verify(encoded, evaluateAt)
