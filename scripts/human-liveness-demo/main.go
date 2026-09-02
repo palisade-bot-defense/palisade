@@ -82,8 +82,13 @@ func run() error {
 		}).
 		WithLiveness(live)
 
+	// A demo that shows nothing cannot confirm anything. This records the shape
+	// of each attempt — never a session identifier, an option or an answer, so
+	// watching the log tells an operator that a run happened and how it ended,
+	// and nothing about who made it.
+	surface := server.Handler()
 	mux := http.NewServeMux()
-	mux.Handle("/v1/", server.Handler())
+	mux.Handle("/v1/", observe(surface))
 	mux.HandleFunc("GET /{$}", page)
 	// The demo page verifies the assertion itself, so it needs the public key.
 	// A relying party gets exactly this and nothing more.
@@ -102,6 +107,38 @@ func run() error {
 		Addr: address, Handler: mux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}).ListenAndServe()
+}
+
+// recorder captures the status so the observer can report an outcome without
+// reading or retaining the body.
+type recorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *recorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+}
+
+func observe(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		started := time.Now()
+		wrapped := &recorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(wrapped, r)
+		took := time.Since(started).Round(time.Millisecond)
+
+		switch {
+		case r.URL.Path == "/v1/assurance/liveness" && wrapped.status == http.StatusOK:
+			fmt.Printf("  liveness attempt opened\n")
+		case r.URL.Path == "/v1/assurance/liveness/answer" && wrapped.status == http.StatusOK:
+			fmt.Printf("  round answered (%v)\n", took)
+		case r.URL.Path == "/v1/assurance/liveness/answer":
+			fmt.Printf("  attempt ended — wrong option, faster than the floor, or past the deadline\n")
+		case r.URL.Path == "/v1/assurance" && wrapped.status == http.StatusOK:
+			fmt.Printf("  assertion minted\n")
+		}
+	})
 }
 
 func writeJSON(w http.ResponseWriter, value any) {
