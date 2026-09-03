@@ -71,12 +71,22 @@ The verifier reports the backup-eligible flag and `RequireDeviceBound` refuses
 such credentials, but turning it on excludes almost everyone, so it is a
 deliberate trade rather than a hardening default.
 
+The same credential type also keeps no signature counter — a counter cannot stay
+consistent across copies, so the authenticators that sync report zero every time.
+That is allowed and it verifies, but it means clone detection never runs. Read
+the two together: for the credential most people present, device evidence is
+neither bound to a device nor checked for cloning. It is evidence that someone
+holds the account's registered credential, which is worth something, and it is
+less than the phrase "device attestation" suggests.
+
 Device attestation additionally needs a registry. PALISADE registers nothing:
 your own registration ceremony writes credentials, and PALISADE reads them
 through an interface you implement. Whatever attestation-statement policy you
 want — which vendor made the authenticator — is applied there, at registration,
-not here. Persist the signature counter the verifier hands back, or clone
-detection is worth nothing.
+not here. Persist the signature counter the verifier hands back: without that,
+clone detection cannot run for the authenticators that do keep one. The verifier
+reports whether a counter was in play at all, so a deployment can tell a check
+that passed from a check that never executed.
 
 ## Hand to a relying party
 

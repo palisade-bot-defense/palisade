@@ -69,6 +69,17 @@ func es256Credential(t *testing.T) (*ecdsa.PrivateKey, Credential) {
 	}
 }
 
+// countedAssertion is a valid assertion carrying a chosen signature counter.
+func countedAssertion(t *testing.T, key *ecdsa.PrivateKey, signCount uint32) Assertion {
+	t.Helper()
+	client := clientDataJSON(t, expectedType, base64.RawURLEncoding.EncodeToString(issuedChallenge), origin)
+	authData := authenticatorData(relyingParty, flagUserPresent, signCount)
+	return Assertion{
+		CredentialID: credentialID, AuthenticatorData: authData,
+		ClientDataJSON: client, Signature: signES256(t, key, authData, client),
+	}
+}
+
 func validAssertion(t *testing.T, key *ecdsa.PrivateKey) Assertion {
 	t.Helper()
 	client := clientDataJSON(t, expectedType, base64.RawURLEncoding.EncodeToString(issuedChallenge), origin)
@@ -197,14 +208,51 @@ func TestACounterThatDoesNotAdvanceIsRefused(t *testing.T) {
 		t.Fatalf("a non-advancing counter was accepted: %v", err)
 	}
 
-	// An authenticator that keeps no counter reports zero, which stays allowed.
-	authData = authenticatorData(relyingParty, flagUserPresent, 0)
-	countless := Assertion{
-		CredentialID: credentialID, AuthenticatorData: authData,
-		ClientDataJSON: client, Signature: signES256(t, key, authData, client),
+	// A stored counter of five and an incoming zero is not "this authenticator
+	// keeps no counter" — it is a counter that went backwards, and it used to be
+	// accepted because the guard only looked at the incoming value. The caller
+	// then persisted that zero over the five, so one such assertion disabled
+	// clone detection for the credential from then on.
+	zeroed := countedAssertion(t, key, 0)
+	if _, err := Verify(zeroed, credential, policy(), issuedChallenge, now); err != ErrReplay {
+		t.Fatalf("a counter that dropped to zero erased the stored one: %v", err)
 	}
-	if _, err := Verify(countless, credential, policy(), issuedChallenge, now); err != nil {
-		t.Fatalf("a counterless authenticator was refused: %v", err)
+}
+
+// The authenticator behind a synced passkey reports zero on every ceremony,
+// which must keep verifying however many times it is used. This is the case a
+// too-eager counter guard breaks, and it is the case almost every real person
+// presents.
+func TestACounterlessAuthenticatorVerifiesEveryTime(t *testing.T) {
+	key, credential := es256Credential(t)
+	for ceremony := range 3 {
+		result, err := Verify(countedAssertion(t, key, 0), credential, policy(), issuedChallenge, now)
+		if err != nil {
+			t.Fatalf("ceremony %d: a counterless authenticator was refused: %v", ceremony, err)
+		}
+		if result.CounterPresent {
+			t.Fatal("a ceremony with no counter on either side reported one")
+		}
+		// What the deployment stores after each ceremony, which stays zero.
+		credential.SignCount = result.SignCount
+	}
+}
+
+// A successful verification does not by itself mean clone detection ran. An
+// operator who cannot tell the two apart will believe a control is protecting
+// them that never executed.
+func TestCounterPresenceIsReported(t *testing.T) {
+	key, credential := es256Credential(t)
+	result, err := Verify(countedAssertion(t, key, 7), credential, policy(), issuedChallenge, now)
+	if err != nil || !result.CounterPresent || result.SignCount != 7 {
+		t.Fatalf("a counting authenticator was not reported as one: %+v %v", result, err)
+	}
+
+	// A stored counter alone is enough for the comparison to be meaningful,
+	// even before this ceremony's own value is read.
+	credential.SignCount = 7
+	if _, err := Verify(countedAssertion(t, key, 8), credential, policy(), issuedChallenge, now); err != nil {
+		t.Fatalf("an advancing counter was refused: %v", err)
 	}
 }
 

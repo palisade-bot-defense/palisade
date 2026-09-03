@@ -30,9 +30,13 @@
 // backup-eligible flag in the assertion says so. Result reports it, and a
 // deployment that reads "device-bound" literally can require otherwise through
 // the policy. Left off, which is the default, the ceremony evidences possession
-// of an account's credential rather than of one particular device. That
-// distinction stayed invisible until a real platform authenticator was put
-// through this path.
+// of an account's credential rather than of one particular device.
+//
+// Such a credential also carries no signature counter — one cannot stay
+// consistent across copies — so clone detection does not run for it either.
+// Result reports both facts rather than letting a successful verification imply
+// protections that were never exercised. Neither distinction was visible until a
+// real platform authenticator was put through this path.
 package deviceattest
 
 import (
@@ -161,6 +165,14 @@ type Result struct {
 	BackedUp bool
 	// SignCount is the counter this assertion carried, for the caller to store.
 	SignCount uint32
+	// CounterPresent reports that a counter was in play for this ceremony —
+	// either this assertion carried one or the stored credential already had
+	// one. When it is false no clone detection happened and none is possible on
+	// the next use either: the authenticator keeps no counter, which is what
+	// platform authenticators backing synced passkeys generally do. It is an
+	// observation about this ceremony, not a durable property of the
+	// authenticator.
+	CounterPresent bool
 	// VerifiedAt is the time the verification was performed.
 	VerifiedAt time.Time
 }
@@ -241,7 +253,15 @@ func Verify(
 		uint32(assertion.AuthenticatorData[36])
 	// A counter that goes backwards means the credential was cloned. A counter
 	// that stays at zero means the authenticator keeps none, which is allowed.
-	if signCount != 0 && signCount <= credential.SignCount {
+	//
+	// The check is gated on either value being non-zero, not just the incoming
+	// one. Gating on the incoming value alone lets an assertion carrying zero
+	// pass a credential whose stored counter is five, and the caller then
+	// persists that zero over the high-water mark — one such assertion disables
+	// clone detection for that credential permanently. WebAuthn 7.2 gates on
+	// the disjunction for exactly this reason.
+	counterPresent := signCount != 0 || credential.SignCount != 0
+	if counterPresent && signCount <= credential.SignCount {
 		return Result{}, ErrReplay
 	}
 
@@ -259,6 +279,7 @@ func Verify(
 		BackupEligible: backupEligible,
 		BackedUp:       flags&flagBackedUp != 0,
 		SignCount:      signCount,
+		CounterPresent: counterPresent,
 		VerifiedAt:     now.UTC(),
 	}, nil
 }

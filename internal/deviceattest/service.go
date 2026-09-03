@@ -63,6 +63,13 @@ type Registry interface {
 	// cloned credential is detected on its next use. A registry that cannot
 	// persist may ignore it, which weakens clone detection to nothing and
 	// should be a deliberate choice.
+	//
+	// Persisting buys nothing for an authenticator that keeps no counter, and
+	// that is the common case rather than the exotic one: the platform
+	// authenticators behind synced passkeys report zero every time. Result's
+	// CounterPresent says whether the ceremony had a counter at all, so a
+	// deployment can tell "clone detection held" from "clone detection was
+	// never running" instead of assuming the former from a successful verify.
 	RecordSignCount(credentialID string, signCount uint32)
 }
 
