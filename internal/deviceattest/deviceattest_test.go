@@ -317,3 +317,50 @@ func TestStructurallyImpossibleInputIsRefused(t *testing.T) {
 		t.Fatal("a short challenge was accepted")
 	}
 }
+
+// A synced passkey lives on every device signed into an account, so a ceremony
+// with one evidences possession of the account's credential rather than of one
+// device. The flag is in the assertion; reading it is the difference between
+// "device-bound" meaning something and being decoration.
+func TestBackupEligibleCredentialsAreReportedAndOptionallyRefused(t *testing.T) {
+	key, credential := es256Credential(t)
+	client := clientDataJSON(t, expectedType, base64.RawURLEncoding.EncodeToString(issuedChallenge), origin)
+
+	synced := authenticatorData(relyingParty, flagUserPresent|flagBackupEligible|flagBackedUp, 1)
+	assertion := Assertion{
+		CredentialID: credentialID, AuthenticatorData: synced,
+		ClientDataJSON: client, Signature: signES256(t, key, synced, client),
+	}
+
+	// The default accepts it — refusing synced passkeys excludes almost
+	// everyone — but must report what it accepted.
+	result, err := Verify(assertion, credential, policy(), issuedChallenge, now)
+	if err != nil {
+		t.Fatalf("a synced credential was refused by default: %v", err)
+	}
+	if !result.BackupEligible || !result.BackedUp {
+		t.Fatalf("a synced credential was not reported as such: %+v", result)
+	}
+
+	// A deployment that reads "device-bound" literally can require it.
+	strict := policy()
+	strict.RequireDeviceBound = true
+	if _, err := Verify(assertion, credential, strict, issuedChallenge, now); err != ErrNotDeviceBound {
+		t.Fatalf("a synced credential satisfied a device-bound requirement: %v", err)
+	}
+
+	// A credential the authenticator cannot copy satisfies it, and is reported
+	// as not backed up.
+	bound := authenticatorData(relyingParty, flagUserPresent, 2)
+	single := Assertion{
+		CredentialID: credentialID, AuthenticatorData: bound,
+		ClientDataJSON: client, Signature: signES256(t, key, bound, client),
+	}
+	result, err = Verify(single, credential, strict, issuedChallenge, now)
+	if err != nil {
+		t.Fatalf("a device-bound credential was refused: %v", err)
+	}
+	if result.BackupEligible || result.BackedUp {
+		t.Fatalf("a device-bound credential was reported as synced: %+v", result)
+	}
+}

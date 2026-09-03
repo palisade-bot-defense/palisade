@@ -140,7 +140,7 @@ explainable.
 | H0 | none; unattributed traffic | anonymous reads | available |
 | H1 | verified bounded interaction evidence and low automation risk | commenting, low-value writes | implemented: the assertion contract exists and this is its ceiling |
 | H2 | H1 plus a completed session/action/endpoint-bound **interactive** challenge | account creation, rate-limited signup | mechanism implemented; the level is computed but withheld until measured |
-| H3 | H2 plus a device-attested key bound to the session | marketplace actions, messaging identity | assertion verification implemented; attestation statements deliberately not; the level is computed and withheld |
+| H3 | H2 plus a registered credential the person holds | marketplace actions, messaging identity | assertion verification implemented; attestation statements deliberately not; a synced passkey is not device-bound unless the deployment requires it; the level is computed and withheld |
 | H4 | H3 plus an issuer assertion of verified liveness at enrolment | high-value transactions, bank-detail changes | not implemented; requires an external issuer |
 | H5 | H4 plus an issuer assertion of scope uniqueness | governance, one-person-one-vote surfaces | not implemented; requires an external issuer with a dedupe guarantee |
 
@@ -268,7 +268,17 @@ local artifact — the same verify-never-issue shape as the issuer trust list.
 
 So a verification means "a credential this deployment registered was used, live,
 here". It does not mean "a genuine hardware key from vendor X", and it does not
-mean a person: possession of a device is not presence of a human. That is why
+mean a person: possession of a device is not presence of a human.
+
+It does not always mean one device either. A synced passkey — what most people
+actually have — lives on every device signed into that account. The assertion
+says so in its backup-eligible flag, the verifier reports it, and a deployment
+that reads "device-bound" literally can require a credential the authenticator
+cannot copy. That requirement is off by default, because refusing synced
+passkeys excludes almost everyone; left off, the ceremony evidences possession
+of an account's credential rather than of one particular device. The gap stayed
+invisible until a real platform authenticator was put through this path — every
+test until then signed with a key the test itself had made. That is why
 device evidence sits above interaction evidence in the ladder rather than
 replacing it, and why a device credential alone carries no level at all.
 

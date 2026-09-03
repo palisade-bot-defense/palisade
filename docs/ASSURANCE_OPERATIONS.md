@@ -64,6 +64,13 @@ Both are optional and independent. Enable liveness to make H2 evidence
 reachable and device attestation to make H3 evidence reachable. Each has its own
 secret; do not share one between them.
 
+Decide what "device" means to you before you enable it. Most people present a
+synced passkey, which lives on every device signed into their account: the
+ceremony then shows possession of that account's credential, not of one machine.
+The verifier reports the backup-eligible flag and `RequireDeviceBound` refuses
+such credentials, but turning it on excludes almost everyone, so it is a
+deliberate trade rather than a hardening default.
+
 Device attestation additionally needs a registry. PALISADE registers nothing:
 your own registration ceremony writes credentials, and PALISADE reads them
 through an interface you implement. Whatever attestation-statement policy you
@@ -113,7 +120,7 @@ the channel the call started on — same opaque channel, interval advanced.
 | H0 | yes | No human evidence. A legitimate answer, not an error. |
 | H1 | yes | PALISADE verified bounded interaction evidence against its own event store. |
 | H2 | **computed and withheld** | A completed interactive liveness challenge: several rounds, each revealed at its own moment and answered in order inside a narrow window. It evidences live attachment, not humanity — a script that reads the prompt answers as well as a person. |
-| H3 | **computed and withheld** | Plus a registered device-bound credential. |
+| H3 | **computed and withheld** | Plus a registered credential the person holds. A synced passkey satisfies this by default and is *not* bound to one device; require `RequireDeviceBound` if you need that literally, at the cost of excluding most people. |
 | H4, H5 | no | No verifier exists. |
 
 A withheld level arrives as H1 carrying

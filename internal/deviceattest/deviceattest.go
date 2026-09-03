@@ -24,6 +24,15 @@
 // mean "a human": possession of a device is not presence of a person, which is
 // why device evidence sits above interaction evidence in the ladder rather than
 // replacing it.
+//
+// Nor does it always mean one device. A synced passkey — what most people
+// actually have — lives on every device signed into that account, and the
+// backup-eligible flag in the assertion says so. Result reports it, and a
+// deployment that reads "device-bound" literally can require otherwise through
+// the policy. Left off, which is the default, the ceremony evidences possession
+// of an account's credential rather than of one particular device. That
+// distinction stayed invisible until a real platform authenticator was put
+// through this path.
 package deviceattest
 
 import (
@@ -47,6 +56,12 @@ const (
 
 	flagUserPresent  = 0x01
 	flagUserVerified = 0x04
+	// flagBackupEligible marks a credential the authenticator may copy off this
+	// device — a synced passkey. Such a credential is not device-bound, whatever
+	// the ceremony proves about possession right now.
+	flagBackupEligible = 0x08
+	// flagBackedUp marks a credential that currently exists somewhere else too.
+	flagBackedUp = 0x10
 
 	// MaximumClientDataBytes bounds the JSON the client controls.
 	MaximumClientDataBytes = 8 << 10
@@ -69,6 +84,9 @@ var (
 	ErrPresence = errors.New("device assertion lacks user presence")
 	// ErrReplay reports a signature counter that did not advance.
 	ErrReplay = errors.New("device assertion counter did not advance")
+	// ErrNotDeviceBound reports a credential the authenticator may sync to other
+	// devices, presented where the deployment requires a device-bound one.
+	ErrNotDeviceBound = errors.New("device credential is not bound to one device")
 )
 
 // Algorithm names the signature algorithms this package verifies. Both are
@@ -111,6 +129,13 @@ type Policy struct {
 	// or biometric raises assurance but excludes authenticators that cannot do
 	// it, which is an accessibility budget rather than a free improvement.
 	RequireUserVerification bool
+	// RequireDeviceBound refuses a credential the authenticator may sync to
+	// other devices. It is off by default because synced passkeys are what most
+	// people actually have and refusing them excludes almost everyone; but a
+	// deployment that reads "device-bound" literally must turn it on, because
+	// without it the ceremony proves possession of an account's credential
+	// rather than of one device.
+	RequireDeviceBound bool
 }
 
 // Assertion is what the client returns from an authentication ceremony.
@@ -127,6 +152,13 @@ type Result struct {
 	// UserVerified reports whether the authenticator verified the person rather
 	// than only their presence.
 	UserVerified bool
+	// BackupEligible reports that the authenticator may copy this credential to
+	// other devices. When it is true the credential is not device-bound: the
+	// ceremony shows someone holds the account's credential, which may live on
+	// several devices at once.
+	BackupEligible bool
+	// BackedUp reports that the credential currently exists elsewhere as well.
+	BackedUp bool
 	// SignCount is the counter this assertion carried, for the caller to store.
 	SignCount uint32
 	// VerifiedAt is the time the verification was performed.
@@ -198,6 +230,10 @@ func Verify(
 	if policy.RequireUserVerification && !userVerified {
 		return Result{}, ErrPresence
 	}
+	backupEligible := flags&flagBackupEligible != 0
+	if policy.RequireDeviceBound && backupEligible {
+		return Result{}, ErrNotDeviceBound
+	}
 
 	signCount := uint32(assertion.AuthenticatorData[33])<<24 |
 		uint32(assertion.AuthenticatorData[34])<<16 |
@@ -218,10 +254,12 @@ func Verify(
 		return Result{}, err
 	}
 	return Result{
-		CredentialID: credential.ID,
-		UserVerified: userVerified,
-		SignCount:    signCount,
-		VerifiedAt:   now.UTC(),
+		CredentialID:   credential.ID,
+		UserVerified:   userVerified,
+		BackupEligible: backupEligible,
+		BackedUp:       flags&flagBackedUp != 0,
+		SignCount:      signCount,
+		VerifiedAt:     now.UTC(),
 	}, nil
 }
 
