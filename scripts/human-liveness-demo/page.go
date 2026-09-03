@@ -13,7 +13,8 @@ const demoPage = `<!doctype html>
   h1 { font-size: 1.4rem; }
   .note { border-left: 3px solid #888; padding-left: .8rem; color: #666; font-size: .9rem; }
   button { font: inherit; padding: .6rem 1rem; margin: .25rem .25rem .25rem 0; cursor: pointer; }
-  button.option { font-family: ui-monospace, monospace; }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; margin-top: .5rem; }
+  th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid #8883; }
   pre { background: #8881; padding: .8rem; overflow-x: auto; font-size: .82rem; }
   .verdict { font-weight: 600; padding: .6rem .8rem; margin: 1rem 0; border-left: 4px solid #888; }
   .ok { border-color: #178a4c; }
@@ -43,6 +44,19 @@ of 120&nbsp;ms and a window of 20&nbsp;s per round; both are deliberate.</p>
 
 <h2>3. Assertion with liveness</h2>
 <div id="live-out"></div>
+
+<h2>4. Device credential (real WebAuthn)</h2>
+<p>Registers a passkey with your platform authenticator — Touch ID on a Mac —
+then answers a PALISADE challenge with it. The registration is the deployment's
+job, not PALISADE's; this page does it so there is something to verify against.</p>
+<button id="register">Register a passkey</button>
+<button id="ceremony" disabled>Answer a device challenge</button>
+<div id="device-out"></div>
+
+<h2>5. All three surfaces</h2>
+<p>The same evidence, bound three different ways.</p>
+<button id="surfaces">Mint a request, a message and a call assertion</button>
+<div id="surfaces-out"></div>
 
 <script type="module">
 const SESSION = "demo-session-" + Math.random().toString(36).slice(2, 10);
@@ -80,6 +94,122 @@ function render(target, document_, label) {
     "<details><summary>" + label + " — full document</summary><pre>" +
       JSON.stringify(document_, null, 2).replace(/</g, "&lt;") + "</pre></details>";
 }
+
+// --- helpers shared by the surface demos -------------------------------
+const b64 = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)))
+  .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64 = (text) => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+
+async function post(path, body, headers) {
+  const response = await fetch(path, {
+    method: "POST", headers: { "content-type": "application/json", ...(headers || {}) },
+    body: JSON.stringify(body),
+  });
+  return { ok: response.ok, status: response.status, json: await response.json().catch(() => null) };
+}
+
+let credentialId = null, deviceAttestation = null;
+
+document.getElementById("register").onclick = async () => {
+  const out = document.getElementById("device-out");
+  try {
+    const created = await navigator.credentials.create({ publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rp: { name: "PALISADE demo", id: "localhost" },
+      user: { id: crypto.getRandomValues(new Uint8Array(16)), name: "demo", displayName: "demo" },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+      authenticatorSelection: { userVerification: "preferred" },
+      attestation: "none",
+      timeout: 60000,
+    }});
+    // The public key as a raw uncompressed P-256 point, which is what the
+    // verifier expects. getPublicKey() gives SPKI; the last 65 bytes are the point.
+    const spki = new Uint8Array(created.response.getPublicKey());
+    credentialId = b64(created.rawId);
+    const registered = await post("/demo/register", {
+      credential_id: credentialId, public_key: b64(spki.slice(-65)), algorithm: "es256",
+    });
+    out.innerHTML = registered.ok
+      ? '<p class="verdict ok">Passkey registered. PALISADE did not create it — your deployment would.</p>'
+      : '<p class="verdict">Registration failed: ' + JSON.stringify(registered.json) + "</p>";
+    document.getElementById("ceremony").disabled = !registered.ok;
+  } catch (error) {
+    out.innerHTML = '<p class="verdict">WebAuthn refused: ' + error.message +
+      ". A platform authenticator and a secure context are needed; this page must be on http://localhost:8099.</p>";
+  }
+};
+
+document.getElementById("ceremony").onclick = async () => {
+  const out = document.getElementById("device-out");
+  const issued = await post("/v1/assurance/device/challenge",
+    { session_id: SESSION, action: "login", endpoint_class: "login" });
+  if (!issued.ok) { out.innerHTML = "<p>challenge failed</p>"; return; }
+  try {
+    const got = await navigator.credentials.get({ publicKey: {
+      challenge: unb64(issued.json.challenge),
+      rpId: issued.json.relying_party_id,
+      allowCredentials: [{ type: "public-key", id: unb64(credentialId) }],
+      userVerification: "preferred",
+      timeout: 60000,
+    }});
+    const completed = await post("/v1/assurance/device/complete", {
+      challenge_id: issued.json.challenge_id, session_id: SESSION, credential_id: credentialId,
+      authenticator_data: b64(got.response.authenticatorData),
+      client_data_json: b64(got.response.clientDataJSON),
+      signature: b64(got.response.signature),
+    });
+    if (!completed.ok) {
+      out.innerHTML = '<p class="verdict">The ceremony failed. The server does not say which constraint — ' +
+        "unknown credential, wrong signature, untouched authenticator and a stale counter all look the same.</p>";
+      return;
+    }
+    deviceAttestation = completed.json.attestation;
+    const headers = { "X-Palisade-Device-Attestation": deviceAttestation };
+    if (attestation) headers["X-Palisade-Liveness-Attestation"] = attestation;
+    out.innerHTML = '<p class="verdict ok">Device ceremony completed.</p>';
+    const withDevice = await assertion(headers);
+    render(document.createElement("div"), withDevice, "");
+    const holder = document.createElement("div");
+    out.appendChild(holder);
+    render(holder, withDevice, attestation ? "with liveness and device" : "with device only");
+    if (!attestation) {
+      const note = document.createElement("p");
+      note.className = "note";
+      note.textContent = "A device credential alone carries no level: possession of hardware is not presence of a " +
+        "person. Complete the liveness challenge above, then run this again to see the level computed and withheld.";
+      out.appendChild(note);
+    }
+  } catch (error) {
+    out.innerHTML = '<p class="verdict">WebAuthn refused: ' + error.message + "</p>";
+  }
+};
+
+document.getElementById("surfaces").onclick = async () => {
+  const out = document.getElementById("surfaces-out");
+  const message = new TextEncoder().encode("the message that was actually sent");
+  const commitment = b64(await crypto.subtle.digest("SHA-256", message));
+  const headers = { "X-Palisade-Assurance-Audience": key.audience };
+  if (attestation) headers["X-Palisade-Liveness-Attestation"] = attestation;
+
+  const request = await post("/v1/assurance", body, headers);
+  const content = await post("/v1/assurance/content", { ...body, content_commitment: commitment }, headers);
+  const channel = await post("/v1/assurance/channel", { ...body, channel_id: "demo-call-0001" }, headers);
+
+  const row = (label, result, extra) => {
+    const b = result.json.payload.binding;
+    return "<tr><td>" + label + "</td><td><code>" + b.profile + "</code></td><td>" +
+      (b.request_action ? "action " + b.request_action : "") +
+      (b.content_commitment ? "commitment " + b.content_commitment.slice(0, 12) + "…" : "") +
+      (b.channel_binding ? "channel " + b.channel_binding.slice(0, 10) + "… interval " + b.interval_index : "") +
+      "</td><td>" + result.json.payload.expires_at + "</td><td>" + (extra || "") + "</td></tr>";
+  };
+  out.innerHTML = "<table><tr><th>surface</th><th>profile</th><th>bound to</th><th>expires</th><th></th></tr>" +
+    row("transaction", request) +
+    row("message", content, "PALISADE never saw the message") +
+    row("call", channel, "one per interval") +
+    "</table><p class=\"note\">Same evidence, three bindings. The message assertion is valid for a day; the " +
+    "call assertion for two minutes, because presence must be re-established rather than assumed.</p>";
+};
 
 document.getElementById("plain").onclick = async () => {
   render(document.getElementById("plain-out"), await assertion({}), "without liveness");

@@ -21,7 +21,11 @@ import (
 	"os"
 	"time"
 
+	"encoding/base64"
+	"sync"
+
 	"github.com/palisade-human-trust/palisade/internal/core"
+	"github.com/palisade-human-trust/palisade/internal/deviceattest"
 	"github.com/palisade-human-trust/palisade/internal/httpapi"
 	"github.com/palisade-human-trust/palisade/internal/liveness"
 	"github.com/palisade-human-trust/palisade/internal/token"
@@ -29,8 +33,10 @@ import (
 )
 
 const (
-	address  = "127.0.0.1:8099"
-	audience = "demo.local"
+	address      = "localhost:8099"
+	origin       = "http://localhost:8099"
+	relyingParty = "localhost"
+	audience     = "demo.local"
 )
 
 // demoEngine returns a decision carrying the one evidence code that raises a
@@ -51,6 +57,62 @@ func (demoEngine) Decide(context.Context, core.DecisionRequest) (core.Decision, 
 		PolicyVersion: "demo-v1", ModelVersion: "demo-v1",
 		ExpiresAt: time.Now().UTC().Add(time.Minute),
 	}, nil
+}
+
+// demoRegistry stands in for the store a deployment's own registration ceremony
+// writes to. PALISADE registers nothing itself; this exists so the demo has
+// something to read. It keeps credentials in memory only.
+type demoRegistry struct {
+	mu          sync.Mutex
+	credentials map[string]deviceattest.Credential
+}
+
+func (r *demoRegistry) Credential(credentialID, _ string) (deviceattest.Credential, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	credential, registered := r.credentials[credentialID]
+	return credential, registered
+}
+
+func (r *demoRegistry) RecordSignCount(credentialID string, signCount uint32) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if credential, registered := r.credentials[credentialID]; registered {
+		credential.SignCount = signCount
+		r.credentials[credentialID] = credential
+	}
+}
+
+// register accepts a public key the browser just created. A real deployment
+// runs its own registration ceremony here and applies whatever
+// attestation-statement policy it wants; this one accepts what it is given and
+// says so, because the demo is exercising verification, not enrolment.
+func (r *demoRegistry) register(w http.ResponseWriter, request *http.Request) {
+	var body struct {
+		CredentialID string `json:"credential_id"`
+		PublicKey    string `json:"public_key"`
+		Algorithm    string `json:"algorithm"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, request.Body, 8<<10)).Decode(&body); err != nil {
+		http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+		return
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(body.PublicKey)
+	if err != nil || body.CredentialID == "" {
+		http.Error(w, `{"error":"invalid_request"}`, http.StatusBadRequest)
+		return
+	}
+	algorithm := deviceattest.ES256
+	if body.Algorithm == "eddsa" {
+		algorithm = deviceattest.EdDSA
+	}
+	r.mu.Lock()
+	r.credentials[body.CredentialID] = deviceattest.Credential{
+		ID: body.CredentialID, Algorithm: algorithm, PublicKey: raw,
+	}
+	r.mu.Unlock()
+	fmt.Printf("  device credential registered (%s)\n", algorithm)
+	writeJSON(w, map[string]string{"status": "registered"})
 }
 
 func main() {
@@ -74,13 +136,24 @@ func run() error {
 		return err
 	}
 
+	registry := &demoRegistry{credentials: map[string]deviceattest.Credential{}}
+	devices, err := deviceattest.NewService(deviceattest.Config{
+		Secret:   []byte("demo-device-secret-0123456789abcd"),
+		Registry: registry,
+		Policy:   deviceattest.Policy{RelyingPartyID: relyingParty, Origin: origin},
+	})
+	if err != nil {
+		return err
+	}
+
 	server := httpapi.New(demoEngine{}, tokens, "demo-key", slog.New(slog.DiscardHandler)).
 		WithAssurance(httpapi.AssuranceConfig{
 			SigningKey:       private,
 			BindingSecret:    []byte("demo-binding-secret-0123456789abc"),
 			AllowedAudiences: []string{audience},
 		}).
-		WithLiveness(live)
+		WithLiveness(live).
+		WithDeviceAttestation(devices)
 
 	// A demo that shows nothing cannot confirm anything. This records the shape
 	// of each attempt — never a session identifier, an option or an answer, so
@@ -92,6 +165,7 @@ func run() error {
 	mux.HandleFunc("GET /{$}", page)
 	// The demo page verifies the assertion itself, so it needs the public key.
 	// A relying party gets exactly this and nothing more.
+	mux.HandleFunc("POST /demo/register", registry.register)
 	mux.HandleFunc("GET /public-key", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]string{
 			"public_key_hex": fmt.Sprintf("%x", public),
@@ -135,6 +209,16 @@ func observe(next http.Handler) http.Handler {
 			fmt.Printf("  round answered (%v)\n", took)
 		case r.URL.Path == "/v1/assurance/liveness/answer":
 			fmt.Printf("  attempt ended — wrong option, faster than the floor, or past the deadline\n")
+		case r.URL.Path == "/v1/assurance/device/challenge" && wrapped.status == http.StatusOK:
+			fmt.Printf("  device challenge issued\n")
+		case r.URL.Path == "/v1/assurance/device/complete" && wrapped.status == http.StatusOK:
+			fmt.Printf("  device ceremony completed (%v)\n", took)
+		case r.URL.Path == "/v1/assurance/device/complete":
+			fmt.Printf("  device ceremony failed — the server does not say which constraint\n")
+		case r.URL.Path == "/v1/assurance/content" && wrapped.status == http.StatusOK:
+			fmt.Printf("  content assertion minted\n")
+		case r.URL.Path == "/v1/assurance/channel" && wrapped.status == http.StatusOK:
+			fmt.Printf("  channel assertion minted\n")
 		case r.URL.Path == "/v1/assurance" && wrapped.status == http.StatusOK:
 			fmt.Printf("  assertion minted\n")
 		}
