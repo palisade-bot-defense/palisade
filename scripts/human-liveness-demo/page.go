@@ -122,8 +122,11 @@ document.getElementById("register").onclick = async () => {
       attestation: "none",
       timeout: 60000,
     }});
-    // The public key as a raw uncompressed P-256 point, which is what the
-    // verifier expects. getPublicKey() gives SPKI; the last 65 bytes are the point.
+    // The verifier wants a raw uncompressed P-256 point. getPublicKey() returns
+    // SPKI, whose last 65 bytes are that point for an ES256 key — verified
+    // against a real Apple platform authenticator, which is the only reason
+    // this shortcut is here. A client that must accept arbitrary authenticators
+    // should parse the SPKI structure rather than slice it.
     const spki = new Uint8Array(created.response.getPublicKey());
     credentialId = b64(created.rawId);
     const registered = await post("/demo/register", {
