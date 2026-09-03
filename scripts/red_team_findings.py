@@ -21,12 +21,17 @@ else:
 
 SCHEMA_VERSION = "palisade.synthetic-red-team-findings.v2"
 SUITE_VERSION = "palisade.red-team-suite.v2"
+# Derived, not restated. These two numbers were hand-maintained constants and
+# went stale the moment the suite grew: a report was produced claiming twelve
+# scenarios while carrying sixteen findings, and nothing caught it because the
+# validator only ever compared the constant to itself. The suite is the
+# authority for how many scenarios and categories there are.
 PROTOCOL = {
-    "category_count": 6,
+    "category_count": len(run_red_team.CATEGORIES),
     "go_test_count": 1,
     "module_downloads_disabled": True,
     "publication_requires_all_passed": True,
-    "scenario_count": 12,
+    "scenario_count": len(run_red_team.EXPECTED),
 }
 LIMITATIONS = (
     "synthetic regression controls only; not an independent penetration test or security audit",
@@ -132,6 +137,12 @@ def validate_report(document: dict[str, object], repository_root: Path) -> None:
         or any(type(protocol[key]) is not type(value) for key, value in PROTOCOL.items())
     ):
         raise FindingsError("findings protocol fields or values changed")
+    if protocol["scenario_count"] != len(document["findings"]):
+        # The count the record states about itself has to be the count it
+        # carries. Comparing the constant to the constant cannot see this.
+        raise FindingsError("findings protocol scenario count does not match the findings")
+    if protocol["category_count"] != len({finding["category"] for finding in document["findings"]}):
+        raise FindingsError("findings protocol category count does not match the findings")
     if document["limitations"] != list(LIMITATIONS):
         raise FindingsError("findings limitations are missing, reordered or changed")
 
@@ -349,9 +360,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"red-team-findings: failed: {error}", file=sys.stderr)
         return 1
     if arguments.verify is not None:
-        print("red-team-findings: verified 12 passed synthetic scenarios; no deployment records")
+        print(f"red-team-findings: verified {len(run_red_team.EXPECTED)} passed synthetic scenarios; no deployment records")
         return 0
-    print("red-team-findings: wrote 12 passed synthetic scenarios; no deployment records")
+    print(f"red-team-findings: wrote {len(run_red_team.EXPECTED)} passed synthetic scenarios; no deployment records")
     return 0
 
 
