@@ -14,7 +14,32 @@ import (
 	"time"
 )
 
+// requireSecondLoopbackAddress skips when the host has not assigned 127.0.0.2.
+//
+// The test needs a second loopback address to dial the origin from, so that a
+// direct request is distinguishable from one arriving through the trusted edge.
+// Linux assigns the whole 127.0.0.0/8 range; macOS assigns only 127.0.0.1, and
+// the bind then fails with "can't assign requested address".
+//
+// That is a statement about the host, not about PALISADE, and leaving it as a
+// failure costs more than it saves: the coverage gate is red on every macOS
+// checkout, so a real regression in this package arrives inside an output an
+// operator has already learned to ignore. Skipping names what was not checked
+// and how to check it; a red gate that always means the same thing names
+// nothing.
+func requireSecondLoopbackAddress(t *testing.T) {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.2:0")
+	if err != nil {
+		t.Skipf("127.0.0.2 is not assigned on this host, so a direct-to-origin "+
+			"client cannot be distinguished from the trusted edge: %v\n"+
+			"Assign it with: sudo ifconfig lo0 alias 127.0.0.2 up", err)
+	}
+	_ = listener.Close()
+}
+
 func TestTrustedTLSTerminatorDeploymentRejectsDirectHeaderSpoof(t *testing.T) {
+	requireSecondLoopbackAddress(t)
 	now := time.Now().UTC().Truncate(time.Second)
 	serviceHandler := &fakePalisade{t: t, now: now}
 	service := httptest.NewUnstartedServer(serviceHandler)
