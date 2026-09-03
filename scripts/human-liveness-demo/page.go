@@ -168,7 +168,6 @@ document.getElementById("ceremony").onclick = async () => {
     if (attestation) headers["X-Palisade-Liveness-Attestation"] = attestation;
     out.innerHTML = '<p class="verdict ok">Device ceremony completed.</p>';
     const withDevice = await assertion(headers);
-    render(document.createElement("div"), withDevice, "");
     const holder = document.createElement("div");
     out.appendChild(holder);
     render(holder, withDevice, attestation ? "with liveness and device" : "with device only");

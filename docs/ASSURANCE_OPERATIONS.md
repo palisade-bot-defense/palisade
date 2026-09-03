@@ -19,6 +19,23 @@ The surface is **off by default** and stays off unless a signing key, a binding
 secret and a non-empty audience allow list are all present. An incomplete
 configuration fails closed rather than minting unusable assertions.
 
+## See it work first
+
+```sh
+go run ./scripts/human-liveness-demo   # http://localhost:8099
+```
+
+Loopback only, synthetic keys, nothing persisted. It walks an assertion without
+liveness, the interactive challenge, the same assertion with liveness, a real
+WebAuthn ceremony against a platform authenticator, and one assertion per
+surface side by side. The console prints the shape of each attempt and nothing
+about who made it.
+
+It is a functional check, not a measurement: one person is not a cohort, and no
+false-positive interval comes out of it. What it does show is a withheld level
+in the concrete — the evidence recorded, the level unchanged — which is easier
+to argue with than a paragraph.
+
 ## Configure
 
 Four things, all operator-held, none of which leave the process except the

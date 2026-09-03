@@ -174,6 +174,10 @@ func run() error {
 		})
 	})
 
+	// Append rather than truncate, and stamp each run. A restart during someone
+	// else's session used to erase what they had just done, which is the one
+	// thing an observation log must not do.
+	fmt.Printf("=== run started %s ===\n", time.Now().Format(time.RFC3339))
 	fmt.Printf("PALISADE liveness demo on http://%s\n", address)
 	fmt.Println("Open it, answer the rounds, and watch the assertion change.")
 	fmt.Println("Ctrl-C to stop. Everything is synthetic and loopback-only.")
@@ -195,24 +199,28 @@ func (r *recorder) WriteHeader(status int) {
 	r.ResponseWriter.WriteHeader(status)
 }
 
+// observe reports the shape of each attempt. It deliberately prints no
+// duration: the only interval this layer can measure is its own handler time,
+// which is sub-millisecond and says nothing about how long a person took. An
+// operator reading "0s" next to a human answer would draw the wrong conclusion,
+// and the interval that matters — reveal to response — is enforced inside the
+// service, not observable here.
 func observe(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		started := time.Now()
 		wrapped := &recorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(wrapped, r)
-		took := time.Since(started).Round(time.Millisecond)
 
 		switch {
 		case r.URL.Path == "/v1/assurance/liveness" && wrapped.status == http.StatusOK:
 			fmt.Printf("  liveness attempt opened\n")
 		case r.URL.Path == "/v1/assurance/liveness/answer" && wrapped.status == http.StatusOK:
-			fmt.Printf("  round answered (%v)\n", took)
+			fmt.Printf("  round answered\n")
 		case r.URL.Path == "/v1/assurance/liveness/answer":
 			fmt.Printf("  attempt ended — wrong option, faster than the floor, or past the deadline\n")
 		case r.URL.Path == "/v1/assurance/device/challenge" && wrapped.status == http.StatusOK:
 			fmt.Printf("  device challenge issued\n")
 		case r.URL.Path == "/v1/assurance/device/complete" && wrapped.status == http.StatusOK:
-			fmt.Printf("  device ceremony completed (%v)\n", took)
+			fmt.Printf("  device ceremony completed\n")
 		case r.URL.Path == "/v1/assurance/device/complete":
 			fmt.Printf("  device ceremony failed — the server does not say which constraint\n")
 		case r.URL.Path == "/v1/assurance/content" && wrapped.status == http.StatusOK:
