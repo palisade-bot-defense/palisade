@@ -303,6 +303,18 @@ never drifted from its code.
   enough, or do the surfaces need three contracts? The `binding` object already
   exists; the question is whether request-bound, content-bound and
   channel-bound bindings are variants or different things.
+- **RQ24 (all three).** Should one wrong answer end a liveness attempt? Today it
+  does: three rounds of four options, all required, so guessing succeeds at
+  `4^-3` = 1.6%. If a person misclicks a round with probability *p*, they fail at
+  `1 - (1-p)^3` — 14% at *p* = 5%, which is a large exclusion for a control whose
+  purpose is to *include* humans. Five rounds tolerating one wrong answer holds
+  the guesser at `P(>=4 of 5)` = 16/1024 = 1.6% — identical — while human failure
+  falls to 2.2%. The arithmetic favours it clearly. What it does not settle is
+  the other half: five rounds take longer than three, and time is the dominant
+  abandonment driver. The trade is a shorter path that excludes more people
+  against a longer path that excludes fewer, and only the per-level abandonment
+  measurement decides it. Recorded here rather than applied as a new default,
+  because the first observed misclick was a single person on loopback.
 
 ### Governance
 

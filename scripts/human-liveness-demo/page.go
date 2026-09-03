@@ -38,7 +38,9 @@ const demoPage = `<!doctype html>
 
 <h2>2. Complete the liveness challenge</h2>
 <p>Pick the option the prompt names. Answer at your own pace — there is a floor
-of 120&nbsp;ms and a window of 20&nbsp;s per round; both are deliberate.</p>
+of 120&nbsp;ms and a window of 20&nbsp;s per round; both are deliberate. The
+options stay inert until the floor has passed, so a click carried over from the
+previous round cannot end the attempt.</p>
 <button id="start">Start the challenge</button>
 <div id="challenge"></div>
 
@@ -217,16 +219,46 @@ document.getElementById("plain").onclick = async () => {
   render(document.getElementById("plain-out"), await assertion({}), "without liveness");
 };
 
+// The reaction floor is measured by the server from the moment it revealed the
+// prompt, which is before the browser has rendered anything. A person still
+// moving from the previous round's button can land inside that window and
+// destroy the whole attempt — which is what happened the first time a human ran
+// this. The options are therefore inert until the floor has certainly passed.
+//
+// A client-side gate cannot weaken a server-side check: a script that skips this
+// page still meets the same floor. All it removes is the demo's ability to send
+// a request that could never have succeeded.
+//
+// The wait is the floor plus a margin, because the server's reveal clock and the
+// browser's render clock are not the same clock. Over-waiting costs sixty
+// imperceptible milliseconds; under-waiting costs the attempt.
+const FLOOR_MS = 120, FLOOR_MARGIN_MS = 60;
+
 function showPrompt(prompt) {
   const host = document.getElementById("challenge");
   host.innerHTML = "<p><strong>Round " + (prompt.round + 1) + ".</strong> " + prompt.instruction + "</p>";
+  const options = [];
   for (const option of prompt.options) {
     const button = document.createElement("button");
     button.className = "option";
     button.textContent = option;
+    button.disabled = true;
     button.onclick = () => answer(option);
     host.appendChild(button);
+    options.push(button);
   }
+  // Say that the pause is happening. A dead button that looks alive teaches a
+  // person nothing except that the page is broken.
+  const waiting = document.createElement("p");
+  waiting.className = "note";
+  waiting.textContent = "Waiting out the " + FLOOR_MS + " ms reaction floor…";
+  host.appendChild(waiting);
+  setTimeout(() => {
+    for (const button of options) {
+      button.disabled = false;
+    }
+    waiting.remove();
+  }, FLOOR_MS + FLOOR_MARGIN_MS);
   const hint = document.createElement("p");
   hint.className = "note";
   hint.textContent = "The instruction names the option. A script reading this page answers as well as you do — " +
