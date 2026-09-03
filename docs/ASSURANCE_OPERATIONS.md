@@ -19,6 +19,16 @@ The surface is **off by default** and stays off unless a signing key, a binding
 secret and a non-empty audience allow list are all present. An incomplete
 configuration fails closed rather than minting unusable assertions.
 
+Check it on your own deployment rather than taking this paragraph for it. Every
+assurance path answers `501` until the surface is configured:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:8080/v1/assurance
+```
+
+`501` means off. A `200` from a deployment you did not configure for assurance
+means something else set it up.
+
 ## See it work first
 
 ```sh
