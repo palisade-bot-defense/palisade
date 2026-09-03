@@ -77,10 +77,21 @@ func (r *demoRegistry) Credential(credentialID, _ string) (deviceattest.Credenti
 func (r *demoRegistry) RecordSignCount(credentialID string, signCount uint32) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if credential, registered := r.credentials[credentialID]; registered {
-		credential.SignCount = signCount
-		r.credentials[credentialID] = credential
+	credential, registered := r.credentials[credentialID]
+	if !registered {
+		return
 	}
+	// Say out loud whether clone detection is running. A ceremony that succeeds
+	// with a counter of zero looks identical to one protected by a counter, and
+	// an operator who cannot tell them apart will credit a check that never
+	// executed. Platform authenticators behind synced passkeys report zero.
+	if signCount == 0 && credential.SignCount == 0 {
+		fmt.Printf("  signature counter: none — clone detection is inert for this credential\n")
+	} else {
+		fmt.Printf("  signature counter: %d -> %d\n", credential.SignCount, signCount)
+	}
+	credential.SignCount = signCount
+	r.credentials[credentialID] = credential
 }
 
 // register accepts a public key the browser just created. A real deployment
