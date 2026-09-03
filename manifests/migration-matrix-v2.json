@@ -50,7 +50,7 @@
       "schemas/local-release-v1.schema.json",
       "schemas/release-reproduction-v1.schema.json",
       "schemas/synthetic-benchmark-report-v1.schema.json",
-      "schemas/synthetic-red-team-findings-v1.schema.json"
+      "schemas/synthetic-red-team-findings-v2.schema.json"
     ],
     "repository_control": [
       "schemas/adversarial-holdout-suite-v1.schema.json",
@@ -59,7 +59,7 @@
       "schemas/data-map-v9.schema.json",
       "schemas/migration-matrix-v2.schema.json",
       "schemas/origin-adapter-conformance-v1.schema.json",
-      "schemas/red-team-suite-v1.schema.json",
+      "schemas/red-team-suite-v2.schema.json",
       "schemas/runtime-egress-v1.schema.json"
     ]
   },
@@ -109,6 +109,17 @@
       "current_schema": "schemas/migration-matrix-v2.schema.json",
       "previous_schemas": [
         "schemas/migration-matrix-v1.schema.json"
+      ],
+      "previous_support": "unsupported_historical",
+      "strategy": "repository_replacement",
+      "operator_command": "none",
+      "loss_boundary": "repository_control_not_runtime_input"
+    },
+    {
+      "family": "red_team_suite",
+      "current_schema": "schemas/red-team-suite-v2.schema.json",
+      "previous_schemas": [
+        "schemas/red-team-suite-v1.schema.json"
       ],
       "previous_support": "unsupported_historical",
       "strategy": "repository_replacement",
@@ -176,6 +187,17 @@
       "strategy": "legacy_read_no_rewrite",
       "operator_command": "palisade verify-shadow-log",
       "loss_boundary": "v1_outcome_has_no_decision_id_and_pre_v4_has_no_assurance_level"
+    },
+    {
+      "family": "synthetic_red_team_findings",
+      "current_schema": "schemas/synthetic-red-team-findings-v2.schema.json",
+      "previous_schemas": [
+        "schemas/synthetic-red-team-findings-v1.schema.json"
+      ],
+      "previous_support": "unsupported_historical",
+      "strategy": "regenerate_from_authenticated_source",
+      "operator_command": "make red-team-report",
+      "loss_boundary": "historical_findings_name_a_retired_suite_version"
     }
   ],
   "withdrawals": {

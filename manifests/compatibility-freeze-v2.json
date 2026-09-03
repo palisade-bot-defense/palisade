@@ -32,7 +32,7 @@
     "schemas/normalized-signal-contract-v1.schema.json": "b1b6a3a910f56a8c697b3a5f23039ad41b6d63a29ee209741dc56db29df8de06",
     "schemas/origin-adapter-conformance-v1.schema.json": "7ef341ead189b18be82e90f8e711a2236b061645a393b85936ab9335c310e2db",
     "schemas/policy-bundle-v1.schema.json": "b346e000f0c074c6e1ef97bb71102cd5389129f59ab99293659894ca0a0f7d61",
-    "schemas/red-team-suite-v1.schema.json": "4e7886182d4bffdf14b09858a08c9568dc8291fef6cc4e68ed34073284c946ce",
+    "schemas/red-team-suite-v2.schema.json": "7a5ed7b1336e324098187668bdaaba43415ddaf258e6bdc45b5643ac938f6622",
     "schemas/release-reproduction-v1.schema.json": "59a7b96f2ea9448925e9c87af8082c850d394119c03301464f5b6d20770a92b4",
     "schemas/rollout-plan-v2.schema.json": "60c88a1e55d0514d081165334964786060635efdda92bf879242145616b6e5d1",
     "schemas/rollout-review-v4.schema.json": "8996d23f98da787c5e1e95811f88a608bb97745cd03d8d10cbdf38c3b30ffe95",
@@ -42,7 +42,7 @@
     "schemas/shadow-record-v4.schema.json": "cb486ea9570c317ba739d7c0c3520581a1e2ffd89b0fcc2a7ed2ba81206d1766",
     "schemas/sovereignty-report-v1.schema.json": "ebbb70c457a1a74d9cc5b1f171b848420511a9388f9b4900b45bed6f3065bb74",
     "schemas/synthetic-benchmark-report-v1.schema.json": "909af816e6b66946ce6eb9bd128e3aad7594f31fb85107cc4202c2ed269236a5",
-    "schemas/synthetic-red-team-findings-v1.schema.json": "c7a509f9a49f5a1f845d08b3d75551e57c14c72e6b8908b274c3d5bf5fa6252a"
+    "schemas/synthetic-red-team-findings-v2.schema.json": "ebe745552bfc176d6ab11e3b5d63f5c43213b73f43f4e82d2ff63bcb8d27aabc"
   },
   "legacy_read": {
     "schemas/shadow-record-v1.schema.json": "39683055bd51614ec822ae900166a0b1dad67679e4ccb4d99851b53ba9d138e2",

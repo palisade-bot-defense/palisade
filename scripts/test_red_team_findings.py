@@ -13,10 +13,11 @@ class RedTeamFindingsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.repository_root = Path(__file__).resolve().parent.parent
-        cls.suite = run_red_team.load_suite(cls.repository_root / "examples/redteam/suite-v1.json")
-        cls.public_report_path = (
-            cls.repository_root / "reports/red-team/synthetic-findings-25aaba7.json"
-        )
+        cls.suite = run_red_team.load_suite(cls.repository_root / "examples/redteam/suite-v2.json")
+        published = sorted((cls.repository_root / "reports/red-team").glob("synthetic-findings-*.json"))
+        if len(published) != 1:
+            raise AssertionError(f"expected exactly one published findings report, found {len(published)}")
+        cls.public_report_path = published[0]
 
     def valid_report(self):
         commit = subprocess.run(
@@ -32,13 +33,13 @@ class RedTeamFindingsTests(unittest.TestCase):
             "suite_version": red_team_findings.SUITE_VERSION,
             "source_commit": commit,
             "suite_sha256": red_team_findings.suite_digest(
-                self.repository_root / "examples/redteam/suite-v1.json"
+                self.repository_root / "examples/redteam/suite-v2.json"
             ),
             "synthetic_only": True,
             "raw_deployment_records_used": False,
             "protocol": dict(red_team_findings.PROTOCOL),
             "environment": {"go_version": "go1.27.0", "goos": "linux", "goarch": "arm64"},
-            "summary": {"passed": 12, "failed": 0, "remediations_open": 0},
+            "summary": {"passed": 16, "failed": 0, "remediations_open": 0},
             "findings": [
                 {
                     "id": scenario["id"],
@@ -63,13 +64,13 @@ class RedTeamFindingsTests(unittest.TestCase):
 
     def test_public_findings_schema_matches_runtime_versions(self):
         schema = json.loads(
-            (self.repository_root / "schemas/synthetic-red-team-findings-v1.schema.json").read_text(
+            (self.repository_root / "schemas/synthetic-red-team-findings-v2.schema.json").read_text(
                 encoding="utf-8"
             )
         )
         self.assertEqual(schema["properties"]["schema_version"]["const"], red_team_findings.SCHEMA_VERSION)
         self.assertEqual(schema["properties"]["suite_version"]["const"], red_team_findings.SUITE_VERSION)
-        self.assertEqual(schema["properties"]["summary"]["properties"]["passed"]["const"], 12)
+        self.assertEqual(schema["properties"]["summary"]["properties"]["passed"]["const"], 16)
 
     def test_changed_scenario_result_is_rejected(self):
         report = self.valid_report()

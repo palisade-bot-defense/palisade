@@ -24,10 +24,10 @@ CURRENT_SCHEMA_NAMES = {
     "local-evidence-input-v1", "local-evidence-manifest-v1", "local-family-annotation-v1",
     "local-holdout-report-v1", "local-release-v1", "local-sequence-report-v1", "migration-matrix-v2",
     "normalized-signal-contract-v1",
-    "origin-adapter-conformance-v1", "policy-bundle-v1", "red-team-suite-v1", "release-reproduction-v1", "rollout-plan-v2",
+    "origin-adapter-conformance-v1", "policy-bundle-v1", "red-team-suite-v2", "release-reproduction-v1", "rollout-plan-v2",
     "rollout-review-v4", "runtime-egress-v1", "shadow-analysis-report-v5", "shadow-holdout-report-v2",
     "shadow-record-v4", "sovereignty-report-v1", "synthetic-benchmark-report-v1",
-    "synthetic-red-team-findings-v1",
+    "synthetic-red-team-findings-v2",
 }
 STABLE_CURRENT = API_PATHS | {f"schemas/{name}.schema.json" for name in CURRENT_SCHEMA_NAMES}
 LEGACY_READ = {"schemas/shadow-record-v1.schema.json", "schemas/shadow-record-v2.schema.json", "schemas/shadow-record-v3.schema.json"}

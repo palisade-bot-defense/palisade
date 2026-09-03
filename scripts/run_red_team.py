@@ -25,6 +25,10 @@ EXPECTED = {
     "offline_import_budget_exhaustion": ("resource_exhaustion", "bounded_availability", "fail_closed_without_published_output"),
     "signed_rollout_tampering": ("rollout_compromise", "rollout_authority", "reject_tampered_or_mismatched_rollout"),
     "expired_rollout_reuse": ("rollout_compromise", "rollout_authority", "downgrade_expired_rollout_to_shadow"),
+    "device_assertion_replay": ("credential_replay", "assurance_evidence", "reject_replay_or_stalled_counter"),
+    "assurance_attestation_relay": ("credential_replay", "assurance_evidence", "bind_attestation_to_session_action_and_evidence_class"),
+    "issuer_signing_key_compromise": ("issuer_compromise", "issuer_trust_root", "reject_foreign_or_rolled_back_trust_list"),
+    "stale_revocation_reuse": ("issuer_compromise", "issuer_trust_root", "degrade_expired_trust_list_to_untrusted"),
 }
 CATEGORIES = {
     "evasion",
@@ -33,6 +37,8 @@ CATEGORIES = {
     "session_reset",
     "resource_exhaustion",
     "rollout_compromise",
+    "credential_replay",
+    "issuer_compromise",
 }
 TOP_LEVEL_FIELDS = {"schema_version", "scope", "synthetic_only", "network_policy", "scenarios"}
 SCENARIO_FIELDS = {"id", "category", "asset", "threat", "expected", "test_refs"}
@@ -68,7 +74,7 @@ def validate_suite(document: dict[str, object], repository_root: Path) -> dict[s
         raise SuiteError("suite root must be an object")
     if set(document) != TOP_LEVEL_FIELDS:
         raise SuiteError("suite top-level fields are not closed")
-    if document["schema_version"] != "palisade.red-team-suite.v1":
+    if document["schema_version"] != "palisade.red-team-suite.v2":
         raise SuiteError("unsupported suite version")
     if document["scope"] != "roadmap_v0_9_synthetic_baseline":
         raise SuiteError("unsupported suite scope")
@@ -161,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--list", action="store_true", help="validate and print the offline execution plan without running Go")
     arguments = parser.parse_args(argv)
     repository_root = Path(__file__).resolve().parent.parent
-    suite_path = repository_root / "examples/redteam/suite-v1.json"
+    suite_path = repository_root / "examples/redteam/suite-v2.json"
     try:
         package_tests = validate_suite(load_suite(suite_path), repository_root)
         execute(package_tests, repository_root, arguments.list)

@@ -45,7 +45,10 @@ class MigrationMatrixTests(unittest.TestCase):
         shadow = next(item for item in document["transitions"] if item["family"] == "shadow_record")
         self.assertEqual(shadow["previous_support"], "legacy_read")
         self.assertEqual(shadow["strategy"], "legacy_read_no_rewrite")
-        self.assertEqual(shadow["loss_boundary"], "v1_outcome_has_no_decision_id")
+        self.assertEqual(
+            shadow["loss_boundary"],
+            "v1_outcome_has_no_decision_id_and_pre_v4_has_no_assurance_level",
+        )
         shadow["strategy"] = "regenerate_from_authenticated_source"
         with self.assertRaisesRegex(check_migration_matrix.MatrixError, "shadow_record"):
             check_migration_matrix.validate_matrix(document, self.root)

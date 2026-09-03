@@ -1,16 +1,25 @@
 # Synthetic red-team baseline
 
 PALISADE's public red-team baseline is a deterministic, local test exercise. It
-covers the six roadmap categories without traffic captures, external targets,
+covers the eight roadmap categories without traffic captures, external targets,
 configured external targets or private deployment configuration. Passing it proves only
 that the named regression controls behave as specified.
 
 The closed suite is
-[`examples/redteam/suite-v1.json`](../examples/redteam/suite-v1.json), validated
-against [`schemas/red-team-suite-v1.schema.json`](../schemas/red-team-suite-v1.schema.json).
+[`examples/redteam/suite-v2.json`](../examples/redteam/suite-v2.json), validated
+against [`schemas/red-team-suite-v2.schema.json`](../schemas/red-team-suite-v2.schema.json).
 Every scenario points to an executable synthetic Go test. A repository contract
 fails if a scenario disappears, changes category/expected behavior or references
 a removed test.
+
+Four scenarios were added in v2 for the attacks the v0.9 exit gate names by
+hand: device-credential replay, attestation relay across a session, action or
+evidence class, issuer signing-key compromise, and a revocation that never
+arrives because the trust list expired. Three of the four point at controls that
+were already tested; the fourth points at a test written because a run against
+real hardware found a counter that could be erased, which this suite had not
+been asking about. A scenario here records an adversary objective and the tests
+that refuse it — it is not evidence that the objective was thought of first.
 
 ## Plan and execute
 
@@ -24,7 +33,7 @@ Inspect the exact package/test plan without executing it:
 make red-team-plan
 ```
 
-Run all twelve scenarios:
+Run all sixteen scenarios:
 
 ```sh
 make red-team
@@ -39,7 +48,7 @@ network sandbox; PALISADE's local release verification uses the same restriction
 ## Machine-readable findings
 
 A public synthetic findings record can be created only from a clean commit and
-only after all twelve named controls pass. The generator records the exact
+only after all sixteen named controls pass. The generator records the exact
 source commit, suite digest, Go environment, closed scenario results and fixed
 limitations. It never captures command output, hostnames, paths, targets,
 traffic or operator configuration.

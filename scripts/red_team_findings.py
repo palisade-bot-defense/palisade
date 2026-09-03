@@ -19,8 +19,8 @@ else:
     import run_red_team
 
 
-SCHEMA_VERSION = "palisade.synthetic-red-team-findings.v1"
-SUITE_VERSION = "palisade.red-team-suite.v1"
+SCHEMA_VERSION = "palisade.synthetic-red-team-findings.v2"
+SUITE_VERSION = "palisade.red-team-suite.v2"
 PROTOCOL = {
     "category_count": 6,
     "go_test_count": 1,
@@ -122,7 +122,7 @@ def validate_report(document: dict[str, object], repository_root: Path) -> None:
     if not isinstance(source_commit, str) or COMMIT.fullmatch(source_commit) is None:
         raise FindingsError("findings source commit is invalid")
     digest = document["suite_sha256"]
-    suite_path = repository_root / "examples/redteam/suite-v1.json"
+    suite_path = repository_root / "examples/redteam/suite-v2.json"
     if not isinstance(digest, str) or SHA256.fullmatch(digest) is None or digest != suite_digest(suite_path):
         raise FindingsError("findings suite digest does not match the repository suite")
     protocol = document["protocol"]
@@ -230,7 +230,7 @@ def go_environment(repository_root: Path, environment: dict[str, str]) -> dict[s
 
 def build_report(repository_root: Path) -> dict[str, object]:
     source_commit = require_clean_commit(repository_root)
-    suite_path = repository_root / "examples/redteam/suite-v1.json"
+    suite_path = repository_root / "examples/redteam/suite-v2.json"
     suite = run_red_team.load_suite(suite_path)
     package_tests = run_red_team.validate_suite(suite, repository_root)
     environment = execution_environment()

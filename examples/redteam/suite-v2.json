@@ -1,5 +1,5 @@
 {
-  "schema_version": "palisade.red-team-suite.v1",
+  "schema_version": "palisade.red-team-suite.v2",
   "scope": "roadmap_v0_9_synthetic_baseline",
   "synthetic_only": true,
   "network_policy": "module_downloads_disabled",
@@ -10,7 +10,9 @@
       "asset": "decision_integrity",
       "threat": "browser automation completes a challenge and is promoted to confirmed-human evidence",
       "expected": "challenge_pass_never_confirms_human",
-      "test_refs": ["internal/detector/baseline_test.go#TestSolvedChallengeIsNotHumanEvidence"]
+      "test_refs": [
+        "internal/detector/baseline_test.go#TestSolvedChallengeIsNotHumanEvidence"
+      ]
     },
     {
       "id": "verified_crawler_intent_evasion",
@@ -18,7 +20,9 @@
       "asset": "decision_integrity",
       "threat": "a verified crawler identity attempts to bypass independently suspicious abuse intent",
       "expected": "verified_identity_cannot_override_abuse_intent",
-      "test_refs": ["internal/policy/engine_test.go#TestVerifiedBotPolicyBoundaries"]
+      "test_refs": [
+        "internal/policy/engine_test.go#TestVerifiedBotPolicyBoundaries"
+      ]
     },
     {
       "id": "signed_edge_payload_poisoning",
@@ -26,7 +30,9 @@
       "asset": "trusted_signal_boundary",
       "threat": "a signed upstream envelope carries duplicate, unknown or cross-field-inconsistent values",
       "expected": "reject_noncanonical_or_inconsistent_signal",
-      "test_refs": ["pkg/palisadeedge/envelope_test.go#TestClosedCanonicalPayloadRejectsPoisoning"]
+      "test_refs": [
+        "pkg/palisadeedge/envelope_test.go#TestClosedCanonicalPayloadRejectsPoisoning"
+      ]
     },
     {
       "id": "signed_policy_threshold_poisoning",
@@ -34,7 +40,9 @@
       "asset": "trusted_signal_boundary",
       "threat": "a signed policy bundle attempts to inject unknown rules or invalid threshold ordering",
       "expected": "reject_uncompiled_or_invalid_policy",
-      "test_refs": ["internal/policy/bundle_test.go#TestPolicyBundleRejectsThresholdAndSchemaPoisoning"]
+      "test_refs": [
+        "internal/policy/bundle_test.go#TestPolicyBundleRejectsThresholdAndSchemaPoisoning"
+      ]
     },
     {
       "id": "native_challenge_redemption_relay",
@@ -42,7 +50,9 @@
       "asset": "challenge_capability",
       "threat": "a challenge redemption is replayed or relayed outside its exact server-side binding",
       "expected": "reject_replay_or_binding_mismatch",
-      "test_refs": ["internal/httpapi/server_test.go#TestNativeChallengeHTTPFlowRecordsOutcomeAndRejectsReplay"]
+      "test_refs": [
+        "internal/httpapi/server_test.go#TestNativeChallengeHTTPFlowRecordsOutcomeAndRejectsReplay"
+      ]
     },
     {
       "id": "origin_flow_binding_relay",
@@ -50,7 +60,9 @@
       "asset": "challenge_capability",
       "threat": "a browser retry grant is moved to another target, sequence, session or adapter instance",
       "expected": "bind_grant_to_target_sequence_session_and_instance",
-      "test_refs": ["pkg/palisadehttp/middleware_test.go#TestOriginChallengeBindingIsTargetSequenceAndInstanceBound"]
+      "test_refs": [
+        "pkg/palisadehttp/middleware_test.go#TestOriginChallengeBindingIsTargetSequenceAndInstanceBound"
+      ]
     },
     {
       "id": "anonymous_session_reset",
@@ -69,7 +81,9 @@
       "asset": "session_continuity",
       "threat": "an expired session receipt is reused to carry sequence state across the bounded TTL",
       "expected": "expire_receipt_and_start_fresh_sequence",
-      "test_refs": ["internal/events/store_test.go#TestIngestReceiptResetsAfterSessionTTL"]
+      "test_refs": [
+        "internal/events/store_test.go#TestIngestReceiptResetsAfterSessionTTL"
+      ]
     },
     {
       "id": "session_store_capacity_exhaustion",
@@ -77,7 +91,9 @@
       "asset": "bounded_availability",
       "threat": "unbounded new session identifiers exhaust process memory",
       "expected": "evict_within_fixed_capacity",
-      "test_refs": ["internal/session/memory_test.go#TestStoreEvictsAtCapacity"]
+      "test_refs": [
+        "internal/session/memory_test.go#TestStoreEvictsAtCapacity"
+      ]
     },
     {
       "id": "offline_import_budget_exhaustion",
@@ -85,7 +101,9 @@
       "asset": "bounded_availability",
       "threat": "oversized or expansion-heavy local input consumes unbounded memory, disk or parser work",
       "expected": "fail_closed_without_published_output",
-      "test_refs": ["internal/offlineimport/importer_test.go#TestHardBudgetsFailClosedWithoutPublishedOutput"]
+      "test_refs": [
+        "internal/offlineimport/importer_test.go#TestHardBudgetsFailClosedWithoutPublishedOutput"
+      ]
     },
     {
       "id": "signed_rollout_tampering",
@@ -93,7 +111,9 @@
       "asset": "rollout_authority",
       "threat": "a rollout plan, scope, signature or policy binding is modified after operator approval",
       "expected": "reject_tampered_or_mismatched_rollout",
-      "test_refs": ["internal/rollout/rollout_test.go#TestPrepareVerifyAndTamper"]
+      "test_refs": [
+        "internal/rollout/rollout_test.go#TestPrepareVerifyAndTamper"
+      ]
     },
     {
       "id": "expired_rollout_reuse",
@@ -101,7 +121,55 @@
       "asset": "rollout_authority",
       "threat": "an expired signed rollout continues to apply risky enforcement",
       "expected": "downgrade_expired_rollout_to_shadow",
-      "test_refs": ["internal/rollout/rollout_test.go#TestExpiredControllerFailsClosed"]
+      "test_refs": [
+        "internal/rollout/rollout_test.go#TestExpiredControllerFailsClosed"
+      ]
+    },
+    {
+      "id": "device_assertion_replay",
+      "category": "credential_replay",
+      "asset": "assurance_evidence",
+      "threat": "a captured WebAuthn assertion, or one whose signature counter fails to advance or drops back to zero, is presented again",
+      "expected": "reject_replay_or_stalled_counter",
+      "test_refs": [
+        "internal/deviceattest/deviceattest_test.go#TestACounterThatDoesNotAdvanceIsRefused",
+        "internal/deviceattest/deviceattest_test.go#TestASignatureOverAnotherChallengeIsRefused",
+        "internal/deviceattest/service_test.go#TestAChallengeFromAnotherIssueDoesNotVerify"
+      ]
+    },
+    {
+      "id": "assurance_attestation_relay",
+      "category": "credential_replay",
+      "asset": "assurance_evidence",
+      "threat": "an attestation earned in one session, action or evidence class is presented in another, including one evidence class passed off as the other",
+      "expected": "bind_attestation_to_session_action_and_evidence_class",
+      "test_refs": [
+        "internal/httpapi/attestation_confusion_test.go#TestOneKindOfAttestationIsNotAcceptedAsTheOther",
+        "internal/liveness/liveness_test.go#TestAttestationIsBoundToItsSessionActionAndEndpoint",
+        "internal/deviceattest/service_test.go#TestTheAttestationIsBoundToWhatTheChallengeWasIssuedFor"
+      ]
+    },
+    {
+      "id": "issuer_signing_key_compromise",
+      "category": "issuer_compromise",
+      "asset": "issuer_trust_root",
+      "threat": "a trust list signed by a foreign key, or an older list replayed to undo a revocation, is installed as authoritative",
+      "expected": "reject_foreign_or_rolled_back_trust_list",
+      "test_refs": [
+        "internal/issuertrust/trustlist_test.go#TestRollbackAndForeignSignaturesAreRefused",
+        "internal/issuertrust/trustlist_test.go#TestRevocationRemovesOneCredentialWithoutRemovingTheIssuer"
+      ]
+    },
+    {
+      "id": "stale_revocation_reuse",
+      "category": "issuer_compromise",
+      "asset": "issuer_trust_root",
+      "threat": "an expired trust list is kept in service so revocations never arrive and issuers stay trusted past its validity",
+      "expected": "degrade_expired_trust_list_to_untrusted",
+      "test_refs": [
+        "internal/issuertrust/trustlist_test.go#TestExpiryDegradesEveryIssuerToUntrusted",
+        "internal/issuertrust/trustlist_test.go#TestAnEmptyStoreTrustsNobody"
+      ]
     }
   ]
 }

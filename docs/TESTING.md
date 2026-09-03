@@ -24,7 +24,7 @@ tag is published.
 | Privacy/licensing | `make privacy-check` and `make license-check` | repository-index attack fixtures and license boundary pass |
 | Release authenticity | `make release-signing-check` | exact artifact manifest, pinned signer, private-key isolation and tamper rejection pass offline |
 | Release reproducibility | `python3 -m unittest scripts/test_compare_release_reproduction.py` | exact two-candidate byte comparison, signed-tag provenance, closed attestation, unsafe archive and publication-race cases pass offline |
-| Synthetic red team | `make red-team` | all twelve scenarios pass across the six v0.9 attack categories with module downloads disabled |
+| Synthetic red team | `make red-team` | all sixteen scenarios pass across the eight v0.9 attack categories with module downloads disabled |
 | Synthetic findings contract | `python3 -m unittest scripts/test_red_team_findings.py` | report closure, suite binding, provenance, create-only output and limitation tamper cases pass |
 | Operator Shadow drill | `make operator-shadow-drill` | production secrets, session/proof flow, encrypted records, aggregate analysis, unsigned-enforcement rejection and Shadow restart pass on loopback |
 | TLS/proxy deployment boundary | `make deployment-tls-test` | both reference adapters pass real local TCP/TLS/HTTP/2 trust and privacy checks under the race detector |

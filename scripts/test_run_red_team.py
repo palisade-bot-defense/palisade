@@ -10,7 +10,7 @@ class RedTeamRunnerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.repository_root = Path(__file__).resolve().parent.parent
-        cls.suite_path = cls.repository_root / "examples/redteam/suite-v1.json"
+        cls.suite_path = cls.repository_root / "examples/redteam/suite-v2.json"
 
     def test_repository_suite_is_complete_and_plannable(self):
         document = run_red_team.load_suite(self.suite_path)

@@ -6,7 +6,7 @@
 - Tester and role:
 - Host platform:
 - Go version:
-- Suite version: `palisade.red-team-suite.v1`
+- Suite version: `palisade.red-team-suite.v2`
 - Network boundary used:
 
 ## Result

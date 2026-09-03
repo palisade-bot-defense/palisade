@@ -56,17 +56,29 @@ EXPECTED_CLASSIFICATIONS = {
     },
     "maintainer_evidence": {
         "schemas/local-release-v1.schema.json", "schemas/release-reproduction-v1.schema.json",
-        "schemas/synthetic-benchmark-report-v1.schema.json", "schemas/synthetic-red-team-findings-v1.schema.json",
+        "schemas/synthetic-benchmark-report-v1.schema.json", "schemas/synthetic-red-team-findings-v2.schema.json",
     },
     "repository_control": {
         "schemas/adversarial-holdout-suite-v1.schema.json", "schemas/adversarial-suite-v1.schema.json",
         "schemas/compatibility-freeze-v2.schema.json", "schemas/data-map-v9.schema.json",
         "schemas/migration-matrix-v2.schema.json", "schemas/origin-adapter-conformance-v1.schema.json",
-        "schemas/red-team-suite-v1.schema.json", "schemas/runtime-egress-v1.schema.json",
+        "schemas/red-team-suite-v2.schema.json", "schemas/runtime-egress-v1.schema.json",
     },
 }
 
 EXPECTED_TRANSITIONS = {
+    "synthetic_red_team_findings": {
+        "current_schema": "schemas/synthetic-red-team-findings-v2.schema.json",
+        "previous_schemas": ["schemas/synthetic-red-team-findings-v1.schema.json"],
+        "previous_support": "unsupported_historical", "strategy": "regenerate_from_authenticated_source",
+        "operator_command": "make red-team-report", "loss_boundary": "historical_findings_name_a_retired_suite_version",
+    },
+    "red_team_suite": {
+        "current_schema": "schemas/red-team-suite-v2.schema.json",
+        "previous_schemas": ["schemas/red-team-suite-v1.schema.json"],
+        "previous_support": "unsupported_historical", "strategy": "repository_replacement",
+        "operator_command": "none", "loss_boundary": "repository_control_not_runtime_input",
+    },
     "compatibility_freeze": {
         "current_schema": "schemas/compatibility-freeze-v2.schema.json",
         "previous_schemas": ["schemas/compatibility-freeze-v1.schema.json"],
