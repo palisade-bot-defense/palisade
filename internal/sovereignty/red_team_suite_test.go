@@ -22,8 +22,8 @@ type redTeamSuite struct {
 func TestSyntheticRedTeamSuiteIsClosedCompleteAndExecutable(t *testing.T) {
 	root := repositoryRoot(t)
 	var suite redTeamSuite
-	readRepositoryJSON(t, root, "examples/redteam/suite-v1.json", &suite)
-	if suite.SchemaVersion != "palisade.red-team-suite.v1" || suite.Scope != "roadmap_v0_9_synthetic_baseline" ||
+	readRepositoryJSON(t, root, "examples/redteam/suite-v2.json", &suite)
+	if suite.SchemaVersion != "palisade.red-team-suite.v2" || suite.Scope != "roadmap_v0_9_synthetic_baseline" ||
 		!suite.SyntheticOnly || suite.NetworkPolicy != "module_downloads_disabled" {
 		t.Fatalf("unsafe red-team suite header: %+v", suite)
 	}
@@ -46,6 +46,10 @@ func TestSyntheticRedTeamSuiteIsClosedCompleteAndExecutable(t *testing.T) {
 		"offline_import_budget_exhaustion":   {"resource_exhaustion", "bounded_availability", "fail_closed_without_published_output"},
 		"signed_rollout_tampering":           {"rollout_compromise", "rollout_authority", "reject_tampered_or_mismatched_rollout"},
 		"expired_rollout_reuse":              {"rollout_compromise", "rollout_authority", "downgrade_expired_rollout_to_shadow"},
+		"device_assertion_replay":            {"credential_replay", "assurance_evidence", "reject_replay_or_stalled_counter"},
+		"assurance_attestation_relay":        {"credential_replay", "assurance_evidence", "bind_attestation_to_session_action_and_evidence_class"},
+		"issuer_signing_key_compromise":      {"issuer_compromise", "issuer_trust_root", "reject_foreign_or_rolled_back_trust_list"},
+		"stale_revocation_reuse":             {"issuer_compromise", "issuer_trust_root", "degrade_expired_trust_list_to_untrusted"},
 	}
 
 	got := make(map[string]contract, len(suite.Scenarios))
@@ -69,6 +73,7 @@ func TestSyntheticRedTeamSuiteIsClosedCompleteAndExecutable(t *testing.T) {
 	wantCategoryCounts := map[string]int{
 		"evasion": 2, "poisoning": 2, "proof_relay": 2,
 		"session_reset": 2, "resource_exhaustion": 2, "rollout_compromise": 2,
+		"credential_replay": 2, "issuer_compromise": 2,
 	}
 	if !reflect.DeepEqual(categoryCounts, wantCategoryCounts) {
 		t.Fatalf("red-team category counts = %#v, want %#v", categoryCounts, wantCategoryCounts)

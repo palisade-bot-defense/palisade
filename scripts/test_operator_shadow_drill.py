@@ -28,7 +28,7 @@ class OperatorShadowDrillTests(unittest.TestCase):
 
     def valid_analysis(self):
         return {
-            "schema_version": "palisade.shadow-analysis.v4",
+            "schema_version": "palisade.shadow-analysis.v5",
             "source": {"records": 3, "decisions": 2, "outcomes": 1},
             "readiness": {"automatic_enforcement": False, "operator_action": "remain_shadow"},
             "decisions": {"shadow_risky_enforcements": 0, "modes": {"shadow": 2}},
